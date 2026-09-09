@@ -1,0 +1,49 @@
+#!/bin/sh
+# Pre-push gate: the fast subset of what a plan close owes, so a broken push costs seconds here
+# instead of a review finding later. Stops at the first failure and names the step.
+#
+# Install (per clone; git will not run a hook from a tracked directory without this, so an
+# uninstalled clone silently has no gate):
+#
+#     git config core.hooksPath .githooks
+#
+# Bypass once:  git push --no-verify
+#
+# Steps, in order: doc links (always), exact pins (when package.json exists), then typecheck,
+# lint and the unit tests (when node_modules exists, i.e. the clone has run npm ci). The
+# Playwright end-to-end run is NOT here: it opens a window and takes tens of seconds, and a gate
+# that hurts gets disabled. Run it at the last phase of a plan and at the close.
+#
+# POSIX sh: runs under Git for Windows' bundled shell.
+
+set -u
+
+step() { printf '\n== pre-push: %s\n' "$1"; }
+fail() { printf '\npre-push: FAILED at %s\n' "$1"; exit 1; }
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-push: node not found; skipping every gate"
+  exit 0
+fi
+
+step "doc links"
+node scripts/check-doc-links.mjs || fail "doc links"
+
+if [ -f package.json ]; then
+  step "exact pins"
+  node scripts/check-pins.mjs || fail "exact pins"
+
+  if [ -d node_modules ]; then
+    step "typecheck"
+    npm run --silent typecheck || fail "typecheck"
+    step "lint"
+    npm run --silent lint || fail "lint"
+    step "unit tests"
+    npm test --silent || fail "unit tests"
+  else
+    echo "pre-push: node_modules missing; skipping typecheck, lint and tests (run npm ci)"
+  fi
+fi
+
+printf '\npre-push: all gates green\n'
+exit 0

@@ -1,0 +1,25 @@
+# Node
+node_modules/
+dist/
+release/
+*.tsbuildinfo
+npm-debug.log*
+
+# Local environment and secrets
+.env
+.env.*
+*.local
+.claude/settings.local.json
+
+# Test and tool output
+coverage/
+test-results/
+playwright-report/
+.playwright-mcp/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Recordings made while developing never enter the repo; fixtures live in core/fixtures/
+takes/
