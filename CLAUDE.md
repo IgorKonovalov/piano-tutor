@@ -52,6 +52,8 @@ electron/        # Main process (esbuild -> dist/main/index.cjs).
   take/          #   The recorder: appends events to takes under userData; lists and loads takes.
   score/         #   The score library under userData: import, list, read; the MIDI-file adapter.
   coach/         #   CoachProvider interface; claude-cli, anthropic-api and none providers; prompt.ts.
+                 #   Plus a harness-only fixture provider, gated like the virtual ports.
+  settings/      #   The settings store. The API key lives here and is never read back out.
   ipc/           #   One handler file per domain; validates every payload with Zod on receive.
   preload/       #   window.api assembled from preload/api/<domain>.ts (esbuild -> dist/preload/).
 renderer/        # React + Vite SPA (-> dist/renderer/). Never imports Node. views/, components/,

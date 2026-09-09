@@ -3,7 +3,7 @@
 > **Status:** proposed
 > **Date:** 2026-09-09
 > **Related plan(s):** [0001](../plans/0001-the-keyboard-shows-on-screen.md) (records the takes the
-> coach will read); the coach itself lands in Plan 0002
+> coach will read); the coach itself lands in Plan [0003](../plans/0003-the-coach-speaks.md)
 
 ## Context
 
@@ -101,7 +101,7 @@ statistics are deterministic work that `core/` does better and tests can pin.
 
 ## Notes
 
-The exact CLI invocation is fixed in Plan 0002, after a spike confirms which flags combine in
+The exact CLI invocation is fixed in Plan 0003, after a spike confirms which flags combine in
 print mode (in particular whether `--tools` with an empty list and `--bare` behave as expected
 together with `--json-schema`). The system prompt lives in `electron/coach/prompt.ts` and is
 versioned with the code, not with the user's settings.
