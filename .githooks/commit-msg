@@ -1,0 +1,52 @@
+#!/bin/sh
+# commit-msg gate: reject agent attribution in a commit message.
+#
+# The history of this repo is the user's, written under the user's name. No "Co-Authored-By:
+# Claude", no "Claude-Session:" line, no "Generated with Claude Code" footer, no claude.ai
+# session URL - a session link is a dead link to everyone else reading `git log`. Only the
+# trailers git itself understands belong in the footer.
+#
+# This is the git-side gate, so it catches a message written by any tool - the agent, an editor,
+# a script, `git commit -F`. .claude/hooks/block-agent-attribution.js is the agent-side one that
+# refuses the command before it runs.
+#
+# Install (per clone; git will not run a hook from a tracked directory without this):
+#
+#     git config core.hooksPath .githooks
+#
+# There is deliberately no documented bypass. If a trailer is genuinely wanted, edit this file.
+#
+# POSIX sh: runs under Git for Windows' bundled shell.
+
+set -u
+
+msg_file="$1"
+
+# Drop git's own comment lines before judging; a template comment is not part of the message.
+body=$(grep -v '^#' "$msg_file")
+
+deny() {
+  printf '\ncommit-msg: REJECTED - %s\n' "$1" >&2
+  printf '\n' >&2
+  printf 'Commit messages here are bare text under your name: subject, body, and only the\n' >&2
+  printf 'trailers git understands. Strip the agent attribution and commit again.\n' >&2
+  printf 'See CLAUDE.md -> "Commit hygiene".\n\n' >&2
+  exit 1
+}
+
+printf '%s' "$body" | grep -Eiq 'co-?authored-by:.*(claude|anthropic)' \
+  && deny 'a "Co-Authored-By:" trailer naming Claude or Anthropic'
+
+printf '%s' "$body" | grep -Eiq '^[[:space:]]*claude-session[[:space:]]*:' \
+  && deny 'a "Claude-Session:" line'
+
+printf '%s' "$body" | grep -Eiq 'claude\.ai/code/session[_-]' \
+  && deny 'a claude.ai session URL'
+
+printf '%s' "$body" | grep -Eiq 'generated with \[?claude code' \
+  && deny 'a "Generated with Claude Code" footer'
+
+printf '%s' "$body" | grep -Eiq 'noreply@anthropic\.com|<claude@anthropic\.com>' \
+  && deny 'an @anthropic.com author address'
+
+exit 0

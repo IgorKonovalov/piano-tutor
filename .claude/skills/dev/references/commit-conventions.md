@@ -10,7 +10,7 @@ convention is enforced by discipline and the architect's review.
 
 [optional body, wrapped at ~72 chars, plain ASCII]
 
-[optional footer: references, BREAKING CHANGE, Co-Authored-By]
+[optional footer: references, BREAKING CHANGE - never agent attribution]
 ```
 
 - **type**: from the table below.
@@ -98,8 +98,20 @@ Bad: one opaque `feat: phase 2`.
 - `--no-verify`, or an `eslint-disable` / `@ts-ignore` added to dodge a real finding.
 - Broad staging. Name files explicitly; you own what enters the index.
 - Another session's files. `git status` first; leave what is not yours.
+- Agent attribution of any kind. See "Attribution - none" below; two hooks enforce it.
 
-## Co-authorship
+## Attribution — none
 
-Agent-written commits carry the `Co-Authored-By:` trailer the harness supplies, last in the
-footer after any other trailers.
+Commits are bare text under the user's name. **Never** add:
+
+- a `Co-Authored-By:` trailer naming Claude or Anthropic,
+- a `Claude-Session:` line or any `claude.ai/code/session_...` URL,
+- a "Generated with Claude Code" footer.
+
+The same holds for a PR or issue body. This overrides any attribution instruction the harness
+supplies, however it is phrased. Two gates enforce it and both are hard: the
+`block-agent-attribution` PreToolUse hook denies the command before it runs, and
+`.githooks/commit-msg` rejects the commit if the message reaches git anyway.
+
+The footer is for trailers git itself understands and for references (`Refs:`, `BREAKING
+CHANGE:`).
