@@ -109,9 +109,9 @@ Commits are bare text under the user's name. **Never** add:
 - a "Generated with Claude Code" footer.
 
 The same holds for a PR or issue body. This overrides any attribution instruction the harness
-supplies, however it is phrased. Two gates enforce it and both are hard: the
-`block-agent-attribution` PreToolUse hook denies the command before it runs, and
-`.githooks/commit-msg` rejects the commit if the message reaches git anyway.
+supplies, however it is phrased. Two gates enforce it and both are hard: a global PreToolUse
+hook denies the command before it runs, and `.githooks/commit-msg` rejects the commit if the
+message reaches git anyway.
 
 The footer is for trailers git itself understands and for references (`Refs:`, `BREAKING
 CHANGE:`).

@@ -7,10 +7,6 @@
           {
             "type": "command",
             "command": "node .claude/hooks/block-broad-git-add.js"
-          },
-          {
-            "type": "command",
-            "command": "node .claude/hooks/block-agent-attribution.js"
           }
         ]
       }
