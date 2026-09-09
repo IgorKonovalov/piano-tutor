@@ -56,6 +56,32 @@ as its own commit (split within a phase only when it has logically independent p
 **no architect review between phases**; the architect reviews once at the end. The cadence is a
 plan-sized batch, not a phase-sized one.
 
+## Queue mode — several plans in one unattended run
+
+**Off unless the user turns it on by name**, in the same message as the go, naming the plans and
+the order ("go, run the queue: 0001 then 0002"). Never infer it from a plan roster, from a plan
+being ready, or from the user being asleep. `CLAUDE.md` carries the protocol; this is what it
+changes for you.
+
+- **One go covers the whole queue.** A plan not named in it is not in the run. Restate the queue
+  at Step 1 the way you restate a single plan: every plan, every phase count, every boundary.
+- **Between plans, the workflow restarts at Step 3.** Re-anchor on the next plan, re-read its
+  ADRs, flip its `Status:`. You do not review the plan you just finished, and you do not close
+  it: the close block gets written (Step 4.1) and the pointer printed, then the next plan starts.
+- **A `human` phase is deferred, not attempted.** Write a log row saying what the phase needs
+  from the user and move on. Do not do "the mechanical part". The plan's close block records the
+  phase as outstanding, and the architect treats an outstanding `human` phase as a blocker on the
+  close — so a deferred phase costs the plan's closure, never its code.
+- **Stop the entire run, and wait, on any of:** a red `npm run gate`, a done-when that cannot be
+  met as written, a file you need that is outside the phase's list, or any escalation in *When
+  the plan is wrong*. Do not skip the phase. Do not start the next plan. Do not lower a bar to
+  keep the run alive — **a queue that stopped after two plans is the expected good outcome; a
+  queue that finished by relaxing a done-when is the failure this mode is most at risk of.**
+- **Never close a plan, bump a version, `git mv` anything to `done/` or accept an ADR.** Those are
+  architect's, in the morning, with the user present.
+- **Say what happened.** The final message names every plan attempted, its state, every deferred
+  `human` phase, and the exact thing that stopped the run if one did.
+
 ## The four-step workflow
 
 Never skip a step. The gate at Step 2 exists because a plan-sized batch with the wrong scope
@@ -101,7 +127,8 @@ For **each phase in order**:
    - `dev`: proceed.
    - `human`: surface that this is the user's task and **stop**. Do not infer or "get it ready".
      Override only if the user at Step 2 explicitly authorised the mechanical part; echo the
-     override in one sentence.
+     override in one sentence. **In queue mode, defer instead of stopping**: log what the phase
+     needs and continue — see *Queue mode* above.
 2. **Implement strictly within the phase scope.** Only the files in "Files touched". If you need
    a file outside that list, **stop and surface it**: get approval to expand, or route back to
    architect as a plan update. Silent scope expansion is how plans rot.
@@ -176,7 +203,8 @@ Once the final `dev` phase's done-when is verified and committed:
    ```
 
 Then **stop.** Do not start the next plan in the same session; the fresh-session boundary keeps
-the review clean.
+the review clean. **The one exception is queue mode**, where the next plan in the named queue
+starts here, at Step 3, with its own close block written when it ends — and still nothing closed.
 
 ## When the plan is wrong
 

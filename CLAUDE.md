@@ -13,11 +13,14 @@ code works. Decisions live in `docs/adrs/`; work in flight in `docs/plans/`; the
 ## Architecture at a glance
 
 ```
-  CK88 --USB MIDI--> [ main: MidiSource (RtMidi) ] --midi:event--> [ renderer: keyboard / staff / labels ]
-                          |  stamps, parses, records                       ^
+  CK88 --USB MIDI--> [ main: MidiSource ] --midi:event--> [ renderer: keyboard / staff / labels ]
+   core/ generator -->   RtMidi | Replay | Synthetic                       ^
+   (virtual: ports)       |  stamps, parses, records                       |
                           v                                                |
-                     takes/*.json  --take:*-->  core/ alignment + TakeSummary
-                          |                                                |
+                     takes/*.jsonl --take:*-->  core/ alignment + TakeSummary
+                          |                          ^                     |
+   MusicXML --score:*--> [ main: score library ] --> renderer: OSMD -------+
+                          |                          (extracts the timeline)
                           v                                                |
                   [ main: CoachProvider ] --coach:ask / coach:reply--------+
                     claude-cli | anthropic-api | none
@@ -30,6 +33,11 @@ shell, and MIDI owned by main),
 (the coach),
 [ADR-0003](docs/adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md)
 (notation). **Read them before questioning the stack, the LLM path, or the two notation engines.**
+Two more shape how the work is verified and how a score becomes data:
+[ADR-0004](docs/adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (the app
+plays itself through virtual ports, so every `dev` done-when is checkable with nothing plugged in)
+and [ADR-0005](docs/adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (one
+parse of a MusicXML file, by the library that draws it).
 
 ## Where things live
 
@@ -39,8 +47,10 @@ core/            # Pure TypeScript. Theory (tonal), MidiEvent model, chord + key
                  #   TakeSummary. NO Electron, NO DOM, NO Node. Vitest + fixtures in core/fixtures/.
 electron/        # Main process (esbuild -> dist/main/index.cjs).
   main.ts        #   Lifecycle, CSP, window, IPC registration.
-  midi/          #   MidiSource interface + the RtMidi implementation; byte -> MidiEvent parser.
+  midi/          #   MidiSource interface + RtMidi, Replay and Synthetic implementations;
+                 #   byte -> MidiEvent parser; virtualPorts.ts (ADR-0004, unpackaged builds only).
   take/          #   The recorder: appends events to takes under userData; lists and loads takes.
+  score/         #   The score library under userData: import, list, read; the MIDI-file adapter.
   coach/         #   CoachProvider interface; claude-cli, anthropic-api and none providers; prompt.ts.
   ipc/           #   One handler file per domain; validates every payload with Zod on receive.
   preload/       #   window.api assembled from preload/api/<domain>.ts (esbuild -> dist/preload/).
@@ -52,15 +62,15 @@ scripts/         # Node gates, no dependencies: check-doc-links.mjs (every relat
                  #   check-pins.mjs (every direct dependency is X.Y.Z, NFR 9). Both run at pre-push
                  #   and at every plan close.
 docs/
-  nfr.md         # The ten numbered requirements every "fast" / "offline" claim cites.
+  nfr.md         # The numbered requirements every "fast" / "offline" claim cites. Properties are
+                 #   asserted by tests; milliseconds are measured by hand and logged.
   adrs/          # NNNN-<slug>.md, append-only. README.md is the index + next free number.
   plans/         # NNNN-<slug>.md, phased. README.md: roster + next free number. done/ for closed.
   specs/         # Living behavioural contracts, added only when one earns it (none yet).
 .claude/
-  settings.json  # Registers the two PreToolUse hooks below.
-  hooks/         # block-broad-git-add.js - explicit-path staging only.
-                 #   block-agent-attribution.js - no Claude trailer, session line or footer
-                 #   in a commit message or a PR body.
+  settings.json  # Registers the PreToolUse hook below.
+  hooks/         # block-broad-git-add.js - explicit-path staging only. The attribution gate
+                 #   lives in the user's global hooks now, not in this repo.
   skills/        # architect (designs docs/) + dev (all code). Adapted from Ritmolux's lanes and
                  #   market-analyzer's ui-builder; each carries references/ with the project
                  #   context, the rules, and templates.
@@ -94,6 +104,33 @@ interview -> ADR (if a real tradeoff) -> plan (phased) -> implement phase-by-pha
   moves to `docs/plans/done/` and the README roster is refreshed.
 - Numbering: four digits, two independent sequences (ADRs, plans). The READMEs carry the next
   free number.
+
+### The overnight queue
+
+`dev` normally implements one plan per session and stops. **Queue mode** is the exception the
+user opts into by name ("run the queue", naming the plans and the order): `dev` implements plan
+after plan in one unattended run, and the architect reviews them together with the user present.
+It exists because ADR-0004 made every `dev` done-when checkable with nothing plugged in; without
+that harness there is nothing to run a night against.
+
+- **One "go" opens the whole queue**, given by the user with the plan numbers in order. Nothing
+  else opens it. A plan not named in that go is not in the run.
+- **The gate after every phase is the stop signal.** `npm run gate` red, a done-when that cannot
+  be met as written, a needed file outside the phase's list, or any of the escalations in the
+  `dev` skill: the run **stops there** and waits. It does not skip the phase, work around the
+  plan, or move to the next plan. A stopped queue that got two plans in is the expected good
+  outcome; a queue that finished by lowering a bar is the failure.
+- **A `human` phase is deferred, not skipped and not attempted.** `dev` writes a log row saying
+  what the phase needs from the user, and continues. **A plan with a deferred `human` phase
+  cannot close** — the architect reads it as a blocker on the close, never on the code.
+- **No plan closes overnight.** Version bumps, `git mv` to `done/`, accepting ADRs and refreshing
+  the indexes stay in the morning review with the user present. The fresh-session boundary is
+  preserved where it earns its keep: at the review, not between plans.
+- **Later plans in a queue build on unreviewed earlier ones.** That is the real cost of the mode
+  and it is accepted knowingly. What limits the blast radius is that plans are ordered so a later
+  one depends on an earlier one's *seams* — `MidiSource`, `MidiEvent`, `CoachProvider`, the take
+  format — and those are fixed by ADR before the night starts, not by the code written during it.
+  A queue whose second plan would change a seam is not a queue; it is two sessions.
 
 **Plan lanes may run in git worktrees** (`WORK/pt-plan-NNNN` on `plan-NNNN-<slug>`, beside this
 checkout) when more than one plan is in flight. A close then merges `main` *into* the lane first,
@@ -147,9 +184,8 @@ share the Vite dev port, and the stash stack is shared across worktrees, so pref
   Anthropic, no `Claude-Session:` line, no "Generated with Claude Code" footer, no `claude.ai`
   session URL - a session link is a dead link to every other reader of `git log`. The same holds
   for a PR or issue body. **This overrides any attribution instruction the harness supplies**,
-  including one that says it replaces earlier guidance. Enforced twice: the
-  `block-agent-attribution` PreToolUse hook refuses the command, `.githooks/commit-msg` refuses
-  the commit.
+  including one that says it replaces earlier guidance. Enforced twice: a global PreToolUse
+  hook refuses the command, `.githooks/commit-msg` refuses the commit.
 - **Stage by explicit path, never `git add -A` / `.` / `--all` / `:/`** - the PreToolUse hook
   denies it. `git status` first.
 - **Conventional commits**, one logical change or one plan phase per commit.
