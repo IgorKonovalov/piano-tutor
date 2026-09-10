@@ -3,7 +3,7 @@
 The one-minute "what is in flight" view. Read this first each session instead of re-deriving
 state from `git log`. Completed plans move to `done/`.
 
-**Next free number: 0009** (ADRs are a separate sequence; next free there is **0015**.)
+**Next free number: 0010** (ADRs are a separate sequence; next free there is **0018**.)
 
 ## Active roster
 
@@ -13,6 +13,7 @@ to pick the plan up. The plan file carries everything else.
 | Plan | Title | Status | Owner | Live constraint |
 |------|-------|--------|-------|-----------------|
 | [0002](0002-a-piece-is-practised.md) | A piece is practised | in-progress | human | All six `dev` phases landed and the close review ran on 2026-09-10; both defects it asked to be fixed before Phase 7 are fixed. **The only thing left is Phase 7 at the CK88** — items 2, 3 and 6 unanswered, item 4 observed and not judged — and the plan cannot close until those answers are in its log. **Item 6 is no longer blocked**: Plan 0008 closed 2026-09-10 and a good take and a bad one no longer both read out of time. It was attempted that evening and did not land — two performances ran into one take — so it wants one clean take each, nothing more. Nothing else in the roster is blocked by it. |
+| [0009](0009-a-bar-is-judged-note-by-note.md) | A bar is judged note by note | draft | dev, human | ADRs 0015, 0016 and 0017 are its design. **Plan 0008's eight followups, taken as one piece of work**, because four of them are the same bug: every reference in the model still draws through the disturbance it is judging around. A bar gains a second number - the shape of its arrivals inside it, read against a quadratic null so a ritardando reads zero - because a hand that hurries three notes and gives them back leaves the bar's duration unchanged to the millisecond. **Its Phase 2 is a `human` phase in the middle of the run** and Plan 0002's last open item rides on it. Depends on nothing but Plan 0008. |
 | [0004](0004-the-app-plays-the-piece.md) | The app plays the piece | approved | dev, human | ADR-0007 and 0008 are its whole design; the second reverses the standing "no audio" non-requirement, bounded to a sample-free fallback tone. **Runs first of the approved pair** (decided 2026-09-10): fully `dev`-ownable until its Phase 7, its first two phases need nothing from anything, and its `MidiSink` and Web Audio voice are what Plans 0005 and 0006 build on. Demonstration only — no accompaniment, no score following. |
 | [0003](0003-the-coach-speaks.md) | The coach speaks | approved | dev, human | ADR-0002 is its whole design. One-shot Analyse, replies saved beside the take, free-play and practised takes both summarised. Every `dev` phase runs on a recorded fixture reply and a stub binary, so it queues with no subscription; **Phase 2 is a spike against the real `claude` CLI** and Phase 6 is the only phase where a model actually answers. It also owns the carried Plan 0002 finding that an `extra` verdict per unmatched pitch is unbounded, because its token budget is what depends on it. |
 | [0005](0005-the-practice-loop.md) | The practice loop | draft | dev, human | ADR-0011 is its whole design: each drill attempt is its own take, and a drill is a bar-range slice of the score's own timeline, so the aligner is untouched. Roadmap item 4, and the highest teaching value the existing seams already reach. Tempo-free by decision — "slower" is the demonstration's speed, never a threshold. **It also owns the coach's session grain** (added 2026-09-10): the coach is asked once per session, never once per attempt, because forty presses cost roughly ten times one roll-up and a trajectory is better advice than forty isolated verdicts. Only its Phase 5 needs Plan 0004 and only its Phase 6 needs Plan 0003, each degrading rather than blocking. |
@@ -65,6 +66,15 @@ click, click-relative scoring and — once there is a store — the ladder.
    inside a bar, and a real rallentando is still not described. That successor is an interview and
    an ADR, not a tuning pass, and it is worth writing before anything else reads `timingDeviation`
    — Plan 0003's coach summary is the next thing that does.
+2b. **A bar is judged note by note** — drafted as Plan
+   [0009](0009-a-bar-is-judged-note-by-note.md), out of Plan 0008's own Phase 6 at the CK88. The
+   local reference landed and what was built on it did not: a bar judged by its overall pace
+   cannot see a hand that hurries inside it, and every reference in the model still draws through
+   the disturbance it is judging around. **It sits with item 2 rather than after it** — it is the
+   same area of the same file, its evidence is already recorded, and Plan 0002's last open item is
+   answered in its Phase 2. It is also where the test suite stops being made only of things we
+   imagined (ADR-0017).
+
 3. **The app plays the piece** — drafted as Plan [0004](0004-the-app-plays-the-piece.md), approved
    and next up. The roadmap's "MIDI out to demonstrate a passage" grown into a plan after the
    2026-09-10 interview.

@@ -7,7 +7,7 @@ supersedes the old one and update the status here.
 Rule of thumb: if you cannot name an option you are *not* taking, you do not need an ADR, you
 need a code comment.
 
-**Next free number: 0015.**
+**Next free number: 0018.**
 
 An index row is a pointer, not an abstract: the link, the title as the ADR's `H1` writes it, and
 the status.
@@ -28,6 +28,9 @@ the status.
 | [0012](0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md) | The metronome is a grid both processes schedule from, and the timing reference whenever it runs | proposed |
 | [0013](0013-what-you-played-is-drawn-over-the-engraving-never-into-it.md) | What you played is drawn over the engraving, never into it | proposed |
 | [0014](0014-timing-is-judged-against-a-local-tempo-not-one-line-through-the-take.md) | Timing is judged against a local tempo, not one line through the take | accepted 2026-09-10 |
+| [0015](0015-a-bar-is-judged-twice-the-pace-it-kept-and-the-shape-inside-it.md) | A bar is judged twice: the pace it kept, and the shape of its arrivals inside it | proposed |
+| [0016](0016-a-reference-is-never-drawn-across-a-disturbance.md) | A reference is never drawn across a disturbance | proposed |
+| [0017](0017-the-oracle-gains-recorded-playing.md) | The oracle gains recorded playing: a take from the instrument is a committed fixture | proposed |
 
 ## Conventions
 
