@@ -4,19 +4,26 @@ import { join } from 'node:path'
 /**
  * The policy has **no `connect-src`** (ADR-0001): the renderer makes no network
  * request, so `default-src 'self'` is the whole story and a directive that
- * admits an origin would be an unused hole. In dev the Vite origin is named in
- * `default-src` instead, which is what keeps HMR's WebSocket alive without
- * introducing the directive we do not want packaged.
+ * admits an origin would be an unused hole. While Vite is serving, its origin
+ * is named in `default-src` instead, which is what keeps HMR's WebSocket alive
+ * without introducing the directive we do not want shipped.
  *
- * `'unsafe-inline'` in `script-src` exists only unpackaged, for Vite's HMR
- * client. Never `'unsafe-eval'`.
+ * `'unsafe-inline'` in `script-src` exists only while Vite is serving, for its
+ * HMR client. Never `'unsafe-eval'`.
+ *
+ * The flag is **"is Vite serving this window"**, not "is the build unpackaged".
+ * Those are different questions, and using the second for the first cost us
+ * both halves: the end-to-end run drives a built renderer loaded from `file:`
+ * out of an unpackaged tree, so it -- and every `electron .` run from source --
+ * got a relaxation it has no use for, while the strict policy was left
+ * installed by nothing any check runs.
  */
 const DEV_ORIGIN = 'http://localhost:5173'
 
-function csp(isDev: boolean): string {
+export function csp(viteServing: boolean): string {
   const directives = [
-    isDev ? `default-src 'self' ${DEV_ORIGIN} ws://localhost:5173` : "default-src 'self'",
-    isDev ? `script-src 'self' 'unsafe-inline' ${DEV_ORIGIN}` : "script-src 'self'",
+    viteServing ? `default-src 'self' ${DEV_ORIGIN} ws://localhost:5173` : "default-src 'self'",
+    viteServing ? `script-src 'self' 'unsafe-inline' ${DEV_ORIGIN}` : "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self' data:",
@@ -34,8 +41,8 @@ function csp(isDev: boolean): string {
  * the strip is case-insensitive or ours is appended to a policy we did not
  * write and the intersection blocks the app.
  */
-export function installCsp(isDev: boolean): void {
-  const policy = csp(isDev)
+export function installCsp(viteServing: boolean): void {
+  const policy = csp(viteServing)
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
     for (const key of Object.keys(headers)) {

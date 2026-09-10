@@ -43,16 +43,17 @@ const pipeline = createMidiPipeline({
 })
 
 void app.whenReady().then(() => {
-  const isDev = !app.isPackaged
-  installCsp(isDev)
+  // The CSP relaxation exists for Vite's HMR client and nothing else, so the
+  // question it answers is whether Vite is serving this window -- the same
+  // value that decides whether the window loads a URL or a built file. An
+  // unpackaged build is not the same question and must not stand in for it.
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL
+  installCsp(rendererUrl !== undefined)
   registerMidiHandlers({ pipeline, rtMidi, synthetic })
   registerTakeHandlers({ pipeline, takesDirectory: takesDir })
 
   const paths = getRendererPaths()
-  mainWindow = createWindow({
-    ...paths,
-    rendererUrl: process.env.ELECTRON_RENDERER_URL,
-  })
+  mainWindow = createWindow({ ...paths, rendererUrl })
   mainWindow.on('closed', () => {
     mainWindow = null
   })
