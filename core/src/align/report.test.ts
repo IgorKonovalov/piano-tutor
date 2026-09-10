@@ -292,7 +292,61 @@ describe('the report is sized by the score, not by the take', () => {
     expect(short.report.bars).toHaveLength(full.report.bars.length)
     expect(short.report.bars).toHaveLength(TIMELINES['scale-c-major']?.bars.length ?? 0)
   })
+
+  it('a ten-minute take of a piece serialises to the size of a one-minute one', () => {
+    // NFR 7's lever, guaranteed here where it is cheap. A player who takes ten
+    // times as long over the same piece produces ten times the events and the
+    // same report, because what a report describes is the score.
+    const timeline = longTimeline(200)
+    const oneMinute = perturb(timeline, { seed: SEED, bpm: 800 })
+    const tenMinutes = perturb(timeline, { seed: SEED, bpm: 80 })
+
+    const spanMinutes = (events: typeof oneMinute.events) =>
+      ((events[events.length - 1]?.t ?? 0) - (events[0]?.t ?? 0)) / 60_000
+    expect(spanMinutes(oneMinute.events)).toBeLessThan(2)
+    expect(spanMinutes(tenMinutes.events)).toBeGreaterThan(9)
+    expect(tenMinutes.events.length).toBe(oneMinute.events.length)
+
+    const size = (events: typeof oneMinute.events, takeId: string) =>
+      JSON.stringify(practiceReport({ timeline, events, takeId })).length
+
+    const ratio = size(tenMinutes.events, 'long') / size(oneMinute.events, 'short')
+    expect(ratio).toBeGreaterThan(0.9)
+    expect(ratio).toBeLessThan(1.1)
+  })
+
 })
+
+/**
+ * A plain 4/4 piece of `bars` bars, four beats to a bar and a three-note chord
+ * on each: a fair stand-in for real two-hand repertoire rather than a single
+ * line, which would make the NFR 12 figure below look better than it is.
+ */
+function longTimeline(bars: number, chord = 3): ExpectedTimeline {
+  const notes = []
+  for (let bar = 0; bar < bars; bar++) {
+    for (let beat = 0; beat < 4; beat++) {
+      const root = 48 + ((bar * 4 + beat) % 24)
+      for (let voice = 0; voice < chord; voice++) {
+        notes.push({
+          midi: root + voice * 4,
+          onset: bar * 4 + beat,
+          duration: 1,
+          bar,
+          staff: voice === 0 ? 1 : 0,
+          voice: voice === 0 ? 5 : 1,
+          tied: false,
+          grace: false,
+        })
+      }
+    }
+  }
+  return {
+    scoreId: '0'.repeat(32),
+    notes,
+    bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 4, beats: 4 })),
+  }
+}
 
 describe('mixed mistakes', () => {
   it('reports each one once, in its own bar, and leaves the rest clean', () => {

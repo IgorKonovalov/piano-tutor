@@ -23,6 +23,8 @@ export interface OpenOptions {
   portName: string
   /** A replay is not recorded: it is already a recording. */
   record: boolean
+  /** The score being practised, when one is open. */
+  scoreId?: string
 }
 
 export interface MidiPipeline {
@@ -74,6 +76,7 @@ export function createMidiPipeline(deps: PipelineDeps): MidiPipeline {
         port: options.portId,
         portName: options.portName,
         appVersion: deps.appVersion,
+        scoreId: options.scoreId,
       })
     }
 

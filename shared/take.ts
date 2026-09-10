@@ -23,6 +23,16 @@ export const TakeHeaderSchema = z.object({
   port: z.string(),
   portName: z.string(),
   appVersion: z.string(),
+  /**
+   * The score this take was played against, or null for free play.
+   *
+   * Additive, and deliberately not a format bump: a take written before this
+   * field existed reads back with `null` here and is otherwise unchanged, so
+   * every take already on disk stays openable. `TAKE_FORMAT_VERSION` moves
+   * when an existing field changes meaning, which is the case a reader cannot
+   * recover from.
+   */
+  scoreId: z.string().nullable().default(null),
 })
 export type TakeHeader = z.infer<typeof TakeHeaderSchema>
 
@@ -38,6 +48,8 @@ export const TakeSummaryRowSchema = z.object({
   eventCount: z.number(),
   /** True when the port id names a generated scenario rather than a device. */
   synthetic: z.boolean(),
+  /** The score it was played against, or null for free play. */
+  scoreId: z.string().nullable(),
 })
 export type TakeSummaryRow = z.infer<typeof TakeSummaryRowSchema>
 

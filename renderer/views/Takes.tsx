@@ -59,7 +59,9 @@ export function Takes({ onReplay }: TakesProps) {
       <h1 className={styles.heading}>Takes</h1>
       <p className={styles.lede}>
         Every session is recorded. Replaying one plays it back through the same path the
-        instrument feeds, so the live view cannot tell the difference.
+        instrument feeds, so the live view cannot tell the difference. A take recorded while a
+        score was open remembers which piece it was attempting, and the Score view is where it is
+        judged against it.
       </p>
 
       {state.status === 'error' && (
@@ -99,6 +101,19 @@ export function Takes({ onReplay }: TakesProps) {
                   <br />
                   <span className={styles.portId}>{take.port}</span>
                   {take.synthetic && <span className={styles.syntheticTag}>Generated</span>}
+                </span>
+                <span className={styles.against} data-testid="take-score">
+                  {take.scoreId === null ? (
+                    <span className={styles.freePlay}>Free play</span>
+                  ) : (
+                    <>
+                      Practising
+                      <br />
+                      <span className={styles.portId} data-score-id={take.scoreId}>
+                        {take.scoreId.slice(0, 8)}
+                      </span>
+                    </>
+                  )}
                 </span>
                 <span className={styles.speeds}>
                   {SPEEDS.map((speed) => (

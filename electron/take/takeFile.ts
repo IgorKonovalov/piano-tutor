@@ -43,6 +43,7 @@ export function makeHeader(options: {
   port: string
   portName: string
   appVersion: string
+  scoreId?: string
 }): TakeHeader {
   return {
     format: TAKE_FORMAT_VERSION,
@@ -50,6 +51,7 @@ export function makeHeader(options: {
     port: options.port,
     portName: options.portName,
     appVersion: options.appVersion,
+    scoreId: options.scoreId ?? null,
   }
 }
 
@@ -95,6 +97,7 @@ export function summarise(path: string, id: string): TakeSummaryRow {
     noteCount: events.filter((e) => e.kind === 'noteOn').length,
     eventCount: events.length,
     synthetic: isSyntheticPort(header.port),
+    scoreId: header.scoreId,
   }
 }
 

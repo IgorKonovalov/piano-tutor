@@ -123,3 +123,17 @@
   border-radius: var(--radius-1);
   cursor: pointer;
 }
+
+/*
+ * What the take was attempting. A free-play take says so in words rather than
+ * leaving the column blank, because blank reads as missing data.
+ */
+.against {
+  min-width: 120px;
+  font-size: 12px;
+  color: var(--color-fg-dim);
+}
+
+.freePlay {
+  font-style: italic;
+}

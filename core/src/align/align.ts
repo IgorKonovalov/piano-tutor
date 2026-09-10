@@ -79,23 +79,45 @@ export function align(
   const m = played.length
   const band = (options.band ?? BAND) + Math.abs(n - m)
 
-  // One row at a time, but the whole choice grid is kept so the path can be
-  // walked back. `choice[i][j]` is how cell (i, j) was reached.
+  // **Only the band is stored.** Each row holds the cells between `lo` and
+  // `hi` and nothing else, so the memory is `n x min(m, 2 x band)` rather than
+  // `n x m`. Keeping the full grid would make the allocation quadratic even
+  // though the inner loop is not, which is the whole of what NFR 12 rests on:
+  // a four-hundred-bar take must cost ten times a forty-bar one, not a
+  // hundred.
+  const lows: number[] = []
   const cost: number[][] = []
   const choice: Step['kind'][][] = []
 
   for (let i = 0; i <= n; i++) {
-    cost.push(new Array<number>(m + 1).fill(UNREACHABLE))
-    choice.push(new Array<Step['kind']>(m + 1).fill('match'))
+    const lo = Math.max(0, i - band)
+    const hi = Math.min(m, i + band)
+    lows.push(lo)
+    const size = Math.max(0, hi - lo + 1)
+    cost.push(new Array<number>(size).fill(UNREACHABLE))
+    choice.push(new Array<Step['kind']>(size).fill('match'))
   }
-  const at = (i: number, j: number): number =>
-    j < 0 || j > m || Math.abs(i - j) > band ? UNREACHABLE : (cost[i]?.[j] ?? UNREACHABLE)
+
+  const at = (i: number, j: number): number => {
+    if (i < 0 || i > n || j < 0 || j > m) return UNREACHABLE
+    const row = cost[i]
+    const k = j - (lows[i] ?? 0)
+    if (row === undefined || k < 0 || k >= row.length) return UNREACHABLE
+    return row[k] ?? UNREACHABLE
+  }
+
+  const choiceAt = (i: number, j: number): Step['kind'] => {
+    const row = choice[i]
+    const k = j - (lows[i] ?? 0)
+    if (row === undefined || k < 0 || k >= row.length) return 'match'
+    return row[k] ?? 'match'
+  }
 
   const row0 = cost[0]
   if (row0 !== undefined) row0[0] = 0
 
   for (let i = 0; i <= n; i++) {
-    const lo = Math.max(0, i - band)
+    const lo = lows[i] ?? 0
     const hi = Math.min(m, i + band)
     for (let j = lo; j <= hi; j++) {
       if (i === 0 && j === 0) continue
@@ -142,8 +164,9 @@ export function align(
 
       const row = cost[i]
       const choices = choice[i]
-      if (row !== undefined) row[j] = best
-      if (choices !== undefined) choices[j] = how
+      const k = j - lo
+      if (row !== undefined) row[k] = best
+      if (choices !== undefined) choices[k] = how
     }
   }
 
@@ -151,7 +174,7 @@ export function align(
   let i = n
   let j = m
   while (i > 0 || j > 0) {
-    const how = i === 0 ? 'extra' : j === 0 ? 'missing' : (choice[i]?.[j] ?? 'match')
+    const how = i === 0 ? 'extra' : j === 0 ? 'missing' : choiceAt(i, j)
     if (how === 'match' && i > 0 && j > 0) {
       const expectedGroup = expected[i - 1]
       const playedGroup = played[j - 1]

@@ -109,6 +109,57 @@ export async function openScenario(page: Page, scenarioId: string): Promise<Open
   return { firstKeyPaintedAt }
 }
 
+/**
+ * Point main's open dialog at a file, as the operating system would, and
+ * import it. Nothing is added to the app to make this possible: the harness
+ * stands where the file dialog stands (ADR-0004).
+ */
+export async function chooseFile(app: ElectronApplication, path: string | null): Promise<void> {
+  await app.evaluate(({ dialog }, filePath) => {
+    Object.assign(dialog, {
+      showOpenDialog: async () =>
+        filePath === null
+          ? { canceled: true, filePaths: [] }
+          : { canceled: false, filePaths: [filePath] },
+    })
+  }, path)
+}
+
+export const SCORE_FIXTURES = resolve(repoRoot, 'core', 'fixtures', 'scores')
+
+/**
+ * Import a fixture score and wait until the Score view has drawn **it**.
+ *
+ * The wait is on the drawn id matching the *selected* row's id, not merely on
+ * an id being present. Between the click and the new bytes arriving, the
+ * previous score is still on the page and its id is still a valid-looking
+ * one; waiting on the shape alone reads that stale id and every assertion
+ * after it is quietly about the wrong piece. The library selects what it just
+ * imported, so the selected row is what the paper has to catch up to.
+ */
+export async function importScore(launched: LaunchedApp, file: string): Promise<string> {
+  const { page } = launched
+  await chooseFile(launched.app, resolve(SCORE_FIXTURES, file))
+  await page.getByTestId('score-import').click()
+
+  const selected = page.locator('[data-testid="score-row"][aria-current="true"]')
+  await expect(selected).toHaveCount(1)
+  const id = await selected.getAttribute('data-score-id')
+  expect(id).toMatch(/^[0-9a-f]{32}$/)
+
+  const paper = page.getByTestId('osmd-paper')
+  await expect(paper).toBeVisible()
+  await expect(paper).toHaveAttribute('data-score-id', id as string, { timeout: 20_000 })
+  return id as string
+}
+
+/** The Score view is behind its own tab; everything score-shaped starts here. */
+export async function openScoreView(launched: LaunchedApp): Promise<void> {
+  await waitForPortsView(launched.page)
+  await launched.page.getByTestId('nav-score').click()
+  await expect(launched.page.getByTestId('score-view')).toBeVisible()
+}
+
 export async function eventsReceived(page: Page): Promise<number> {
   return Number(await page.getByTestId('event-log').getAttribute('data-received'))
 }

@@ -30,6 +30,8 @@ export interface RecorderOptions {
   port: string
   portName: string
   appVersion: string
+  /** The score this session is practising, when one is open. */
+  scoreId?: string
   /** Injected so a test can record a known clock. */
   now?: () => Date
 }
@@ -72,6 +74,7 @@ export class Recorder {
           port: options.port,
           portName: options.portName,
           appVersion: options.appVersion,
+          scoreId: options.scoreId,
         })
       ),
       'utf8'

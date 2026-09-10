@@ -27,7 +27,7 @@ export function registerMidiHandlers(deps: MidiHandlerDeps): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.MIDI_OPEN, async (_event, payload: unknown) => {
-    const { portId } = MidiOpenRequestSchema.parse(payload)
+    const { portId, scoreId } = MidiOpenRequestSchema.parse(payload)
     return serialise(async () => {
       const virtual = isVirtualPortId(portId)
       const ports = await deps.rtMidi.listPorts()
@@ -37,6 +37,7 @@ export function registerMidiHandlers(deps: MidiHandlerDeps): void {
         portName:
           findScenario(portId)?.name ?? ports.find((p) => p.id === portId)?.name ?? portId,
         record: true,
+        scoreId,
       })
     })
   })

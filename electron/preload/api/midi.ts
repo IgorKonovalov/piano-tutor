@@ -7,8 +7,8 @@ export const midi: MidiApi = {
     return MidiPortListSchema.parse(await ipcRenderer.invoke(IPC_CHANNELS.MIDI_LIST_PORTS))
   },
 
-  async open(portId: string) {
-    await ipcRenderer.invoke(IPC_CHANNELS.MIDI_OPEN, { portId })
+  async open(portId: string, scoreId?: string) {
+    await ipcRenderer.invoke(IPC_CHANNELS.MIDI_OPEN, { portId, scoreId })
   },
 
   async close() {

@@ -2,10 +2,13 @@ import { expect, test } from '@playwright/test'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  SCORE_FIXTURES,
   type LaunchedApp,
+  chooseFile,
+  importScore,
   launchApp,
   openScenario,
-  repoRoot,
+  openScoreView as openScore,
   waitForEvents,
   waitForPortsView,
 } from './harness'
@@ -25,7 +28,7 @@ import {
  * things as a run against an empty one.
  */
 
-const FIXTURES = join(repoRoot, 'core', 'fixtures', 'scores')
+const FIXTURES = SCORE_FIXTURES
 
 /**
  * Bar counts are `MeasureList.length` -- one entry per source measure, which
@@ -54,36 +57,12 @@ test.afterEach(async () => {
   await launched?.close()
 })
 
-/** Point main's open dialog at a fixture, as the operating system would. */
-async function chooseFile(app: LaunchedApp['app'], path: string | null): Promise<void> {
-  await app.evaluate(({ dialog }, filePath) => {
-    Object.assign(dialog, {
-      showOpenDialog: async () =>
-        filePath === null
-          ? { canceled: true, filePaths: [] }
-          : { canceled: false, filePaths: [filePath] },
-    })
-  }, path)
-}
-
 async function openScoreView(): Promise<void> {
-  await waitForPortsView(launched.page)
-  await launched.page.getByTestId('nav-score').click()
-  await expect(launched.page.getByTestId('score-view')).toBeVisible()
+  await openScore(launched)
 }
 
-/** Import the chosen file and wait for the Score view to have drawn it. */
 async function importAndDraw(file: string): Promise<string> {
-  const { page } = launched
-  await chooseFile(launched.app, join(FIXTURES, file))
-  await page.getByTestId('score-import').click()
-
-  // The id appears on the paper only once OSMD has parsed and drawn, so this
-  // is also the wait for the render to finish.
-  const paper = page.getByTestId('osmd-paper')
-  await expect(paper).toBeVisible()
-  await expect(paper).toHaveAttribute('data-score-id', /^[0-9a-f]{32}$/)
-  return (await paper.getAttribute('data-score-id')) as string
+  return importScore(launched, file)
 }
 
 test('each fixture score imports and draws', async () => {
@@ -103,6 +82,12 @@ test('each fixture score imports and draws', async () => {
       String(fixture.bars)
     )
     expect(await page.getByTestId('bar-mark').count()).toBeGreaterThan(0)
+
+    // Reported, never asserted: parse, engrave and extract on this machine.
+    console.log(
+      `[score load] ${fixture.file}: ` +
+        `${await page.getByTestId('timeline-details').getAttribute('data-load-ms')} ms`
+    )
 
     // One row for this file, found by its id rather than its title -- a title
     // is not unique and the library outlives the run. The title is the one

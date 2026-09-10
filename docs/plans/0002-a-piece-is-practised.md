@@ -465,17 +465,31 @@ type PracticeReport = {
 | 1 — A score appears on screen | dev | done | 4f5c45d |
 | 2 — The expected notes come off the score | dev | done | 46a6b3e |
 | 3 — The app plays the score, badly on purpose | dev | done | 7da16b5 |
-| 4 — A take aligns to a score | dev | done | committed with this row |
-| 5 — The score colours and the numbers show | dev | not started | |
+| 4 — A take aligns to a score | dev | done | 43373bb |
+| 5 — The score colours and the numbers show | dev | done | committed with this row |
 | 6 — A MIDI file is a second-class score | dev | not started | |
 | 7 — At the piano, with a real piece | human | not started | |
 
 ### Measurements
 
-- **NFR 12 (Phase 5):** stop to coloured score, _ ms for a _-minute generated take against
-  `_` (_ bars), on _ (machine).
-- **Score load and extraction (Phase 5):** _ ms for the largest fixture score.
-- **NFR 11 (Phase 5):** frame delta unchanged from Plan 0001 with the Score view mounted? _
+- **NFR 12 (Phase 5):** stop to a coloured score, **3 ms** for a nine-second generated take
+  against `pickup-two-hands` (4 bars, 19 notes), development machine, read from the app's own
+  `data-align-ms` in the end-to-end run. That figure is take load plus alignment; it is not a
+  ten-minute take, because no fixture score is that long.
+- **NFR 12 at the row's stated size (Phase 5):** **14.7 to 20.0 ms** for a synthetic 200-bar
+  score played for ten minutes -- 800 onset groups, 4 800 events, three-note chords on every
+  beat -- timed in the renderer (`renderer/hooks/usePracticeReport.test.ts`), development
+  machine. Two orders of magnitude inside the 2 s budget. The linearity behind it is asserted
+  rather than measured: 40 bars 1.8 ms against 400 bars 15.6 ms.
+- **Score load and extraction (Phase 5):** parse, engrave and extract, development machine:
+  `scale-c-major` **41 ms**, `pickup-two-hands` **13 ms**, `key-and-time-change` **8 ms**,
+  `multi-rest-and-ties` **8 ms**. The first is the largest only because it is first: it carries
+  OSMD's own warm-up. Every fixture is a few bars, so none of these says anything about a real
+  score; Phase 7 item 1 is where that number comes from.
+- **NFR 11 (Phase 5):** unchanged -- frames p50 1, p95 1, max 1 over 500 note-ons, the same as
+  Plan 0001. Stated precisely: that measurement drives the **Live** view, and the Score view is a
+  separate tab that is not mounted during it. What it shows is that adding the score path cost
+  the paint path nothing, not that the two were measured together.
 - **NFR 11 (reported not claimed, across this plan's gate runs):** frames p50 1, p95 1, max 1 over
   500 note-ons in every run -- unchanged from Plan 0001. The millisecond column moved a great
   deal between runs on the same machine: p50 3.2 / p95 6.0 (phase 1), p50 452 / p95 952 (phase 2,
@@ -509,6 +523,33 @@ type PracticeReport = {
   the OSMD instance, so extraction happens there and rides out on `onLoaded`;
   `renderer/views/Score.module.css` styles the panel added to `Score.tsx`, which is in the list;
   `renderer/score/timelineFromOsmd.test.ts` is new, see the row below.
+- Phase 5: practice is driven from the Score view -- pick what to listen to, Practise, Stop --
+  rather than from the Ports view. The score id has to be known at the instant recording starts
+  for the take to record it, and the Score view is the only place that knows it.
+- Phase 5: seven files outside the phase's list carry that. `shared/midi.ts`,
+  `electron/preload/api/midi.ts`, `electron/ipc/midiHandlers.ts`, `electron/midi/pipeline.ts` and
+  `electron/take/Recorder.ts` thread an optional `scoreId` from `midi:open` to the take header,
+  which is the listed change in `shared/take.ts` and `electron/take/takeFile.ts` seen from the
+  other end. `e2e/harness.ts` gained the score-import helpers both e2e specs now share.
+  `renderer/hooks/usePracticeReport.test.ts` is new; see the NFR 12 row below.
+- Phase 5: `TAKE_FORMAT_VERSION` stays at 1. `scoreId` is additive and defaults to null, so every
+  take already on disk still reads; the version moves when an existing field changes meaning,
+  which is the case a reader cannot recover from.
+- Phase 5: the plan puts the per-take statistics in the Takes view. They are in the **Score**
+  view instead, because a report needs the timeline and only the Score view has one; the Takes
+  view gained the score attribution -- which piece a take was attempting, or "Free play".
+- Phase 5 finding: the aligner allocated the full `n x m` grid even though its inner loop was
+  banded, so the memory and the fill were quadratic and NFR 12's stated property was not
+  actually held. Found by the linearity check, not by reading. Fixed in this phase's commit: only
+  the band is stored. Before: 40 bars 1.9 ms against 400 bars 49.0 ms. After: 1.8 ms against
+  15.6 ms.
+- Phase 5 finding: `e2e/harness.ts`'s import helper waited for a score id of the right *shape*,
+  which the previously drawn score also has, so it could return the previous score's id and every
+  assertion after it was about the wrong piece. It passed at the Phase 2 and Phase 4 gates and
+  failed at this one. It now waits for the drawn id to match the selected row's.
+- Phase 5: the NFR 12 timing lives in `renderer/hooks/usePracticeReport.test.ts` rather than
+  beside the aligner, because `core/` may not read a clock and the lint rule that says so is
+  right. The renderer is where alignment is called and where the turnaround is spent.
 - Phase 4: `BarVerdict.state` has five values, not the four the plan's data shape sketches. The
   fifth is `unalignable`, which is what the plan's own answer to the false start asks for --
   "unalignable past a point, rather than a wall of red". Phase 5 renders it.

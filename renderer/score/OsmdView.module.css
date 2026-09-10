@@ -81,3 +81,11 @@
   border-color: var(--color-border);
   background: rgb(43 48 56 / 22%);
 }
+
+/* Past this point what was played and what is written had stopped agreeing;
+   a hatched box says "not judged" where a colour alone would say "wrong". */
+.unalignable {
+  border-color: var(--color-warn);
+  border-style: dashed;
+  background: rgb(232 176 75 / 10%);
+}

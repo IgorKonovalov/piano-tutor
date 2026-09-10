@@ -42,7 +42,16 @@ export type MidiPort = z.infer<typeof MidiPortSchema>
 
 export const MidiPortListSchema = z.array(MidiPortSchema)
 
-export const MidiOpenRequestSchema = z.object({ portId: z.string().min(1) })
+/**
+ * `scoreId` is the piece the player is practising, when they are. It travels
+ * with the open rather than being remembered in main, so a take's record of
+ * what it was attempting is decided by the view that knew, at the instant the
+ * recording starts.
+ */
+export const MidiOpenRequestSchema = z.object({
+  portId: z.string().min(1),
+  scoreId: z.string().regex(/^[0-9a-f]{32}$/).optional(),
+})
 export type MidiOpenRequest = z.infer<typeof MidiOpenRequestSchema>
 
 const channel = z.number().int().min(0).max(15)
@@ -117,7 +126,7 @@ export const PEDAL_DOWN_THRESHOLD = 64
  */
 export interface MidiApi {
   listPorts(): Promise<MidiPort[]>
-  open(portId: string): Promise<void>
+  open(portId: string, scoreId?: string): Promise<void>
   close(): Promise<void>
   /** Returns the cleanup that removes the listener. Always call it. */
   onEvent(cb: (event: MidiEvent) => void): () => void

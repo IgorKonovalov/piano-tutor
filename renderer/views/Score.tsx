@@ -1,41 +1,88 @@
-import { useCallback, useMemo, useState } from 'react'
-import type { ScoreMeta } from '../../shared/score'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { MidiPort } from '../../shared/midi'
+import type { BarState, ScoreMeta } from '../../shared/score'
 import {
   barAt,
   canonicalTimeline,
   notesInBar,
   timelineFingerprint,
 } from '../../core/src/score/timeline'
+import { BarDetail } from '../components/BarDetail'
+import { PracticeStats } from '../components/PracticeStats'
 import { type BarMark, OsmdView, type ScoreLoaded } from '../score/OsmdView'
 import { useScoreContent, useScoreLibrary } from '../hooks/useScore'
+import { usePracticeReport } from '../hooks/usePracticeReport'
 import styles from './Score.module.css'
 
 /**
- * The score half of practice: a library of imported pieces on the left, the
- * engraved score on the right, and one bar addressable at a time.
+ * A piece, practised.
  *
- * Bar addressing is the capability everything later stands on -- the practice
- * report names bars and this view has to be able to mark exactly those. It is
- * exercised here by hand, through the bar field and by clicking a bar, which
- * is also how a player finds the passage they want to work on.
+ * You open a score, choose what to listen to, play it through with nothing
+ * being judged, and stop. Then the bars colour and the numbers appear. The
+ * order is the decision of the interview and it is why nothing in this view
+ * touches the take while it is being recorded: feedback is after, not during.
  */
+
+/** What each bar state says, so a colour is never carrying the meaning alone. */
+const MARK_LABEL: Record<BarState, string> = {
+  clean: 'as written',
+  timing: 'out of time',
+  wrong: 'wrong notes',
+  notAttempted: 'not reached',
+  unalignable: 'lost',
+}
+
 export function Score() {
   const library = useScoreLibrary()
+  const practice = usePracticeReport()
+
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loaded, setLoaded] = useState<ScoreLoaded | null>(null)
   const [renderError, setRenderError] = useState<string | null>(null)
-  const [highlighted, setHighlighted] = useState<number | null>(null)
+  const [selectedBar, setSelectedBar] = useState<number | null>(null)
   const [showRead, setShowRead] = useState(false)
 
-  const content = useScoreContent(selectedId)
+  const [ports, setPorts] = useState<MidiPort[]>([])
+  const [portId, setPortId] = useState<string>('')
+  const [recording, setRecording] = useState(false)
+  const [heard, setHeard] = useState(0)
+  const [practiceError, setPracticeError] = useState<string | null>(null)
 
-  const select = useCallback((meta: ScoreMeta) => {
-    setSelectedId(meta.id)
-    setLoaded(null)
-    setRenderError(null)
-    setHighlighted(null)
-    setShowRead(false)
+  const content = useScoreContent(selectedId)
+  const timeline = loaded?.timeline ?? null
+  const barCount = loaded?.barCount ?? 0
+  const report = practice.state.status === 'ready' ? practice.state.report : null
+
+  useEffect(() => {
+    let cancelled = false
+    window.api.midi
+      .listPorts()
+      .then((found) => {
+        if (cancelled) return
+        setPorts(found)
+        setPortId((current) => (current === '' ? (found[0]?.id ?? '') : current))
+      })
+      .catch(() => {
+        // The port list is not this view's job to report on; the Ports view
+        // owns that error, and practising simply has nothing to offer here.
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
+
+  const select = useCallback(
+    (meta: ScoreMeta) => {
+      setSelectedId(meta.id)
+      setLoaded(null)
+      setRenderError(null)
+      setSelectedBar(null)
+      setShowRead(false)
+      setPracticeError(null)
+      practice.clear()
+    },
+    [practice]
+  )
 
   const onLoaded = useCallback(
     (info: ScoreLoaded) => {
@@ -59,16 +106,78 @@ export function Score() {
     setLoaded(null)
   }, [])
 
-  const marks = useMemo<BarMark[]>(
-    () =>
-      highlighted === null
-        ? []
-        : [{ bar: highlighted, state: 'highlight', label: `bar ${highlighted}` }],
-    [highlighted]
-  )
+  const startPractice = useCallback(async () => {
+    if (selectedId === null || portId === '') return
+    setPracticeError(null)
+    setHeard(0)
+    practice.clear()
+    try {
+      // The score id travels with the open, so the take records what it was
+      // attempting rather than main having to remember.
+      await window.api.midi.open(portId, selectedId)
+      setRecording(true)
+    } catch (err) {
+      setPracticeError((err as Error).message)
+    }
+  }, [portId, practice, selectedId])
 
-  const barCount = loaded?.barCount ?? 0
-  const timeline = loaded?.timeline ?? null
+  const stopPractice = useCallback(async () => {
+    setRecording(false)
+    try {
+      await window.api.midi.close()
+      if (timeline === null) return
+      const takes = await window.api.take.list()
+      const mine = takes.find((take) => take.scoreId === selectedId)
+      if (mine === undefined) {
+        setPracticeError(
+          'That session was too short to keep. Ten notes or more are recorded as a take.'
+        )
+        return
+      }
+      await practice.analyse(mine.id, timeline)
+    } catch (err) {
+      setPracticeError((err as Error).message)
+    }
+  }, [practice, selectedId, timeline])
+
+  // A count of what has arrived, while it is arriving. Nothing is judged from
+  // it -- that is the whole shape of this feature -- but a player needs to see
+  // that the app is hearing them before they play a piece through.
+  useEffect(() => {
+    if (!recording) return
+    return window.api.midi.onEvent((event) => {
+      if (event.kind === 'noteOn') setHeard((count) => count + 1)
+    })
+  }, [recording])
+
+  // The port is main's, so a view that unmounts mid-recording has to let go of
+  // it or the next open finds it held.
+  useEffect(() => {
+    return () => {
+      void window.api.midi.close()
+    }
+  }, [])
+
+  const marks = useMemo<BarMark[]>(() => {
+    if (report === null) {
+      return selectedBar === null
+        ? []
+        : [{ bar: selectedBar, state: 'highlight', label: `bar ${selectedBar}` }]
+    }
+    return report.bars.map((bar) => {
+      const problems = bar.notes.filter((note) => note.kind !== 'correct').length
+      return {
+        bar: bar.bar,
+        state: bar.state,
+        label: problems > 0 ? `${problems} ${MARK_LABEL[bar.state]}` : MARK_LABEL[bar.state],
+      }
+    })
+  }, [report, selectedBar])
+
+  const selectedVerdict =
+    report === null || selectedBar === null
+      ? null
+      : (report.bars.find((bar) => bar.bar === selectedBar) ?? null)
 
   return (
     <section className={styles.view} data-testid="score-view">
@@ -90,11 +199,7 @@ export function Score() {
         {library.state.status === 'error' && (
           <p className={styles.error} role="alert">
             Could not read the score library: {library.state.message}
-            <button
-              type="button"
-              className={styles.retry}
-              onClick={() => void library.refresh()}
-            >
+            <button type="button" className={styles.retry} onClick={() => void library.refresh()}>
               Retry
             </button>
           </p>
@@ -141,8 +246,36 @@ export function Score() {
         ) : (
           <>
             <div className={styles.toolbar}>
+              <label className={styles.field} htmlFor="practice-port">
+                Play from
+              </label>
+              <select
+                id="practice-port"
+                className={styles.port}
+                value={portId}
+                disabled={recording || ports.length === 0}
+                onChange={(event) => setPortId(event.target.value)}
+                data-testid="practice-port"
+              >
+                {ports.length === 0 && <option value="">Nothing connected</option>}
+                {ports.map((port) => (
+                  <option key={port.id} value={port.id}>
+                    {port.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className={recording ? `${styles.practise} ${styles.stop}` : styles.practise}
+                disabled={portId === '' || barCount === 0}
+                onClick={() => void (recording ? stopPractice() : startPractice())}
+                data-testid="practice-toggle"
+              >
+                {recording ? 'Stop and show me' : 'Practise'}
+              </button>
+
               <label className={styles.field} htmlFor="highlight-bar">
-                Highlight bar
+                Bar
               </label>
               <input
                 id="highlight-bar"
@@ -150,11 +283,11 @@ export function Score() {
                 type="number"
                 min={0}
                 max={Math.max(0, barCount - 1)}
-                value={highlighted ?? ''}
+                value={selectedBar ?? ''}
                 disabled={barCount === 0}
                 onChange={(event) => {
                   const value = event.target.value
-                  setHighlighted(value === '' ? null : Number(value))
+                  setSelectedBar(value === '' ? null : Number(value))
                 }}
                 data-testid="highlight-bar"
               />
@@ -166,13 +299,36 @@ export function Score() {
               <button
                 type="button"
                 className={styles.clear}
-                onClick={() => setHighlighted(null)}
+                onClick={() => setSelectedBar(null)}
                 data-testid="highlight-clear"
               >
                 Clear
               </button>
             </div>
 
+            {recording && (
+              <p
+                className={styles.recording}
+                data-testid="practice-recording"
+                data-heard={heard}
+              >
+                Recording, {heard} {heard === 1 ? 'note' : 'notes'} so far. Nothing is judged
+                until you stop.
+              </p>
+            )}
+            {practiceError !== null && (
+              <p className={styles.error} role="alert" data-testid="practice-error">
+                {practiceError}
+              </p>
+            )}
+            {practice.state.status === 'working' && (
+              <p className={styles.empty}>Reading the take&hellip;</p>
+            )}
+            {practice.state.status === 'error' && (
+              <p className={styles.error} role="alert" data-testid="practice-error">
+                Could not read that take: {practice.state.message}
+              </p>
+            )}
             {renderError !== null && (
               <p className={styles.error} role="alert" data-testid="score-error">
                 Could not draw this score: {renderError}
@@ -183,7 +339,17 @@ export function Score() {
                 Could not read this score: {content.message}
               </p>
             )}
-            {content.status === 'loading' && <p className={styles.empty}>Opening the score&hellip;</p>}
+            {content.status === 'loading' && (
+              <p className={styles.empty}>Opening the score&hellip;</p>
+            )}
+
+            {practice.state.status === 'ready' && (
+              <PracticeStats
+                report={practice.state.report}
+                elapsedMs={practice.state.elapsedMs}
+              />
+            )}
+
             {content.status === 'ready' && (
               <div className={styles.scroll}>
                 <OsmdView
@@ -192,10 +358,12 @@ export function Score() {
                   marks={marks}
                   onLoaded={onLoaded}
                   onError={onError}
-                  onBarClick={setHighlighted}
+                  onBarClick={setSelectedBar}
                 />
               </div>
             )}
+
+            {report !== null && <BarDetail bar={selectedVerdict} index={selectedBar} />}
 
             {timeline !== null && (
               <details
@@ -203,10 +371,11 @@ export function Score() {
                 open={showRead}
                 onToggle={(event) => setShowRead(event.currentTarget.open)}
                 data-testid="timeline-details"
+                data-load-ms={loaded?.loadMs ?? ''}
               >
                 <summary className={styles.readSummary}>
                   What the app read: {timeline.notes.length} notes across {timeline.bars.length}{' '}
-                  bars
+                  bars, drawn in {loaded?.loadMs ?? 0} ms
                   <span className={styles.fingerprint} data-testid="timeline-fingerprint">
                     {timelineFingerprint(timeline)}
                   </span>
@@ -214,10 +383,10 @@ export function Score() {
                 <p className={styles.readNote}>
                   The notes the score is judged against, in quarter notes from the start of the
                   piece. Bars are numbered the way they were parsed, so an anacrusis is bar 0.
-                  {highlighted !== null && barAt(timeline, highlighted) !== undefined && (
+                  {selectedBar !== null && barAt(timeline, selectedBar) !== undefined && (
                     <>
                       {' '}
-                      Bar {highlighted} holds {notesInBar(timeline, highlighted).length} notes.
+                      Bar {selectedBar} holds {notesInBar(timeline, selectedBar).length} notes.
                     </>
                   )}
                 </p>

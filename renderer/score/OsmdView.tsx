@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
-import type { ExpectedTimeline } from '../../shared/score'
+import type { BarState as VerdictState, ExpectedTimeline } from '../../shared/score'
 import { timelineFromOsmd } from './timelineFromOsmd'
 import styles from './OsmdView.module.css'
 
@@ -23,7 +23,13 @@ const UNIT_IN_PIXELS = 10
 /** A resize re-engraves the whole score, so it waits for the drag to settle. */
 const RESIZE_SETTLE_MS = 150
 
-export type BarState = 'highlight' | 'clean' | 'timing' | 'wrong' | 'notAttempted'
+/**
+ * Every verdict a bar can carry, plus `highlight` for a bar the player has
+ * simply pointed at. Taking the verdict states from `shared/` rather than
+ * restating them means a new one cannot be added to the report and quietly go
+ * unpainted.
+ */
+export type BarState = VerdictState | 'highlight'
 
 export interface BarMark {
   /** OSMD's measure index, verbatim (ADR-0005). */
@@ -39,6 +45,13 @@ export interface BarMark {
 export interface ScoreLoaded {
   title: string
   barCount: number
+  /**
+   * Parse, engrave and extract, in milliseconds on this machine. Extraction
+   * runs on the renderer's main thread at load (ADR-0005), off the MIDI paint
+   * path entirely, so this is the figure that says whether a large score costs
+   * a visible moment to open.
+   */
+  loadMs: number
   /**
    * Extracted from the model OSMD just parsed, in the same pass that drew it
    * (ADR-0005). One parse of the file, by the library that draws it.
@@ -155,6 +168,7 @@ export function OsmdView({ id, bytes, marks, onLoaded, onError, onBarClick }: Os
 
     setRendered(null)
     setBoxes([])
+    const startedAt = performance.now()
 
     // A Blob covers all three extensions: OSMD unzips an .mxl and reads the
     // text of a plain .xml, so nothing here has to know which one this is.
@@ -169,6 +183,7 @@ export function OsmdView({ id, bytes, marks, onLoaded, onError, onBarClick }: Os
           title: osmd.Sheet?.TitleString ?? '',
           barCount: osmd.GraphicSheet?.MeasureList?.length ?? 0,
           timeline: timelineFromOsmd(osmd.Sheet, id),
+          loadMs: Math.round(performance.now() - startedAt),
         })
       })
       .catch((err: Error) => {
