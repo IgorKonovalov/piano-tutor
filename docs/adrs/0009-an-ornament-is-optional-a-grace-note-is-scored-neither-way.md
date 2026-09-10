@@ -1,6 +1,6 @@
 # ADR-0009 — An ornament is optional: a grace note is scored neither way
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-10 (implemented outside a plan, in `67d10b8`)
 > **Date:** 2026-09-10
 > **Related plan(s):** raised by the close review of Plan
 > [0002](../plans/0002-a-piece-is-practised.md); implemented as a scoped change outside a plan,

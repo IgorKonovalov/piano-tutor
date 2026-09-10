@@ -1,6 +1,6 @@
 # ADR-0005 — The expected-note timeline is extracted from OSMD's model, never parsed a second time
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-10 (Plan 0002 — its `dev` phases and its close review; that plan is still open on its `human` phase)
 > **Date:** 2026-09-09
 > **Related plan(s):** Plan [0002](../plans/0002-a-piece-is-practised.md)
 

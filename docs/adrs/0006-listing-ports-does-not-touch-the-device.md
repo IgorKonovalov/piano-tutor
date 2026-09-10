@@ -1,6 +1,6 @@
 # ADR-0006 — Listing ports does not touch the device; `busy` is earned by a failed open
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-10 (implemented outside a plan, in `830e36c`)
 > **Date:** 2026-09-10
 > **Related plan(s):** raised by the close review of Plan
 > [0001](../plans/done/0001-the-keyboard-shows-on-screen.md); implemented as a scoped change

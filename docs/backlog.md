@@ -21,7 +21,9 @@ here when it does; a backlog that also duplicates the roadmap is worse than no b
 
 Raised in the pedagogy interview of **2026-09-10**. The goal the user stated: play both simple
 classics and jazz/blues, and have the app teach the way the evidence says the skills are built.
-None of this is drafted. Most of it lands in roadmap items 4 to 6.
+Most of it lands in roadmap items 6 and 7. Two rows have since graduated into plans and are
+gone from this file: the deliberate-practice loop is Plan [0005](plans/0005-the-practice-loop.md),
+and the metronome is Plan [0006](plans/0006-the-metronome-and-the-score-follows.md).
 
 ### Decisions taken in that interview
 
@@ -38,7 +40,8 @@ Four calls, made before any of it is planned, so the mechanics below have a fixe
    nothing schedules yet. Rejected: opening the app on a due queue (only works if submitted to,
    and a skipped queue is worse than none) and a pure history log (then spaced repetition never
    arrives, and retrofitting a scheduler onto a log is the expensive path).
-3. **The practice loop is drafted first**, ahead of any new drill type.
+3. **The practice loop is drafted first**, ahead of any new drill type. Done: Plan
+   [0005](plans/0005-the-practice-loop.md).
 4. **Material is hybrid.** Generated drills for the volume sight reading needs; imported MusicXML
    for real music. Neither alone does the job: a corpus is finite and sight reading exhausts it,
    and generated material does not sound like the classics the user wants to play.
@@ -55,8 +58,9 @@ supply — they run out of books. A seeded generator does not.
   because it sees the notes while their eyes are on the staff. Nearly free — a view flag.
 - **The look-ahead curtain.** Hide the notes currently under the hands, leaving the next bar
   visible. Deliberately uncomfortable; it is the fastest builder of the eye-ahead habit. Needs a
-  cursor driven by wall-clock rather than by what was played, so it cannot exist before the
-  metronome and transport in Plan 0004's followups.
+  cursor driven by wall-clock rather than by what was played, which Plan
+  [0006](plans/0006-the-metronome-and-the-score-follows.md) Phase 3 builds; unblocked the day that
+  lands.
 - **Continuity weighted above accuracy.** A stop is a worse sight-reading fault than a wrong note.
   `analyse` today knows missing notes and late notes; sight reading wants a third derived metric,
   **hesitation** — a gap in the onset stream where the grid says notes were due — weighted heavier
@@ -69,16 +73,15 @@ supply — they run out of books. A seeded generator does not.
 ### Rhythm
 
 - **The metronome whose click thins out.** Every beat, then 2 and 4 only, then bar 1 only, then
-  silence — comparing tempo drift across the four stages. A better first use of the backlogged
-  metronome (Plan 0002 Followups, Plan 0004 Followups) than a plain click. `tempo.ts` already fits
-  the drift.
+  silence — comparing tempo drift across the four stages. It is a mask over Plan
+  [0006](plans/0006-the-metronome-and-the-score-follows.md)'s `BeatGrid` and needs no further
+  decision; what it waits on is somewhere to record drift across the four stages, which is roadmap
+  item 6's store. `tempo.ts` already fits the drift.
 - **Rhythm-only pass.** Play the piece's rhythm on one note. Decouples the two hard things, and it
   scores against the existing timeline with pitch ignored — a flag on `align`.
 - **The tempo ladder.** Raise the target by a fixed step only after a clean pass at the current
-  one. This is where the store stops being a log and becomes a mechanism.
-- **Per-metrical-position subdivision feedback.** Not "30 ms late" but "you rush every offbeat
-  eighth". The signed distribution is already in the data; `TIMING_THRESHOLD_MS` currently
-  collapses it into pass or fail per bar.
+  one. This is where the store stops being a log and becomes a mechanism. After Plan 0006 it is
+  the grid plus the store and nothing else — a new grid is a value, not a mechanism.
 
 ### Harmony
 
@@ -98,14 +101,12 @@ progression drill scores against a generated timeline exactly like a piece does.
 
 Worth more than any individual drill:
 
-- **The deliberate-practice loop, closed automatically.** Roadmap item 4. `barsByTiming` ranks the
-  worst bars; build a drill from each (that bar plus a bar of run-up, slower, looped), require a
-  pass, then re-test the passage in context. It is what a teacher does with the thirty seconds
-  after you stop playing.
 - **Spaced repetition over musical items** — a bar, a voicing, a key, a rhythm figure — each with
   a due date set by how the last attempt went, and **interleaved rather than blocked**.
   Interleaving tests worse within the session and better a week later; the effect is well
-  replicated, and it is the reason the store is shaped as a scheduler under decision 2 above.
+  replicated, and it is the reason the store is shaped as a scheduler under decision 2 above. Plan
+  0005 drains its queue worst-first and lists interleaving as a followup, so this is the evidence
+  that followup waits on.
 - **Session shape.** Short and daily beats long and occasional. Nothing in the architecture cares,
   but any progression gate should be built against sessions rather than against minutes.
 
@@ -115,13 +116,14 @@ Worth more than any individual drill:
 
 Each becomes an ADR when the plan that needs it is drafted. None should be answered early.
 
-- **One beat grid, three symptoms.** Rubato reads as error today ([Plan
-  0002](plans/0002-a-piece-is-practised.md) Phase 7 item 4, and its piecewise-tempo-fit followup);
-  swing is the same fault in jazz; the tempo ladder and the subdivision feedback both want the
-  same thing. A grid **estimated from the take** and scored for consistency against itself,
-  instead of a single fitted tempo, answers all three at once. This is why jazz sits behind the
-  drill work in the roadmap rather than beside it — and it is a stronger idea than a swing-ratio
-  parameter, which would fix only one of the three.
+- **A grid estimated from the take**, which is a different question from the grid Plan
+  [0006](plans/0006-the-metronome-and-the-score-follows.md) *gives* the player. That plan answers
+  the case where the player accepts a beat we supply. It does not answer rubato ([Plan
+  0002](plans/0002-a-piece-is-practised.md) Phase 7 item 4, and its piecewise-tempo-fit followup)
+  or swing, where the beat has to be inferred from what was played and scored for consistency
+  against itself instead of against a single fitted tempo. Both remain open, they are the same
+  problem, and this is why jazz sits behind the drill work in the roadmap rather than beside it —
+  a swing-ratio parameter would fix only one of the two.
 - **What the generator emits.** MusicXML (heavy, but engraved, which sight reading needs) or an
   `ExpectedTimeline` directly (light, but nothing to draw). Reopened by
   [ADR-0005](adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md); the answer

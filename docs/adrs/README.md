@@ -7,7 +7,7 @@ supersedes the old one and update the status here.
 Rule of thumb: if you cannot name an option you are *not* taking, you do not need an ADR, you
 need a code comment.
 
-**Next free number: 0010.**
+**Next free number: 0013.**
 
 An index row is a pointer, not an abstract: the link, the title as the ADR's `H1` writes it, and
 the status.
@@ -18,11 +18,17 @@ the status.
 | [0002](0002-the-coach-is-a-provider-behind-one-interface-and-the-first-provider-is-the-claude-cli.md) | The coach is a provider behind one interface, and the first provider is the local Claude Code CLI | proposed |
 | [0003](0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) | Two notation surfaces: VexFlow draws what is being played, OpenSheetMusicDisplay draws the score | accepted 2026-09-10 |
 | [0004](0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) | The app plays itself: a synthetic MidiSource behind virtual ports, not an injection channel | accepted 2026-09-10 |
-| [0005](0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) | The expected-note timeline is extracted from OSMD's model, never parsed a second time | proposed |
-| [0006](0006-listing-ports-does-not-touch-the-device.md) | Listing ports does not touch the device; `busy` is earned by a failed open | proposed |
+| [0005](0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) | The expected-note timeline is extracted from OSMD's model, never parsed a second time | accepted 2026-09-10 |
+| [0006](0006-listing-ports-does-not-touch-the-device.md) | Listing ports does not touch the device; `busy` is earned by a failed open | accepted 2026-09-10 |
 | [0007](0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md) | Playback is a schedule built in `core/` and clocked by main behind a `MidiSink` | proposed |
 | [0008](0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md) | The app may sound what it plays: a synthesised fallback voice, and no samples | proposed |
-| [0009](0009-an-ornament-is-optional-a-grace-note-is-scored-neither-way.md) | An ornament is optional: a grace note is scored neither way | proposed |
+| [0009](0009-an-ornament-is-optional-a-grace-note-is-scored-neither-way.md) | An ornament is optional: a grace note is scored neither way | accepted 2026-09-10 |
+| [0011](0011-an-attempt-is-a-take-the-loop-repeats-through-the-recorder.md) | An attempt is a take: the practice loop repeats through the recorder, not through the aligner | proposed |
+| [0012](0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md) | The metronome is a grid both processes schedule from, and the timing reference whenever it runs | proposed |
+
+**0010 is reserved, not missing.** It is claimed by a change in flight in another session —
+alignment ending where the player stopped, raised at the piano during Plan 0002 Phase 7 — and its
+row lands with that commit. Do not reuse the number.
 
 ## Conventions
 

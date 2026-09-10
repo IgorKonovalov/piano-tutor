@@ -3,10 +3,10 @@
 > **Status:** in-progress
 > **Created:** 2026-09-09
 > **Owner skill(s):** dev, human
-> **Related ADRs:** [0003](../adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) (proposed),
-> [0004](../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (proposed),
-> [0005](../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (proposed);
-> [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (proposed) governs
+> **Related ADRs:** [0003](../adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) (accepted),
+> [0004](../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (accepted),
+> [0005](../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (accepted);
+> [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (accepted) governs
 > the processes and the new `score:*` domain
 > **NFRs claimed:** 3, 9, 11, 12 in [nfr.md](../nfr.md)
 > **Depends on:** Plan [0001](done/0001-the-keyboard-shows-on-screen.md) Phases 1 to 6 — the take
@@ -713,11 +713,17 @@ type PracticeReport = {
      already built and proved. Note-level highlighting and OSMD's own cursor were both considered
      and not chosen.
   4. **It is a plan of its own, drafted after this one closes**, not extra phases here.
+
+  Drafted 2026-09-10 as Plan [0006](0006-the-metronome-and-the-score-follows.md), ahead of this
+  plan's close rather than after it. Decision 1's ADR is [0012](../adrs/0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md);
+  its rejection of a MIDI click was reopened there and reversed, because ADR-0007 has since built
+  the output path whose absence was the reason. Decisions 2, 3 and 4 stand as written.
 - **The follow cursor this plan's prose promised was never built.** "The score follows with a
   cursor, nothing is judged until you stop" appears in *Context & problem* and in *What this plan
   does NOT do*, but no phase carries a done-when for it and none was implemented. The gap is
-  between the plan's narrative and its phases, not between the phases and the code. The followup
-  above is where it now lives.
+  between the plan's narrative and its phases, not between the phases and the code. It is now Plan
+  [0006](0006-the-metronome-and-the-score-follows.md) Phase 3, which has the wall clock a cursor
+  needs and which this plan never had.
 - **Repeat unfolding** — first and second endings, da capo, segno. The single largest thing this
   plan cut, and the one most likely to be asked for by real repertoire.
 - **The false-start recovery**, if Phase 7 item 3 says the single pass is not enough.
@@ -758,7 +764,9 @@ judge; the third is carried.
   a player who repeats a passage grows the report without limit. That property is NFR 12's stated
   method and NFR 7's lever. **Carried:** it is Plan 0003's to close, since the coach's token
   budget is what depends on it. Wants a cap on extras per bar — a count plus a sample — and a
-  test with a take twice the length of the score.
+  test with a take twice the length of the score. Plan
+  [0005](0005-the-practice-loop.md) does not make it worse: ADR-0011 records each drill attempt as
+  its own take, so a repeated passage never reaches one report.
 
 Two smaller items from the same review, neither blocking: `report.counts` includes bars the app
 tells the player it did not judge (`unalignable` is not subtracted the way `notAttempted` is,

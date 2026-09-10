@@ -1,13 +1,13 @@
 # 0003 — The coach speaks
 
-> **Status:** draft
+> **Status:** approved
 > **Created:** 2026-09-09
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0002](../adrs/0002-the-coach-is-a-provider-behind-one-interface-and-the-first-provider-is-the-claude-cli.md) (proposed)
 > is the whole design of this plan;
-> [0004](../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (proposed)
+> [0004](../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (accepted)
 > is the discipline it is built to;
-> [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (proposed)
+> [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (accepted)
 > governs the processes, the secret, and the new `coach:*` and `settings:*` domains
 > **NFRs claimed:** 3, 6, 7, 9, 11 in [nfr.md](../nfr.md)
 > **Depends on:** Plan [0001](done/0001-the-keyboard-shows-on-screen.md) Phase 5 (takes) for the input.

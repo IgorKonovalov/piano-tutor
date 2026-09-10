@@ -1,15 +1,15 @@
 # 0004 — The app plays the piece
 
-> **Status:** draft
+> **Status:** approved
 > **Created:** 2026-09-10
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0007](../adrs/0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md) (proposed)
 > and [0008](../adrs/0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md) (proposed),
 > which are this plan's whole design;
-> [0005](../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (proposed) supplies the
+> [0005](../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (accepted) supplies the
 > notes; [0004](../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (accepted)
 > supplies the scenarios and the headless rule; [0006](../adrs/0006-listing-ports-does-not-touch-the-device.md)
-> (proposed) governs the new output port list; [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md)
+> (accepted) governs the new output port list; [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md)
 > (accepted) governs the processes and the new `player:*` domain
 > **NFRs claimed:** 3, 9, 11, 13 in [nfr.md](../nfr.md)
 > **Depends on:** Plan [0002](0002-a-piece-is-practised.md) Phases 1 and 2 — the score library and the
