@@ -462,8 +462,8 @@ type PracticeReport = {
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — A score appears on screen | dev | done | committed with this row |
-| 2 — The expected notes come off the score | dev | not started | |
+| 1 — A score appears on screen | dev | done | 4f5c45d |
+| 2 — The expected notes come off the score | dev | done | committed with this row |
 | 3 — The app plays the score, badly on purpose | dev | not started | |
 | 4 — A take aligns to a score | dev | not started | |
 | 5 — The score colours and the numbers show | dev | not started | |
@@ -476,6 +476,13 @@ type PracticeReport = {
   `_` (_ bars), on _ (machine).
 - **Score load and extraction (Phase 5):** _ ms for the largest fixture score.
 - **NFR 11 (Phase 5):** frame delta unchanged from Plan 0001 with the Score view mounted? _
+- **NFR 11 (Phase 2 full-gate run, reported not claimed):** frames p50 1, p95 1, max 1 over 500
+  note-ons -- unchanged from Plan 0001. The millisecond figures in the same run read p50 452,
+  p95 952, max 1006 against Plan 0001's p50 3.2 / p95 6.1, on a machine that was compiling at the
+  time. Frames and milliseconds disagreeing by two orders of magnitude means the figure is timer
+  lag in `SyntheticSource`'s playback, not paint lag: the event's `t` is its scheduled time, so a
+  late timer is charged to the app. Worth knowing before the harness's ms column is read as a
+  latency.
 
 ### Notes
 
@@ -490,6 +497,30 @@ type PracticeReport = {
   phase names. `ScoreMeta` carries "the title OSMD reports once it has parsed", and only the
   renderer parses, so the title has to travel back.
 - Phase 1: OSMD 2.1.2 is the latest published version, so the plan's pin installed as written.
+- Phase 1: the architect session's edit to this plan (the `## Real-score corpora` section, the
+  widened Phase 1 file list, the reworded Phase 7 item 1 and the new followup) was uncommitted in
+  the shared checkout when Phase 1 was staged, so it rode into `4f5c45d` alongside the log row
+  instead of landing as its own `docs(plans)` commit.
+- Phase 1: of the two files the widened list added, `.gitignore` gained `scores-local/` in
+  `fa691d0`; `scripts/fetch-scores.mjs` was not written -- it reaches the network, the phase's
+  done-when does not need it, and the architect asked for it to be left.
+- Phase 2: three files outside the phase's list were touched. `renderer/score/OsmdView.tsx` owns
+  the OSMD instance, so extraction happens there and rides out on `onLoaded`;
+  `renderer/views/Score.module.css` styles the panel added to `Score.tsx`, which is in the list;
+  `renderer/score/timelineFromOsmd.test.ts` is new, see the row below.
+- Phase 2 deviation: the phase says the adapter has no unit test because it needs a DOM. OSMD's
+  **parse** runs under jsdom (its layout does not, and a timeline comes from the parsed model,
+  never the drawn one), so `renderer/score/timelineFromOsmd.test.ts` runs the same comparison at
+  every `npm test`. The e2e freshness check is unchanged and still drives the real app. The
+  reason for adding it: `.githooks/pre-push` deliberately skips the e2e run, so without it the
+  adapter is checked by nothing at push time. Both checks were confirmed to fail on a mutated
+  fixture before being trusted.
+- Phase 2: the live extraction is read out of the app through a **What the app read** disclosure
+  in the Score view -- counts, a fingerprint, and the timeline JSON -- closed by default. It is
+  what makes the e2e freshness check possible without a test hook (ADR-0004), and it is the
+  diagnostic Phase 7 item 1 needs when the engraving and the judgement disagree.
+- Phase 2: `scoreId` is part of the committed timeline, so a fixture regenerates when the
+  `.musicxml` changes. `.gitattributes` pins `eol=lf`, so the hash is the same on any checkout.
 - Phase 1 observation for Phase 2: OSMD's `MeasureList` has one entry per source measure --
   seven for `multi-rest-and-ties`, whose bars 3 to 5 are drawn as a single multi-measure-rest
   object. The bar index survives the collapse; the drawn box does not.

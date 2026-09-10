@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ScoreMeta } from '../../shared/score'
+import {
+  barAt,
+  canonicalTimeline,
+  notesInBar,
+  timelineFingerprint,
+} from '../../core/src/score/timeline'
 import { type BarMark, OsmdView, type ScoreLoaded } from '../score/OsmdView'
 import { useScoreContent, useScoreLibrary } from '../hooks/useScore'
 import styles from './Score.module.css'
@@ -19,6 +25,7 @@ export function Score() {
   const [loaded, setLoaded] = useState<ScoreLoaded | null>(null)
   const [renderError, setRenderError] = useState<string | null>(null)
   const [highlighted, setHighlighted] = useState<number | null>(null)
+  const [showRead, setShowRead] = useState(false)
 
   const content = useScoreContent(selectedId)
 
@@ -27,6 +34,7 @@ export function Score() {
     setLoaded(null)
     setRenderError(null)
     setHighlighted(null)
+    setShowRead(false)
   }, [])
 
   const onLoaded = useCallback(
@@ -60,6 +68,7 @@ export function Score() {
   )
 
   const barCount = loaded?.barCount ?? 0
+  const timeline = loaded?.timeline ?? null
 
   return (
     <section className={styles.view} data-testid="score-view">
@@ -186,6 +195,36 @@ export function Score() {
                   onBarClick={setHighlighted}
                 />
               </div>
+            )}
+
+            {timeline !== null && (
+              <details
+                className={styles.read}
+                open={showRead}
+                onToggle={(event) => setShowRead(event.currentTarget.open)}
+                data-testid="timeline-details"
+              >
+                <summary className={styles.readSummary}>
+                  What the app read: {timeline.notes.length} notes across {timeline.bars.length}{' '}
+                  bars
+                  <span className={styles.fingerprint} data-testid="timeline-fingerprint">
+                    {timelineFingerprint(timeline)}
+                  </span>
+                </summary>
+                <p className={styles.readNote}>
+                  The notes the score is judged against, in quarter notes from the start of the
+                  piece. Bars are numbered the way they were parsed, so an anacrusis is bar 0.
+                  {highlighted !== null && barAt(timeline, highlighted) !== undefined && (
+                    <>
+                      {' '}
+                      Bar {highlighted} holds {notesInBar(timeline, highlighted).length} notes.
+                    </>
+                  )}
+                </p>
+                <pre className={styles.readJson} data-testid="timeline-json">
+                  {canonicalTimeline(timeline)}
+                </pre>
+              </details>
             )}
           </>
         )}

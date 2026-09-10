@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
+import type { ExpectedTimeline } from '../../shared/score'
+import { timelineFromOsmd } from './timelineFromOsmd'
 import styles from './OsmdView.module.css'
 
 /**
@@ -37,6 +39,11 @@ export interface BarMark {
 export interface ScoreLoaded {
   title: string
   barCount: number
+  /**
+   * Extracted from the model OSMD just parsed, in the same pass that drew it
+   * (ADR-0005). One parse of the file, by the library that draws it.
+   */
+  timeline: ExpectedTimeline
 }
 
 export interface OsmdViewProps {
@@ -161,6 +168,7 @@ export function OsmdView({ id, bytes, marks, onLoaded, onError, onBarClick }: Os
         onLoadedRef.current({
           title: osmd.Sheet?.TitleString ?? '',
           barCount: osmd.GraphicSheet?.MeasureList?.length ?? 0,
+          timeline: timelineFromOsmd(osmd.Sheet, id),
         })
       })
       .catch((err: Error) => {

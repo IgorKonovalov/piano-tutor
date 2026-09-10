@@ -78,6 +78,54 @@ export const ScoreTitleRequestSchema = z.object({
 export type ScoreTitleRequest = z.infer<typeof ScoreTitleRequestSchema>
 
 /**
+ * The expected-note timeline: what the score says should be played, extracted
+ * from the model OSMD has already parsed (ADR-0005) and consumed by `core/`.
+ *
+ * Everything here is in **quarter notes from the start of the piece**, never
+ * in seconds. The score carries no tempo the player is obliged to keep, so a
+ * timeline that spoke in seconds would be asserting one; alignment fits a
+ * tempo after the fact instead, and is tempo-free by construction.
+ */
+export const ExpectedNoteSchema = z.object({
+  midi: z.number().int().min(0).max(127),
+  /** Quarter notes from the start of the piece. */
+  onset: z.number().nonnegative(),
+  /** Quarter notes. A tied pair carries the summed duration. */
+  duration: z.number().nonnegative(),
+  /** OSMD's measure index, verbatim -- never renumbered (ADR-0005). */
+  bar: z.number().int().nonnegative(),
+  /** Zero-based within the part: 0 is the right hand of a grand staff. */
+  staff: z.number().int().nonnegative(),
+  voice: z.number().int().nonnegative(),
+  /** This note absorbed a tie: the player strikes the key once. */
+  tied: z.boolean(),
+  /** Marked here, excluded from alignment scoring in this plan. */
+  grace: z.boolean(),
+})
+export type ExpectedNote = z.infer<typeof ExpectedNoteSchema>
+
+export const ExpectedBarSchema = z.object({
+  index: z.number().int().nonnegative(),
+  onset: z.number().nonnegative(),
+  /**
+   * The bar's own length in quarter notes, which is not always the metre: an
+   * anacrusis is as long as what is written in it. Bars are contiguous, so
+   * `onset + beats` of one bar is the `onset` of the next.
+   */
+  beats: z.number().positive(),
+})
+export type ExpectedBar = z.infer<typeof ExpectedBarSchema>
+
+export const ExpectedTimelineSchema = z.object({
+  scoreId: scoreId,
+  /** Ordered by onset, then pitch. */
+  notes: z.array(ExpectedNoteSchema),
+  /** One entry per source measure, in order, with no index skipped. */
+  bars: z.array(ExpectedBarSchema),
+})
+export type ExpectedTimeline = z.infer<typeof ExpectedTimelineSchema>
+
+/**
  * The `score` half of `window.api`, declared where both sides can see it.
  */
 export interface ScoreApi {

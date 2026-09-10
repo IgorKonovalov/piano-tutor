@@ -1,0 +1,82 @@
+{
+  "scoreId": "7e9d7950555ae821c265ac4825c4ea39",
+  "notes": [
+    {
+      "midi": 60,
+      "onset": 0,
+      "duration": 8,
+      "bar": 0,
+      "staff": 0,
+      "voice": 1,
+      "tied": true,
+      "grace": false
+    },
+    {
+      "midi": 67,
+      "onset": 20,
+      "duration": 2,
+      "bar": 5,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 64,
+      "onset": 22,
+      "duration": 4,
+      "bar": 5,
+      "staff": 0,
+      "voice": 1,
+      "tied": true,
+      "grace": false
+    },
+    {
+      "midi": 60,
+      "onset": 26,
+      "duration": 2,
+      "bar": 6,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    }
+  ],
+  "bars": [
+    {
+      "index": 0,
+      "onset": 0,
+      "beats": 4
+    },
+    {
+      "index": 1,
+      "onset": 4,
+      "beats": 4
+    },
+    {
+      "index": 2,
+      "onset": 8,
+      "beats": 4
+    },
+    {
+      "index": 3,
+      "onset": 12,
+      "beats": 4
+    },
+    {
+      "index": 4,
+      "onset": 16,
+      "beats": 4
+    },
+    {
+      "index": 5,
+      "onset": 20,
+      "beats": 4
+    },
+    {
+      "index": 6,
+      "onset": 24,
+      "beats": 4
+    }
+  ]
+}

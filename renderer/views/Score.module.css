@@ -158,3 +158,49 @@
   border-radius: var(--radius-1);
   cursor: pointer;
 }
+
+/*
+ * What the app read off the score. Closed by default -- a real piece serialises
+ * to a lot of text and nobody needs it while playing -- and the thing to open
+ * when the engraving and the judgement disagree about a bar.
+ */
+.read {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+  background: var(--color-bg-sunken);
+}
+
+.readSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-fg-dim);
+}
+
+.fingerprint {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-fg-dim);
+}
+
+.readNote {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2);
+  font-size: 12px;
+  color: var(--color-fg-dim);
+}
+
+.readJson {
+  max-height: 240px;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  border-top: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+}

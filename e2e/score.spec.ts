@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type LaunchedApp, launchApp, repoRoot, waitForPortsView } from './harness'
 
@@ -32,6 +33,13 @@ const FIXTURE_SCORES = [
   { file: 'key-and-time-change.musicxml', title: 'Key and time change', bars: 4 },
   { file: 'multi-rest-and-ties.musicxml', title: 'Multi-rest and ties', bars: 7 },
 ]
+
+/** `scripts/regen-score-timelines.md` is the procedure this flag belongs to. */
+const REGENERATING = process.env.PT_REGEN_TIMELINES === '1'
+
+function timelinePath(scoreFile: string): string {
+  return join(FIXTURES, scoreFile.replace(/\.musicxml$/, '.timeline.json'))
+}
 
 let launched: LaunchedApp
 
@@ -202,4 +210,42 @@ test('a bar mark sits on the box OSMD drew for that bar', async () => {
     if (previous === undefined || current === undefined) continue
     expect(current.left).toBeGreaterThanOrEqual(previous.left)
   }
+})
+
+test('the committed timelines still match what the app extracts', async () => {
+  test.setTimeout(120_000)
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView()
+
+  // ADR-0005's standing check. The adapter reads OSMD's parsed model, which is
+  // a semi-public API that has moved between versions, so an upgrade that
+  // changes the model has to fail here rather than quietly renumber bars in a
+  // practice report. A failure is read, not regenerated away.
+  const stale: string[] = []
+
+  for (const fixture of FIXTURE_SCORES) {
+    await importAndDraw(fixture.file)
+    await page.getByTestId('timeline-details').evaluate((el: HTMLDetailsElement) => {
+      el.open = true
+    })
+    const extracted = await page.getByTestId('timeline-json').textContent()
+    expect(extracted).not.toBeNull()
+
+    const path = timelinePath(fixture.file)
+    if (REGENERATING) {
+      writeFileSync(path, extracted as string, 'utf8')
+      continue
+    }
+
+    expect(existsSync(path), `${path} is missing; see scripts/regen-score-timelines.md`).toBe(true)
+    if (readFileSync(path, 'utf8') !== extracted) stale.push(fixture.file)
+  }
+
+  expect(
+    stale,
+    'the app now extracts a different timeline for these scores; read the diff before regenerating'
+  ).toEqual([])
+
+  expect(launched.networkRequests).toEqual([])
 })
