@@ -24,9 +24,21 @@ const scoreId = z.string().regex(SCORE_ID_PATTERN)
 
 export const ScoreIdSchema = z.object({ id: scoreId })
 
-/** What OSMD reads. The library stores whatever was imported, unmodified. */
-export const SCORE_EXTENSIONS = ['.musicxml', '.xml', '.mxl'] as const
+/**
+ * What the library accepts. The first three are engraved scores, read by OSMD;
+ * the last two are MIDI files, which carry no notation and are second-class by
+ * decision (ADR-0003) rather than by omission. The library stores whatever was
+ * imported, unmodified, either way.
+ */
+export const MUSICXML_EXTENSIONS = ['.musicxml', '.xml', '.mxl'] as const
+export const MIDI_EXTENSIONS = ['.mid', '.midi'] as const
+export const SCORE_EXTENSIONS = [...MUSICXML_EXTENSIONS, ...MIDI_EXTENSIONS] as const
 export const ScoreExtensionSchema = z.enum(SCORE_EXTENSIONS)
+
+/** True for a file with no engraving in it: a timeline and a bar grid only. */
+export function isMidiScore(extension: string): boolean {
+  return (MIDI_EXTENSIONS as readonly string[]).includes(extension)
+}
 export type ScoreExtension = z.infer<typeof ScoreExtensionSchema>
 
 export const ScoreMetaSchema = z.object({

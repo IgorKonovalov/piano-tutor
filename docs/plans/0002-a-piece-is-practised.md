@@ -466,9 +466,9 @@ type PracticeReport = {
 | 2 — The expected notes come off the score | dev | done | 46a6b3e |
 | 3 — The app plays the score, badly on purpose | dev | done | 7da16b5 |
 | 4 — A take aligns to a score | dev | done | 43373bb |
-| 5 — The score colours and the numbers show | dev | done | committed with this row |
-| 6 — A MIDI file is a second-class score | dev | not started | |
-| 7 — At the piano, with a real piece | human | not started | |
+| 5 — The score colours and the numbers show | dev | done | 6f704b2 |
+| 6 — A MIDI file is a second-class score | dev | done | committed with this row |
+| 7 — At the piano, with a real piece | human | not started | deferred, see Notes |
 
 ### Measurements
 
@@ -486,10 +486,12 @@ type PracticeReport = {
   `multi-rest-and-ties` **8 ms**. The first is the largest only because it is first: it carries
   OSMD's own warm-up. Every fixture is a few bars, so none of these says anything about a real
   score; Phase 7 item 1 is where that number comes from.
-- **NFR 11 (Phase 5):** unchanged -- frames p50 1, p95 1, max 1 over 500 note-ons, the same as
-  Plan 0001. Stated precisely: that measurement drives the **Live** view, and the Score view is a
-  separate tab that is not mounted during it. What it shows is that adding the score path cost
-  the paint path nothing, not that the two were measured together.
+- **NFR 11 (Phase 5):** unchanged -- frames p50 1, p95 1, max 1 over 500 note-ons, in every gate
+  run of this plan, the same as Plan 0001. Stated precisely: that measurement drives the **Live**
+  view, and the Score view is a separate tab that is not mounted during it. What it shows is that
+  adding the score path cost the paint path nothing, not that the two were measured together.
+- **NFR 4 (reported, unchanged row):** process creation to first painted key, 633 to 1 038 ms
+  across this plan's gate runs, development machine.
 - **NFR 11 (reported not claimed, across this plan's gate runs):** frames p50 1, p95 1, max 1 over
   500 note-ons in every run -- unchanged from Plan 0001. The millisecond column moved a great
   deal between runs on the same machine: p50 3.2 / p95 6.0 (phase 1), p50 452 / p95 952 (phase 2,
@@ -523,6 +525,26 @@ type PracticeReport = {
   the OSMD instance, so extraction happens there and rides out on `onLoaded`;
   `renderer/views/Score.module.css` styles the panel added to `Score.tsx`, which is in the list;
   `renderer/score/timelineFromOsmd.test.ts` is new, see the row below.
+- Phase 7 is `human` and was not attempted. What it needs from the user: the CK88 plugged in, a
+  real MusicXML file they want to practise, and the seven checklist answers written into this log.
+  Item 3 (the false start) and item 5 (a rolled chord against the 50 ms window) are the two the
+  generator cannot ask. **This plan cannot close until those answers are here.**
+- Phase 6: the MIDI adapter is in `core/`, per the phase's note, and its fixture-reading tests are
+  not: `core/` may not touch a filesystem, so the committed `.mid` is read in
+  `electron/score/midiImport.test.ts`, which is where the two adapters are held against each
+  other. `core/src/score/timelineFromMidi.test.ts` keeps the arithmetic, over files built in
+  memory.
+- Phase 6: three files outside the phase's list. `electron/score/library.ts` calls
+  `assertReadableMidi` so a renamed file fails on the dialog rather than on a blank score;
+  `electron/score/library.test.ts` follows the extension list, which now includes `.mid` and
+  `.midi`; `README.md` and `scripts/regen-score-timelines.md` say so and describe the fixture.
+- Phase 6: the `.mid` fixture has **no committed timeline**. A MIDI timeline is arithmetic rather
+  than an extraction from a drawing library, so the tests recompute it every run instead of
+  trusting a snapshot; ADR-0005's freshness check exists for the OSMD path and has nothing to
+  guard here.
+- Phase 6: the quantisation grid is a control in the Score view and is **not persisted**. The
+  phase asks for it to be visible, which it is; remembering it per score would need a write path
+  the phase does not have.
 - Phase 5: practice is driven from the Score view -- pick what to listen to, Practise, Stop --
   rather than from the Ports view. The score id has to be known at the instant recording starts
   for the take to record it, and the Score view is the only place that knows it.
@@ -607,12 +629,21 @@ type PracticeReport = {
 
 ### Close triggers
 
-_(facts for architect to verify and decide from, no recommendations)_
-
-- **What shipped:** _(feature / fix-only / docs-chore-only)_
-- **User-visible docs touched:** _
-- **Full gate at the last phase:** _
-- **Outstanding `human` phases:** _
+- **What shipped:** feature. A `score:*` IPC domain and score library; the engraved Score view
+  with addressable bars; the `ExpectedTimeline` and its committed fixtures; the seeded
+  perturbation oracle and six `virtual:score:*` ports; onset grouping, banded alignment, tempo
+  fitting and the `PracticeReport`; the practice flow with per-bar colouring, bar detail and
+  statistics; and MIDI files as second-class scores. Two dependencies added, both pinned exact:
+  `opensheetmusicdisplay` 2.1.2 and `@tonejs/midi` 2.0.28.
+- **User-visible docs touched:** `README.md` (the score library, practising a piece, MIDI as a
+  second-class score, and an ADR-0005 row in the reading table) and `scripts/regen-score-timelines.md`
+  (new). `docs/nfr.md` and `CLAUDE.md` untouched.
+- **Full gate at the last phase**, run on the tree at Phase 6, all exit code 0:
+  `npm run typecheck` 0; `npm run lint` 0; `npm test` 0 (25 files, 472 tests);
+  `node scripts/check-pins.mjs` 0; `node scripts/check-doc-links.mjs` 0 (29 files);
+  `npm run test:e2e` 0 (19 specs).
+- **Outstanding `human` phases:** Phase 7, deferred and not attempted. See the first row of
+  `### Notes` for what it needs.
 
 ## Followups (after this lands)
 

@@ -268,3 +268,41 @@ test('a written piece plays itself into a take, through the ports view', async (
 
   expect(launched.networkRequests).toEqual([])
 })
+
+test('a MIDI file imports as a score with a bar list instead of an engraving', async () => {
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView()
+
+  await importAndDraw('scale-c-major.mid')
+
+  // No engraving, by decision rather than by omission (ADR-0003): what the app
+  // knows about a MIDI file is the notes and the bars, and that is what it
+  // shows.
+  await expect(page.getByTestId('bar-list')).toBeVisible()
+  await expect(page.getByTestId('osmd-host')).toHaveCount(0)
+  await expect(page.getByTestId('bar-list')).toContainText('no engraving to show')
+
+  // Four bars, the same four the MusicXML of the same music produces.
+  const bars = page.getByTestId('bar-mark')
+  await expect(bars).toHaveCount(4)
+  await expect(page.getByTestId('bar-count')).toHaveAttribute('data-bars', '4')
+
+  // The same marking and the same selection as the engraved view.
+  await page.getByTestId('highlight-bar').fill('2')
+  const marked = page.locator('[data-testid="bar-mark"][data-state="highlight"]')
+  await expect(marked).toHaveCount(1)
+  await expect(marked).toHaveAttribute('data-bar', '2')
+
+  await bars.nth(3).click()
+  await expect(page.locator('[data-testid="bar-mark"][data-state="highlight"]')).toHaveAttribute(
+    'data-bar',
+    '3'
+  )
+
+  // Quantisation is stated, not implied.
+  await expect(page.getByTestId('quantise')).toBeVisible()
+  await expect(page.getByTestId('quantise')).toHaveValue('0.25')
+
+  expect(launched.networkRequests).toEqual([])
+})

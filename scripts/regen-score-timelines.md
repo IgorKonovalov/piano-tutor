@@ -62,3 +62,30 @@ Drop the `.musicxml` in `core/fixtures/scores/`, regenerate as above (the e2e te
 `FIXTURE_SCORES` in `e2e/score.spec.ts`, so add it there too), and add whatever it exists to
 prove to `core/src/score/timeline.test.ts`. A fixture with no assertion of its own is a file that
 will be regenerated without anyone reading it.
+
+## The MIDI fixture
+
+`core/fixtures/scores/scale-c-major.mid` is the same music as `scale-c-major.musicxml`: a
+two-octave ascending C major scale, fifteen quarter notes, four bars of 4/4, at 480 ticks to the
+quarter. It exists so the two adapters can be held against each other -- one reading OSMD's parsed
+model, the other reading ticks and a time signature -- and
+`electron/score/midiImport.test.ts` is where they are compared.
+
+It has **no committed timeline of its own**, because it is not extracted by the renderer: a MIDI
+timeline is arithmetic in `core/src/score/timelineFromMidi.ts`, and the tests recompute it every
+run rather than trusting a snapshot. Nothing about it needs regenerating; if the music ever has
+to change, it was written with `@tonejs/midi`:
+
+```js
+const midi = new Midi()
+midi.header.setTempo(90)
+midi.header.timeSignatures = [{ ticks: 0, timeSignature: [4, 4] }]
+midi.header.update()
+const track = midi.addTrack()
+PITCHES.forEach((midiNote, i) =>
+  track.addNote({ midi: midiNote, ticks: i * midi.header.ppq, durationTicks: midi.header.ppq, velocity: 0.6 })
+)
+writeFileSync('core/fixtures/scores/scale-c-major.mid', Buffer.from(midi.toArray()))
+```
+
+`.gitattributes` marks `*.mid` binary, so it is committed byte for byte.

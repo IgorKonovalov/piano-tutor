@@ -1,0 +1,101 @@
+.wrap {
+  padding: var(--space-4);
+}
+
+.lede {
+  margin: 0 0 var(--space-4);
+  color: var(--color-fg-dim);
+  font-size: 13px;
+  max-width: 60ch;
+}
+
+.grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+}
+
+/*
+ * Each cell states its bar number and its note count, so the colour is a
+ * second reading of something already written rather than the only one.
+ */
+.bar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-2);
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  text-align: left;
+}
+
+.bar:hover {
+  border-color: var(--color-accent);
+}
+
+.selected {
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.index {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.notes {
+  font-size: 11px;
+  color: var(--color-fg-dim);
+}
+
+.mark {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.highlight {
+  border-color: var(--color-accent);
+}
+
+.clean {
+  border-color: var(--color-ok);
+}
+
+.clean .mark {
+  color: var(--color-ok);
+}
+
+.timing {
+  border-color: var(--color-warn);
+}
+
+.timing .mark {
+  color: var(--color-warn);
+}
+
+.wrong {
+  border-color: var(--color-error);
+}
+
+.wrong .mark {
+  color: var(--color-error);
+}
+
+.notAttempted {
+  opacity: 0.55;
+}
+
+.unalignable {
+  border-color: var(--color-warn);
+  border-style: dashed;
+}
+
+.unalignable .mark {
+  color: var(--color-warn);
+}

@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { MidiPort } from '../../shared/midi'
-import type { BarState, ScoreMeta } from '../../shared/score'
+import { type ScoreMeta, isMidiScore } from '../../shared/score'
+import type { BarState } from '../../shared/score'
 import {
   barAt,
   canonicalTimeline,
   notesInBar,
   timelineFingerprint,
 } from '../../core/src/score/timeline'
+import {
+  DEFAULT_QUANTISE_QUARTERS,
+  NO_QUANTISE,
+  timelineFromMidi,
+} from '../../core/src/score/timelineFromMidi'
 import { BarDetail } from '../components/BarDetail'
+import { BarList } from '../components/BarList'
 import { PracticeStats } from '../components/PracticeStats'
 import { type BarMark, OsmdView, type ScoreLoaded } from '../score/OsmdView'
 import { useScoreContent, useScoreLibrary } from '../hooks/useScore'
@@ -42,6 +49,7 @@ export function Score() {
   const [selectedBar, setSelectedBar] = useState<number | null>(null)
   const [showRead, setShowRead] = useState(false)
 
+  const [quantiseTo, setQuantiseTo] = useState(DEFAULT_QUANTISE_QUARTERS)
   const [ports, setPorts] = useState<MidiPort[]>([])
   const [portId, setPortId] = useState<string>('')
   const [recording, setRecording] = useState(false)
@@ -49,8 +57,33 @@ export function Score() {
   const [practiceError, setPracticeError] = useState<string | null>(null)
 
   const content = useScoreContent(selectedId)
-  const timeline = loaded?.timeline ?? null
-  const barCount = loaded?.barCount ?? 0
+  const selectedMeta =
+    library.state.status === 'ready'
+      ? library.state.scores.find((meta) => meta.id === selectedId)
+      : undefined
+  const midi = selectedMeta !== undefined && isMidiScore(selectedMeta.extension)
+
+  /**
+   * A MIDI file's timeline is arithmetic over ticks, so it is derived here
+   * rather than reported by a drawing library: there is nothing to draw. The
+   * engraved path still comes from OSMD's own model (ADR-0005).
+   */
+  const midiTimeline = useMemo(() => {
+    if (!midi || content.status !== 'ready') return null
+    try {
+      return timelineFromMidi(content.bytes, { scoreId: content.id, quantiseTo })
+    } catch (err) {
+      return err as Error
+    }
+  }, [midi, content, quantiseTo])
+
+  const midiError = midiTimeline instanceof Error ? midiTimeline.message : null
+  const timeline = midi
+    ? midiTimeline instanceof Error
+      ? null
+      : midiTimeline
+    : (loaded?.timeline ?? null)
+  const barCount = midi ? (timeline?.bars.length ?? 0) : (loaded?.barCount ?? 0)
   const report = practice.state.status === 'ready' ? practice.state.report : null
 
   useEffect(() => {
@@ -92,7 +125,7 @@ export function Score() {
       // because only the renderer parses it (ADR-0005). Written back once.
       const meta =
         library.state.status === 'ready'
-          ? library.state.scores.find((s) => s.id === selectedId)
+          ? library.state.scores.find((entry) => entry.id === selectedId)
           : undefined
       if (info.title !== '' && meta !== undefined && meta.title !== info.title) {
         void library.recordTitle(meta.id, info.title)
@@ -304,6 +337,26 @@ export function Score() {
               >
                 Clear
               </button>
+
+              {midi && (
+                <>
+                  <label className={styles.field} htmlFor="quantise">
+                    Snap to
+                  </label>
+                  <select
+                    id="quantise"
+                    className={styles.port}
+                    value={String(quantiseTo)}
+                    onChange={(event) => setQuantiseTo(Number(event.target.value))}
+                    data-testid="quantise"
+                  >
+                    <option value={String(NO_QUANTISE)}>nothing</option>
+                    <option value="0.25">a sixteenth</option>
+                    <option value="0.5">an eighth</option>
+                    <option value="1">a quarter</option>
+                  </select>
+                </>
+              )}
             </div>
 
             {recording && (
@@ -334,6 +387,11 @@ export function Score() {
                 Could not draw this score: {renderError}
               </p>
             )}
+            {midiError !== null && (
+              <p className={styles.error} role="alert" data-testid="score-error">
+                Could not read this MIDI file: {midiError}
+              </p>
+            )}
             {content.status === 'error' && (
               <p className={styles.error} role="alert" data-testid="score-error">
                 Could not read this score: {content.message}
@@ -350,7 +408,7 @@ export function Score() {
               />
             )}
 
-            {content.status === 'ready' && (
+            {content.status === 'ready' && !midi && (
               <div className={styles.scroll}>
                 <OsmdView
                   id={content.id}
@@ -358,6 +416,16 @@ export function Score() {
                   marks={marks}
                   onLoaded={onLoaded}
                   onError={onError}
+                  onBarClick={setSelectedBar}
+                />
+              </div>
+            )}
+            {content.status === 'ready' && midi && timeline !== null && (
+              <div className={styles.scroll} data-testid="osmd-paper" data-score-id={content.id}>
+                <BarList
+                  timeline={timeline}
+                  marks={marks}
+                  selected={selectedBar}
                   onBarClick={setSelectedBar}
                 />
               </div>

@@ -98,14 +98,37 @@ that plan's implementation log.
 ### Scores
 
 The **Score** view keeps a library of pieces. *Add a score...* opens a file dialog and accepts
-`.musicxml`, `.xml` and `.mxl`; the file is copied verbatim into the app's data folder under an id
-that is a hash of its bytes, so importing the same file twice is one entry and a take can always
-be re-aligned against the exact bytes it was played against. Editing the piece and re-importing
-makes a new entry rather than silently changing what an old take was judged against.
+`.musicxml`, `.xml` and `.mxl`, and also `.mid` and `.midi`; the file is copied verbatim into the
+app's data folder under an id that is a hash of its bytes, so importing the same file twice is one
+entry and a take can always be re-aligned against the exact bytes it was played against. Editing
+the piece and re-importing makes a new entry rather than silently changing what an old take was
+judged against.
 
-Bars are indexed the way the notation engine parsed them, starting at zero, which is not always
-the number printed on the page -- an anacrusis is bar 0. The bar field above the score marks one,
-and clicking a bar marks it too; that is the same mechanism per-bar feedback will use.
+Bars are indexed the way the file was parsed, starting at zero, which is not always the number
+printed on the page -- an anacrusis is bar 0. The bar field above the score marks one, and
+clicking a bar marks it too.
+
+**A MIDI file is a second-class score**
+([ADR-0003](docs/adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md)).
+It carries no notation, so there is nothing to engrave: the view shows a bar grid instead of a
+stave, with the same colouring, the same selection and the same bar detail. Onsets snap to a
+sixteenth by default -- a file recorded from a performance has no grid of its own -- and the
+setting is on screen rather than implied.
+
+## Practising a piece
+
+Open a score, choose what to play from, press *Practise*, and play it through. Nothing is judged
+while you play. Press *Stop and show me* and the bars colour: green where you played what is
+written, amber where the timing wandered, red where the notes did not match, and grey for the bars
+you never reached. Clicking a bar says what happened in it, note by note.
+
+The tempo is not given to you and not assumed: one tempo is fitted to what you actually played,
+and each bar is judged against that. Playing the whole piece evenly at half speed is playing it
+correctly, and the app says so.
+
+With nothing plugged in, the *Play from* list includes generated performances of the fixture
+pieces -- including one with a deliberate wrong note in bar 3 -- so the whole path can be watched
+end to end without an instrument.
 
 ## Working in this repository
 

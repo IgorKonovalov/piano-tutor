@@ -37,9 +37,14 @@ describe('scoreExtensionOf', () => {
     expect(scoreExtensionOf('a.MxL')).toBe('.mxl')
   })
 
+  it('accepts a MIDI file, which is a score with no engraving in it', () => {
+    expect(scoreExtensionOf('a.mid')).toBe('.mid')
+    expect(scoreExtensionOf('a.MIDI')).toBe('.midi')
+  })
+
   it('rejects anything else', () => {
-    expect(scoreExtensionOf('a.mid')).toBeUndefined()
     expect(scoreExtensionOf('a.pdf')).toBeUndefined()
+    expect(scoreExtensionOf('a.mp3')).toBeUndefined()
     expect(scoreExtensionOf('a')).toBeUndefined()
   })
 })
@@ -112,12 +117,21 @@ describe('importScore', () => {
     expect(listScores(directory)).toHaveLength(2)
   })
 
-  it('refuses a file that is not MusicXML', () => {
+  it('refuses a file whose extension it does not know', () => {
     const path = join(directory, 'notes.txt')
     writeFileSync(path, 'not a score')
     expect(() =>
       importScore({ directory, sourcePath: path, importedAt: at('2026-09-10T09:00:00.000Z') })
-    ).toThrow(/not a MusicXML file/)
+    ).toThrow(/not a score this app reads/)
+  })
+
+  it('refuses something named .mid that is not one, on the dialog rather than later', () => {
+    const path = join(directory, 'pretend.mid')
+    writeFileSync(path, 'this is not a MIDI file')
+    expect(() =>
+      importScore({ directory, sourcePath: path, importedAt: at('2026-09-10T09:00:00.000Z') })
+    ).toThrow(/not a MIDI file this app can read/)
+    expect(listScores(directory)).toEqual([])
   })
 })
 

@@ -5,9 +5,11 @@ import {
   SCORE_EXTENSIONS,
   SCORE_LIBRARY_VERSION,
   ScoreMetaSchema,
+  isMidiScore,
   type ScoreExtension,
   type ScoreMeta,
 } from '../../shared/score'
+import { assertReadableMidi } from './midiImport'
 
 /**
  * The score library under `userData/scores/<id>/`: the imported file byte for
@@ -82,10 +84,17 @@ export interface ImportOptions {
 export function importScore(options: ImportOptions): ScoreMeta {
   const extension = scoreExtensionOf(options.sourcePath)
   if (extension === undefined) {
-    throw new Error(`${basename(options.sourcePath)} is not a MusicXML file`)
+    throw new Error(`${basename(options.sourcePath)} is not a score this app reads`)
   }
 
   const bytes = readFileSync(options.sourcePath)
+  // A MIDI file is checked here so a renamed .pdf fails on the dialog the
+  // player just used, not on a blank score five clicks later. A MusicXML file
+  // is not: main does not parse those at all (ADR-0005), and the Score view
+  // reports what OSMD makes of it.
+  if (isMidiScore(extension)) {
+    assertReadableMidi(new Uint8Array(bytes), basename(options.sourcePath))
+  }
   const id = scoreIdFor(bytes)
   const metaPath = scoreMetaPath(options.directory, id)
   if (existsSync(metaPath)) return readMeta(metaPath)
