@@ -467,7 +467,7 @@ type PracticeReport = {
 | 3 — The app plays the score, badly on purpose | dev | done | 7da16b5 |
 | 4 — A take aligns to a score | dev | done | 43373bb |
 | 5 — The score colours and the numbers show | dev | done | 6f704b2 |
-| 6 — A MIDI file is a second-class score | dev | done | committed with this row |
+| 6 — A MIDI file is a second-class score | dev | done | 85350e9 |
 | 7 — At the piano, with a real piece | human | not started | deferred, see Notes |
 
 ### Measurements
