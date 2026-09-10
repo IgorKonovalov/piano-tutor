@@ -16,6 +16,7 @@ import {
   playedGroups,
   withoutOrnaments,
 } from './onsetGroups'
+import { findRestarts } from './restarts'
 import {
   type BarredPair,
   type LocalTempo,
@@ -71,6 +72,9 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
   const played = playedGroups(input.events, input.onsetWindowMs ?? ONSET_WINDOW_MS)
   const alignment = align(expected, played, { band: input.band })
   const fit = fitTempo(confidentPairs(alignment, expected, played))
+  // Before the verdicts, because it decides which leftover groups are extra
+  // notes and which are the player having gone back over a bar.
+  const { restarts, accountedPlayed } = findRestarts(alignment, expected, played)
 
   const notes = new Map<number, NoteVerdict[]>()
   /**
@@ -165,6 +169,9 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
     } else {
       const playedGroup = played[step.played]
       if (playedGroup === undefined) continue
+      // A group a restart accounts for is not an extra note. It is a note the
+      // score does contain, struck a second time on the way back (ADR-0014).
+      if (accountedPlayed.has(step.played)) continue
       for (const pitch of playedGroup.pitches) {
         push(lastBar, { kind: 'extra', played: pitch })
       }
@@ -225,6 +232,7 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
       bars,
       fittedTempo: fit === null ? null : fit.qpm,
       counts,
+      restarts,
       unalignableFromBar,
     },
     alignment,

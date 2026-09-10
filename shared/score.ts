@@ -196,6 +196,24 @@ export const BarVerdictSchema = z.object({
 })
 export type BarVerdict = z.infer<typeof BarVerdictSchema>
 
+/**
+ * The player went back over music they had already played -- a false start,
+ * a fumble, a bar taken again before carrying on.
+ *
+ * It is **sized by the score, not by the take**: one entry per restart naming
+ * the bar and how many note-ons the repeat accounted for, never the notes
+ * themselves. That is the same property the bar list rests on and the reason
+ * the coach's budget (NFR 7) stays reachable however many times a player
+ * repeats a passage.
+ */
+export const RestartVerdictSchema = z.object({
+  /** The bar they resumed from. */
+  bar: z.number().int().nonnegative(),
+  /** How many note-ons the repeat accounted for; not the notes. */
+  notes: z.number().int().nonnegative(),
+})
+export type RestartVerdict = z.infer<typeof RestartVerdictSchema>
+
 export const PracticeReportSchema = z.object({
   scoreId: z.string(),
   takeId: z.string(),
@@ -209,6 +227,12 @@ export const PracticeReportSchema = z.object({
     missing: z.number().int().nonnegative(),
     extra: z.number().int().nonnegative(),
   }),
+  /**
+   * Where the player went back over music they had already played, in order.
+   * The notes a restart accounts for are **not** in `counts.extra`: they were
+   * correct notes played twice, which is care rather than error (ADR-0014).
+   */
+  restarts: z.array(RestartVerdictSchema),
   /** The first bar the matcher lost, or null when the take aligned throughout. */
   unalignableFromBar: z.number().int().nonnegative().nullable(),
 })

@@ -350,8 +350,8 @@ interface PracticeReportAdditions {
 | phase | owner | state | commit |
 |---|---|---|---|
 | 1 — The generator restarts, and slows down | dev | done | 60050f7 |
-| 2 — A bar is judged against its neighbours | dev | done | committed with this row |
-| 3 — A restart is named, not counted as mistakes | dev | | |
+| 2 — A bar is judged against its neighbours | dev | done | 6ba8f05 |
+| 3 — A restart is named, not counted as mistakes | dev | done | committed with this row |
 | 4 — The tempo you kept, and the shape you gave it | dev | | |
 | 5 — How fussy the app should be | dev | | |
 | 6 — At the piano, with the takes that started this | human | | |
@@ -398,6 +398,18 @@ interface PracticeReportAdditions {
   pace, is not what this reports.
 - **Phase 2, NFR 14's "long pause" is between two bars.** A pause in the middle of a bar makes
   that bar genuinely uneven and is reported; the row and its test say so.
+- **Phase 3, a restart is a run of leftover groups that re-covers score matched elsewhere.** The
+  phase block says "already matched"; the implementation asks whether the stretch is matched
+  *anywhere* in the alignment rather than whether it was matched *before* the run. Both readings
+  are the same take, and the weaker one does not depend on which of the two copies the matcher
+  chose to keep — a tie it breaks on cost alone.
+- **Phase 3, the e2e passage wait became a floor rather than an exact count.** Practising
+  `virtual:score:scale-c-major-restart` reached the renderer's "notes so far" banner as 18 of 19.
+  The missing one is a **pre-existing race in the Score view**, not event loss: the view subscribes
+  to `midi:event` after `window.api.midi.open()` resolves, and a generated note at `t = 0` is
+  emitted synchronously inside `open()` before the renderer is listening. Main records it, and the
+  take on disk carries all 19 — the report the test asserts on is built from the take. Not fixed
+  here: `renderer/views/Score.tsx` is outside this phase's file list. Followup below.
 - **Phase 1, the ratio assertions are to two decimal places.** `playNotes` rounds to whole
   milliseconds, so a ratio over one ~667 ms gap carries about a part in a thousand of rounding.
 
@@ -414,3 +426,6 @@ interface PracticeReportAdditions {
 - **Re-answer Plan 0002 Phase 7 item 6** in that plan's log, and close Plan 0002. This plan
   existing is the reason that one is still open.
 - **Whether a restart should split the tempo curve**, not merely be reported. See Risks.
+- **The Score view's "notes so far" counter can miss a note struck at `t = 0`**, because it
+  subscribes after `window.api.midi.open()` resolves. Display only — the take is complete — but it
+  is one line to move. Found in Phase 3; see the note above.

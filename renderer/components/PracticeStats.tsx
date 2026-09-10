@@ -8,6 +8,11 @@ import styles from './PracticeStats.module.css'
  *
  * The worst-bars list is the useful half. A count of wrong notes says a take
  * went badly; a list of bars says where to start again.
+ *
+ * A restart reads as a **sentence**, not as a mark on the score. The player
+ * did nothing wrong there, so there is no colour that would be honest, and
+ * saying it in words is what keeps colour from being the only carrier of
+ * anything here.
  */
 
 /** More than this and the list stops being a place to start and becomes a wall. */
@@ -64,6 +69,19 @@ export function PracticeStats({ report, elapsedMs }: PracticeStatsProps) {
           testId="stat-tempo"
         />
       </dl>
+
+      {report.restarts.length > 0 && (
+        <p className={styles.restarts} data-testid="stat-restarts">
+          {report.restarts.map((restart, index) => (
+            <span key={restart.bar} data-bar={restart.bar} data-notes={restart.notes}>
+              {index > 0 && ' '}
+              You went back over bar {restart.bar} and played {restart.notes}{' '}
+              {restart.notes === 1 ? 'note' : 'notes'} again.
+            </span>
+          ))}{' '}
+          Those are not counted as wrong or extra.
+        </p>
+      )}
 
       {report.unalignableFromBar !== null && (
         <p className={styles.lost} role="alert" data-testid="stat-unalignable">

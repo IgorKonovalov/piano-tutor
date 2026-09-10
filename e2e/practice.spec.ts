@@ -59,12 +59,19 @@ async function waitForPassage(page: Page, expected: number): Promise<number> {
   throw new Error(`only ${last} of ${expected} notes arrived`)
 }
 
-async function practise(scenarioId: string): Promise<void> {
+/**
+ * `atLeast` is a floor, not the count: what ends the wait is the counter
+ * standing still. The banner subscribes after `open()` resolves, so a note the
+ * generator puts at t = 0 is emitted before the renderer is listening and is
+ * missing from the count -- from the count only; main records it, and the take
+ * on disk is what the report is built from.
+ */
+async function practise(scenarioId: string, atLeast = PIECE_NOTES): Promise<void> {
   const { page } = launched
   await page.getByTestId('practice-port').selectOption(scenarioId)
   await page.getByTestId('practice-toggle').click()
   await expect(page.getByTestId('practice-recording')).toBeVisible()
-  await waitForPassage(page, PIECE_NOTES)
+  await waitForPassage(page, atLeast)
   await page.getByTestId('practice-toggle').click()
   await expect(page.getByTestId('practice-stats')).toBeVisible()
 }
@@ -237,4 +244,32 @@ test('a session too short to keep does not report a previous take', async () => 
   await expect(page.getByTestId('practice-error')).toContainText('too short to keep')
   expect(await page.getByTestId('practice-stats').count()).toBe(0)
   expect(first).not.toBeNull()
+})
+
+test('a false start is named as a restart, not counted as extra notes', async () => {
+  // The take ADR-0014 was written from, in miniature: the player reaches the
+  // end of bar 2, goes back, plays it again and carries on.
+  test.setTimeout(180_000)
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView(launched)
+  await importScore(launched, 'scale-c-major.musicxml')
+
+  // Fifteen written notes and four played again; the floor allows for the
+  // one the counter can miss at t = 0.
+  await practise('virtual:score:scale-c-major-restart', 15)
+
+  const restarts = page.getByTestId('stat-restarts')
+  await expect(restarts).toBeVisible()
+  await expect(restarts).toContainText('went back over bar 2')
+  await expect(restarts.locator('[data-bar="2"]')).toHaveAttribute('data-notes', '4')
+
+  // What the repeat accounted for is not a mistake of any kind, and the whole
+  // piece still reads as played: four bars, every one of them clean.
+  await expect(page.getByTestId('stat-extra')).toHaveText('0')
+  await expect(page.getByTestId('stat-wrong')).toHaveText('0')
+  await expect(page.getByTestId('stat-missing')).toHaveText('0')
+  await expect(page.locator('[data-testid="bar-mark"][data-state="clean"]')).toHaveCount(4)
+
+  expect(launched.networkRequests).toEqual([])
 })

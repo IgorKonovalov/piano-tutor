@@ -776,3 +776,56 @@ describe('timing is judged against the bars around it', () => {
     expect(report.bars[report.bars.length - 1]?.timingDeviation).toBe(0)
   })
 })
+
+describe('a restart is named, not counted as mistakes', () => {
+  it('reports one restart at the bar the oracle declared, and no extra notes', () => {
+    const perturbation: Perturbation = { kind: 'restartAtBar', bar: 2 }
+    const { take, report } = run('scale-c-major', { perturbations: [perturbation] })
+
+    const declared = take.verdicts[0]
+    if (declared?.kind !== 'restart') throw new Error('the oracle changed shape')
+
+    expect(report.restarts).toEqual([{ bar: declared.bar, notes: declared.notes }])
+
+    // The notes the repeat accounts for were previously the whole of
+    // `counts.extra`, and they were correct notes: the player was being
+    // careful, not wrong (ADR-0014).
+    expect(declared.notes).toBeGreaterThan(0)
+    expect(report.counts.extra).toBe(0)
+    expect(report.counts.wrongPitch).toBe(0)
+    expect(report.counts.missing).toBe(0)
+    expect(states(report)).toEqual(report.bars.map(() => 'clean'))
+  })
+
+  it('reports an empty list for a take with no restart in it', () => {
+    expect(run('scale-c-major').report.restarts).toEqual([])
+    expect(run('pickup-two-hands').report.restarts).toEqual([])
+  })
+
+  it('reports two restarts in a take that has two', () => {
+    const { report } = run('scale-c-major', {
+      perturbations: [
+        { kind: 'restartAtBar', bar: 1 },
+        { kind: 'restartAtBar', bar: 2 },
+      ],
+    })
+    expect(report.restarts.map((restart) => restart.bar)).toEqual([1, 2])
+    expect(report.counts.extra).toBe(0)
+  })
+
+  it('stays sized by the score: a restart does not grow the report', () => {
+    // NFR 7's lever, and the reason a restart is one entry naming a bar rather
+    // than a list of the notes it covered. A player who goes back three times
+    // must not hand the coach three passages of MIDI.
+    const plain = run('scale-c-major').report
+    const restarted = run('scale-c-major', {
+      perturbations: [
+        { kind: 'restartAtBar', bar: 1 },
+        { kind: 'restartAtBar', bar: 2 },
+      ],
+    }).report
+
+    const size = (report: PracticeReport) => JSON.stringify(report).length
+    expect(size(restarted) / size(plain)).toBeLessThan(1.1)
+  })
+})
