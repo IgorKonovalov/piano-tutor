@@ -20,14 +20,22 @@ not in passing.
 
 | 12 | **Alignment turnaround.** Stop pressed to a coloured score. | ≤ 2 s at p95 for a 10-minute take against a 200-bar score, on the development machine | Timed in the renderer around the `core/` alignment call and reported in the plan's implementation log. The property that keeps it there, and the thing a test asserts, is the shape of the work: alignment is banded, so its cost is linear in the take's onset groups rather than quadratic, and the report it returns is sized by bars, not by events (ADR-0005). |
 
-**Properties are asserted; milliseconds are reported.** Rows 2, 3, 7, 8, 9 and 11 state properties
-that hold on any machine and are checked by tests. Rows 1, 4, 5, 6, 10 and 12 are measurements of one
+| 13 | **Playback fidelity.** What the app plays reaches the output complete, in order, with nothing left sounding — and each note-on is dispatched close to its scheduled time. | Property: 0 events dropped or reordered, and 0 notes sounding once playback ends or is stopped, over a 500-event schedule. Measurement: onset error ≤ 10 ms at p95, ≤ 25 ms at max. | The property is the row's reason for existing — a stuck note rings on someone's instrument until they find the switch — and it is asserted in three places with nothing attached: a `core/` test over every schedule the suite builds, a unit test over the bytes handed to a faked `Output`, and an e2e run counting `player:event` in the renderer (ADR-0004's rule: observe through the real surface). The milliseconds are a measurement of the development machine, reported into the plan's implementation log and never asserted. Windows' default 15.6 ms timer granularity is the known hazard against the target; a first measurement that misses it revises this row by ADR rather than being tuned around. |
+
+**Properties are asserted; milliseconds are reported.** Rows 2, 3, 7, 8, 9, 11 and 13 state properties
+that hold on any machine and are checked by tests. Rows 1, 4, 5, 6, 10, 12 and 13 are measurements of one
 machine: they are run by hand, written into the plan's implementation log against the machine
-that produced them, and never asserted in a test CI runs.
+that produced them, and never asserted in a test CI runs. Row 13 appears in both lists on purpose:
+its property is what a test defends and its milliseconds are what a human reports.
 
 ## What is deliberately not a requirement
 
-- **Audio.** The CK88 is the sound source. The application never synthesises, never opens an
-  audio device, and never needs Local Control changed.
+- **Audio, as the instrument's voice.** The CK88 is the sound source: it sounds what the player
+  presses, and under ADR-0007 it sounds what the app sends it over MIDI. The application never
+  reproduces a piano and never needs Local Control changed. **Revised by ADR-0008**, which admits
+  one bounded exception: a synthesised Web Audio tone in the renderer, sounded only for notes the
+  app itself is playing back, only when no hardware output is doing it, shipping no samples and no
+  audio files and making no network request. A note the player presses is never sounded by the
+  app, and no audio device is opened while the app is only listening.
 - **Multi-user, accounts, sync.** Local files only, by interview decision.
 - **Live coaching during a passage.** Deferred in the interview; NFR 6 is an on-demand budget.

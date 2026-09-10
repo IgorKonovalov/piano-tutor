@@ -3,7 +3,7 @@
 The one-minute "what is in flight" view. Read this first each session instead of re-deriving
 state from `git log`. Completed plans move to `done/`.
 
-**Next free number: 0004** (ADRs are a separate sequence; next free there is **0006**.)
+**Next free number: 0005** (ADRs are a separate sequence; next free there is **0009**.)
 
 ## Active roster
 
@@ -14,6 +14,7 @@ to pick the plan up. The plan file carries everything else.
 |------|-------|--------|-------|-----------------|
 | [0002](0002-a-piece-is-practised.md) | A piece is practised | draft | dev, human | ADR-0003, 0004, 0005. Score in, take aligned after the fact, bars coloured. Its dependency on Plan 0001 is met — that plan closed 2026-09-10, so the takes, the seams and the harness are all in. Feedback is after the take, not live; repeats are not unfolded in v1. Phase 7 is a real piece at the piano and it is the only evidence the generator cannot supply. |
 | [0003](0003-the-coach-speaks.md) | The coach speaks | draft | dev, human | ADR-0002 is its whole design. One-shot Analyse, replies saved beside the take, free-play and practised takes both summarised. Every `dev` phase runs on a recorded fixture reply and a stub binary, so it queues with no subscription; **Phase 2 is a spike against the real `claude` CLI** and Phase 6 is the only phase where a model actually answers. |
+| [0004](0004-the-app-plays-the-piece.md) | The app plays the piece | draft | dev, human | ADR-0007 and 0008 are its whole design; the second one reverses the standing "no audio" non-requirement, bounded to a sample-free fallback tone. Demonstration only — no accompaniment, no score following. Phases 1 and 2 need nothing from Plan 0002; Phase 3 needs its `ExpectedTimeline`. The feature's real risk is a stuck note on the instrument, which is why the schedule invariant is in `core/` and the panic is in main. |
 
 ## Recently closed
 
@@ -34,26 +35,32 @@ rewriting it a plan later. The score plan is also entirely `dev`-ownable against
 where the coach carries a credential-shaped `human` phase.
 
 1. **A piece is practised** — drafted as Plan [0002](0002-a-piece-is-practised.md).
-2. **The coach speaks** — drafted as Plan [0003](0003-the-coach-speaks.md).
-3. **Exercises with a score** — the generator in `core/` (scales, arpeggios, chord progressions,
+2. **The app plays the piece** — drafted as Plan [0004](0004-the-app-plays-the-piece.md), the
+   roadmap's "MIDI out to demonstrate a passage" grown into a plan after the 2026-09-10 interview.
+   Placed here because its Phase 3 needs Plan 0002's `ExpectedTimeline`; its first two phases need
+   nothing and could run earlier. **Whether it or the coach runs first is an open call** — they are
+   independent, and the coach is the one already numbered lower.
+3. **The coach speaks** — drafted as Plan [0003](0003-the-coach-speaks.md).
+4. **Exercises with a score** — the generator in `core/` (scales, arpeggios, chord progressions,
    a sight-reading drill) emitting MusicXML so it rides Plan 0002's path; accuracy and evenness
    scoring; a history per exercise in a local SQLite file (the first time the app needs more than
    JSON Lines). The seeded generator of ADR-0004 is already half of this.
-4. **The first release** — electron-builder zip, the native binary included, install size
+5. **The first release** — electron-builder zip, the native binary included, install size
    recorded (NFR 10), a READ-ME-FIRST for a second machine. **Verify both harness affordances are
    absent from the packaged build** — ADR-0004's virtual ports and Plan 0003's fixture coach
    provider; that check belongs in this plan's done-when.
 
-**Not drafted yet, deliberately.** Plans 3 and 4 above wait on evidence rather than on time.
+**Not drafted yet, deliberately.** Items 4 and 5 above wait on evidence rather than on time.
 Exercises need a decision ADR-0005 just reopened — whether the generator emits MusicXML (heavy,
 but engraved, which sight-reading needs) or an `ExpectedTimeline` directly (light, but nothing to
 draw) — and the answer depends on how Plan 0002's adapter actually feels; it also needs an ADR for
 SQLite, the first store that is not JSON Lines. The release plan is almost entirely claims about a
 tree that does not exist yet, and it is the cheapest of all of these to write once it does.
 
-Later, each needing its own interview: MIDI out to demonstrate a passage through the CK88; a
-Bluetooth or DIN adapter as a second `MidiSource`; MIDI-to-notation transcription (ADR-0003
-Alternative C); a tablet port of the renderer.
+Later, each needing its own interview: score following, so the app can accompany the player
+rather than only demonstrate to them (cut from Plan 0004 deliberately); a Bluetooth or DIN adapter
+as a second `MidiSource`; MIDI-to-notation transcription (ADR-0003 Alternative C); a tablet port of
+the renderer.
 
 ## Conventions
 
