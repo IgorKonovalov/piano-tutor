@@ -1,6 +1,6 @@
 import { Input } from '@julusian/midi'
 import type { MidiPort } from '../../shared/midi'
-import type { MidiSource } from './MidiSource'
+import { MidiPortUnavailable, type MidiSource } from './MidiSource'
 import { type HarnessGate, listVirtualPorts } from './virtualPorts'
 
 /**
@@ -14,10 +14,16 @@ import { type HarnessGate, listVirtualPorts } from './virtualPorts'
  *
  * The probe is skipped while this source holds a port open: reopening a handle
  * underneath a live input is the one thing polling could plausibly disturb.
+ *
+ * Port ids are `hw:<index>`, where the index is RtMidi's own, not Windows'.
  */
+const HARDWARE_PORT_ID = /^hw:(\d+)$/
+
 export class RtMidiSource implements MidiSource {
   private openPortIndex: number | null = null
   private probe: Input | null = null
+  private input: Input | null = null
+  private listeners = new Set<(bytes: Uint8Array, t: number) => void>()
 
   constructor(private readonly gate: HarnessGate) {}
 
@@ -67,17 +73,57 @@ export class RtMidiSource implements MidiSource {
     }
   }
 
-  async open(_portId: string): Promise<void> {
-    throw new Error('RtMidiSource cannot open a port yet')
+  async open(portId: string): Promise<void> {
+    const match = HARDWARE_PORT_ID.exec(portId)
+    if (match === null) throw new MidiPortUnavailable(portId, `${portId} is not a hardware port`)
+    const index = Number(match[1])
+
+    await this.close()
+    const input = new Input()
+    // Clock and active sensing arrive continuously from some instruments and
+    // carry nothing any view reads; dropping them at the source keeps the take
+    // file and the event log about what was played. Sysex is let through so it
+    // lands as a typed `unknown` rather than vanishing.
+    input.ignoreTypes(false, true, true)
+
+    input.on('message', (_deltaTime, message) => {
+      // Stamped first, before anything parses it: NFR 1 measures everything
+      // the app adds from this instant on.
+      const t = performance.timeOrigin + performance.now()
+      const bytes = Uint8Array.from(message)
+      for (const listener of this.listeners) listener(bytes, t)
+    })
+
+    try {
+      input.openPort(index)
+    } catch (err) {
+      input.destroy()
+      throw new MidiPortUnavailable(
+        portId,
+        `Windows would not open this port: ${(err as Error).message}. ` +
+          'There is no system-wide MIDI sharing, so another application may be holding it.'
+      )
+    }
+
+    this.input = input
+    this.openPortIndex = index
   }
 
   async close(): Promise<void> {
+    if (this.input !== null) {
+      this.input.closePort()
+      this.input.destroy()
+      this.input = null
+    }
     this.openPortIndex = null
     this.probe?.destroy()
     this.probe = null
   }
 
-  onMessage(_cb: (bytes: Uint8Array, t: number) => void): () => void {
-    throw new Error('RtMidiSource does not deliver messages yet')
+  onMessage(cb: (bytes: Uint8Array, t: number) => void): () => void {
+    this.listeners.add(cb)
+    return () => {
+      this.listeners.delete(cb)
+    }
   }
 }

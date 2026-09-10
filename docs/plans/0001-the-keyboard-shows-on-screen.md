@@ -442,8 +442,8 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — The shell opens and lists the ports | dev | done | committed with this row |
-| 2 — The keys light up, and the app can play itself | dev | not started | |
+| 1 — The shell opens and lists the ports | dev | done | 37ae827 |
+| 2 — The keys light up, and the app can play itself | dev | done | committed with this row |
 | 3 — The notes get names | dev | not started | |
 | 4 — The staff draws what is held | dev | not started | |
 | 5 — Every session is a take | dev | not started | |
@@ -452,8 +452,11 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 
 ### Measurements
 
-- **NFR 11 (Phase 2, keyboard only), synthetic:** frame delta p95 _, max _; milliseconds p50 _,
-  p95 _, max _ over 500 events from `virtual:dense-2000`, on _ (machine).
+- **NFR 11 (Phase 2, keyboard only), synthetic:** frame delta p50 1, p95 1, max 1; milliseconds
+  p50 6.1, p95 23.3, max 29.5 over 500 note-ons from `virtual:dense-2000` (2 200 events, 18 s),
+  on the development machine (Windows 10, Electron 44). Read from the dev-only overlay with the
+  window in the foreground. **These milliseconds never crossed USB and are not NFR 1**; NFR 1 is
+  Phase 7.
 - **NFR 11 (Phase 4, staff mounted), synthetic:** frame delta p95 _, max _; milliseconds p50 _,
   p95 _, max _.
 - **NFR 4 (Phase 6), synthetic:** `app.whenReady` to first painted key _ ms.
@@ -478,6 +481,29 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 - Followup not acted on: the preload bundle is 727 kB because Zod is bundled into it. It parses
   one push channel's payload per event from Phase 2, so it stays for now; if NFR 4 is missed at
   Phase 6, this is the first place to look.
+- Phase 2 also edited `renderer/views/Ports.tsx` and `renderer/App.tsx`, neither in its file list.
+  Its done-when requires opening `virtual:dense-2000` and `virtual:ii-V-I-in-F` from the app, and
+  nothing in the listed files can select a port or reach the live view.
+- `MidiEvent.t` is `performance.timeOrigin + performance.now()` at arrival, not the bare
+  `performance.now()` the plan's illustrative shape shows. Main and the renderer are separate
+  processes with separate time origins, so bare values cannot be subtracted and NFR 1 could not be
+  measured at all; the epoch anchor makes both clocks comparable.
+- Main serialises `midi:open` and `midi:close` through a promise queue. React's development
+  double-mount sends open, close, open within a frame, and without the queue the close landed
+  after the second open and left the port shut while the view believed it was listening.
+- `useMidiEvents` subscribes on mount rather than after `open()` resolves: a source can deliver
+  its first message inside `open()` (the synthetic one does, for anything due at t=0), so waiting
+  lost the head of every passage.
+- Measured, not guessed: the event log's rows are memoised and the log holds 60 entries. Through
+  `virtual:dense-2000` the unmemoised 250-row log cost p50 37.3 ms / p95 103.4 ms; memoising took
+  it to 27.1 / 49.2 and 60 rows took it to 6.1 / 23.3. The frame delta was 1 in every one of those
+  runs, so NFR 11 alone would not have caught it -- the milliseconds are what showed it.
+- The renderer's event count reads 2 201 rather than 2 200 for `virtual:dense-2000` under the Vite
+  dev server: React's StrictMode opens the port twice, and the first open's t=0 event arrives
+  before the second one restarts the scenario. A production build does not double-invoke, and the
+  built app counts 2 200.
+- Not acted on: RtMidi's `open`, `close` and `onMessage` have no automated test. They need a
+  device; `SyntheticSource` covers the same seam and the parser, and Phase 7 covers the rest.
 
 ## Followups (after this lands)
 

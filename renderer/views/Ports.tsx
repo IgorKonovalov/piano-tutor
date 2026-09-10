@@ -14,7 +14,11 @@ type LoadState =
   | { status: 'error'; message: string }
   | { status: 'ready'; ports: MidiPort[] }
 
-export function Ports() {
+export interface PortsProps {
+  onOpen: (port: MidiPort) => void
+}
+
+export function Ports({ onOpen }: PortsProps) {
   const [state, setState] = useState<LoadState>({ status: 'loading' })
 
   const refresh = useCallback(async () => {
@@ -65,6 +69,7 @@ export function Ports() {
             testId="port-group-hardware"
             ports={state.ports.filter((p) => p.kind === 'hardware')}
             emptyText="Nothing connected. Plug the CK88 into the USB TO HOST port; the list refreshes on its own."
+            onOpen={onOpen}
           />
           <PortGroup
             title="Harness"
@@ -72,6 +77,7 @@ export function Ports() {
             note="Generated passages the app plays into its own pipeline. Not devices."
             ports={state.ports.filter((p) => p.kind === 'virtual')}
             emptyText="Disabled in this build."
+            onOpen={onOpen}
           />
         </>
       )}
@@ -84,10 +90,11 @@ interface PortGroupProps {
   testId: string
   ports: MidiPort[]
   emptyText: string
+  onOpen: (port: MidiPort) => void
   note?: string
 }
 
-function PortGroup({ title, testId, ports, emptyText, note }: PortGroupProps) {
+function PortGroup({ title, testId, ports, emptyText, note, onOpen }: PortGroupProps) {
   return (
     <div className={styles.group} data-testid={testId}>
       <h2 className={styles.groupHeading}>
@@ -99,7 +106,7 @@ function PortGroup({ title, testId, ports, emptyText, note }: PortGroupProps) {
       ) : (
         <ul className={styles.list}>
           {ports.map((port) => (
-            <PortRow key={port.id} port={port} />
+            <PortRow key={port.id} port={port} onOpen={onOpen} />
           ))}
         </ul>
       )}
@@ -113,8 +120,9 @@ const AVAILABILITY_LABEL: Record<MidiPort['availability'], string> = {
   unknown: 'Unknown',
 }
 
-function PortRow({ port }: { port: MidiPort }) {
+function PortRow({ port, onOpen }: { port: MidiPort; onOpen: (port: MidiPort) => void }) {
   const isVirtual = port.kind === 'virtual'
+  const openable = port.availability !== 'busy'
   return (
     <li
       className={isVirtual ? `${styles.port} ${styles.virtual}` : styles.port}
@@ -141,6 +149,15 @@ function PortRow({ port }: { port: MidiPort }) {
       >
         {isVirtual ? 'Harness' : AVAILABILITY_LABEL[port.availability]}
       </span>
+      <button
+        type="button"
+        className={styles.open}
+        disabled={!openable}
+        onClick={() => onOpen(port)}
+        data-testid="port-open"
+      >
+        {isVirtual ? 'Play' : 'Open'}
+      </button>
     </li>
   )
 }

@@ -1,0 +1,103 @@
+.keyboard {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  user-select: none;
+}
+
+.whiteRow {
+  display: flex;
+  height: 100%;
+  gap: 1px;
+}
+
+.white {
+  flex: 1;
+  min-width: 0;
+  border-radius: 0 0 var(--radius-1) var(--radius-1);
+  background: #f2f4f7;
+  border: 1px solid #cbd2dc;
+  border-top: none;
+}
+
+.blackLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.black {
+  position: absolute;
+  top: 0;
+  height: 62%;
+  border-radius: 0 0 var(--radius-1) var(--radius-1);
+  background: #23262c;
+  border: 1px solid #0c0e11;
+  border-top: none;
+}
+
+/*
+ * A pressed key is tinted and lifted. The shade comes from velocity as an
+ * inline custom property, so a burst of events changes one value per key
+ * rather than swapping class names.
+ */
+.pressed {
+  background: color-mix(in srgb, var(--color-accent) calc(var(--velocity) * 100%), #f2f4f7);
+  box-shadow: inset 0 -3px 0 var(--color-accent);
+}
+
+.black.pressed {
+  background: color-mix(in srgb, var(--color-accent) calc(var(--velocity) * 100%), #23262c);
+}
+
+/*
+ * A note the pedal is holding after the key came up. Different mark, not just
+ * a different shade: the state is different and colour is never the only
+ * carrier of it.
+ */
+.pedalled {
+  background: color-mix(in srgb, var(--color-virtual) 45%, #f2f4f7);
+  box-shadow: inset 0 -3px 0 var(--color-virtual);
+}
+
+.black.pedalled {
+  background: color-mix(in srgb, var(--color-virtual) 55%, #23262c);
+}
+
+.middleC {
+  border-bottom: 3px solid var(--color-fg-dim);
+}
+
+.pedals {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.pedal {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-1);
+  font-size: 12px;
+  color: var(--color-fg-dim);
+  background: var(--color-bg-raised);
+}
+
+.pedalDown {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.pedalDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid currentcolor;
+}
+
+.pedalDown .pedalDot {
+  background: currentcolor;
+}

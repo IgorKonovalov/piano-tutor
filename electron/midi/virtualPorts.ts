@@ -1,4 +1,5 @@
-import type { MidiPort } from '../../shared/midi'
+import type { MidiEvent, MidiPort } from '../../shared/midi'
+import { findScenarioById } from '../../core/src/midi/generate'
 
 /**
  * The vocabulary of generated passages the app can play into its own pipeline
@@ -13,9 +14,12 @@ export interface VirtualScenario {
   id: string
   name: string
   description: string
+  /** The passage itself, generated fresh from its seed on every open. */
+  generate(): MidiEvent[]
 }
 
-export const VIRTUAL_SCENARIOS: readonly VirtualScenario[] = [
+/** How each scenario is presented; the notes come from `core/`. */
+const SCENARIO_LABELS = [
   {
     id: 'virtual:c-major-scale',
     name: 'C major scale',
@@ -37,6 +41,19 @@ export const VIRTUAL_SCENARIOS: readonly VirtualScenario[] = [
     description: '100 events/s sustained with two 2 s bursts of 200/s',
   },
 ] as const
+
+/**
+ * The display table joined to the generators. Resolving at module load means a
+ * label naming a scenario `core/` does not have is a startup failure rather
+ * than an empty port the user clicks and nothing happens.
+ */
+export const VIRTUAL_SCENARIOS: readonly VirtualScenario[] = SCENARIO_LABELS.map((label) => {
+  const scenario = findScenarioById(label.id)
+  if (scenario === undefined) {
+    throw new Error(`virtualPorts: core/ has no generator for ${label.id}`)
+  }
+  return { ...label, generate: () => scenario.generate() }
+})
 
 /**
  * What the harness gate reads. Passed in rather than imported so this module —

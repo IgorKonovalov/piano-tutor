@@ -1,0 +1,49 @@
+.overlay {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 10;
+  min-width: 250px;
+  padding: var(--space-3);
+  background: rgb(10 12 15 / 92%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--color-fg-dim);
+}
+
+.title {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+  color: var(--color-fg);
+  font-weight: 600;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, 46px);
+  gap: var(--space-2);
+  text-align: right;
+}
+
+.label {
+  text-align: left;
+}
+
+.value {
+  color: var(--color-fg);
+}
+
+.over {
+  color: var(--color-error);
+}
+
+.note {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  font-size: 10px;
+}

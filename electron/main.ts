@@ -2,6 +2,7 @@ import { type BrowserWindow, app } from 'electron'
 import { createWindow, getRendererPaths, installCsp } from './window'
 import { cleanupMidiHandlers, registerMidiHandlers } from './ipc/midiHandlers'
 import { RtMidiSource } from './midi/RtMidiSource'
+import { SyntheticSource } from './midi/SyntheticSource'
 
 /**
  * Lifecycle: whenReady -> installCsp -> registerIpcHandlers -> createWindow.
@@ -16,17 +17,19 @@ if (process.platform === 'win32') {
 
 let mainWindow: BrowserWindow | null = null
 
-const source = new RtMidiSource({
+const gate = {
   get isPackaged() {
     return app.isPackaged
   },
   env: process.env,
-})
+}
+const rtMidi = new RtMidiSource(gate)
+const synthetic = new SyntheticSource(gate)
 
 void app.whenReady().then(() => {
   const isDev = !app.isPackaged
   installCsp(isDev)
-  registerMidiHandlers({ source })
+  registerMidiHandlers({ rtMidi, synthetic, getWindow: () => mainWindow })
 
   const paths = getRendererPaths()
   mainWindow = createWindow({
@@ -43,6 +46,5 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  cleanupMidiHandlers()
-  void source.close()
+  void cleanupMidiHandlers()
 })
