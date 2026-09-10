@@ -49,6 +49,16 @@ export function scoredNotes(timeline: ExpectedTimeline): ExpectedNote[] {
   return timeline.notes.filter((note) => !note.grace)
 }
 
+/**
+ * The ornaments, in onset order. They are what `scoredNotes` leaves behind,
+ * and they are not discarded: alignment attaches them to the group they
+ * decorate as optional pitches, so that playing one costs nothing and leaving
+ * one out costs nothing (ADR-0009).
+ */
+export function graceNotes(timeline: ExpectedTimeline): ExpectedNote[] {
+  return timeline.notes.filter((note) => note.grace)
+}
+
 /** The piece's length in quarter notes, from the bar table rather than the notes. */
 export function totalQuarters(timeline: ExpectedTimeline): number {
   const last = timeline.bars[timeline.bars.length - 1]

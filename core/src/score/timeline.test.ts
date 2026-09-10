@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { ExpectedTimelineSchema, type ExpectedTimeline } from '../../../shared/score'
+import {
+  ExpectedTimelineSchema,
+  type ExpectedNote,
+  type ExpectedTimeline,
+} from '../../../shared/score'
+import grace from '../../fixtures/scores/grace-note.timeline.json'
 import keyAndTime from '../../fixtures/scores/key-and-time-change.timeline.json'
 import multiRest from '../../fixtures/scores/multi-rest-and-ties.timeline.json'
 import pickup from '../../fixtures/scores/pickup-two-hands.timeline.json'
@@ -9,6 +14,7 @@ import {
   barTableProblems,
   canonicalTimeline,
   compareNotes,
+  graceNotes,
   noteBarProblems,
   notesInBar,
   scoredNotes,
@@ -28,6 +34,7 @@ const FIXTURES: Record<string, ExpectedTimeline> = {
   'pickup-two-hands': ExpectedTimelineSchema.parse(pickup),
   'key-and-time-change': ExpectedTimelineSchema.parse(keyAndTime),
   'multi-rest-and-ties': ExpectedTimelineSchema.parse(multiRest),
+  'grace-note': ExpectedTimelineSchema.parse(grace),
 }
 
 describe.each(Object.entries(FIXTURES))('%s', (_name, timeline) => {
@@ -182,6 +189,33 @@ describe('canonicalTimeline and timelineFingerprint', () => {
   it('tells two different scores apart', () => {
     const fingerprints = Object.values(FIXTURES).map(timelineFingerprint)
     expect(new Set(fingerprints).size).toBe(fingerprints.length)
+  })
+})
+
+describe('grace-note', () => {
+  const timeline = FIXTURES['grace-note'] as ExpectedTimeline
+
+  it('carries the ornament as a note, marked, rather than dropping it', () => {
+    const ornaments = graceNotes(timeline)
+    expect(ornaments).toHaveLength(1)
+    // B4 before the written C5: the acciaccatura in bar 2 (index 1).
+    expect(ornaments[0]?.midi).toBe(71)
+    expect(ornaments[0]?.bar).toBe(1)
+  })
+
+  it('puts the ornament at the onset of the note it decorates', () => {
+    const ornament = graceNotes(timeline)[0] as ExpectedNote
+    const principal = scoredNotes(timeline).find((note) => note.midi === 72)
+    expect(principal).toBeDefined()
+    expect(ornament.onset).toBe(principal?.onset)
+  })
+
+  it('leaves the ornament out of what is scored, and only the ornament', () => {
+    expect(scoredNotes(timeline)).toHaveLength(timeline.notes.length - 1)
+    expect(scoredNotes(timeline).some((note) => note.grace)).toBe(false)
+    expect(scoredNotes(timeline).map((note) => note.midi)).toEqual([
+      60, 62, 64, 65, 67, 69, 72, 74, 76, 77, 79,
+    ])
   })
 })
 

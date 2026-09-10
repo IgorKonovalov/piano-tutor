@@ -2,6 +2,7 @@ import {
   type ExpectedGroup,
   type PlayedGroup,
   pitchDifference,
+  withoutOrnaments,
 } from './onsetGroups'
 
 /**
@@ -68,6 +69,33 @@ const MAX_ABSORBED_GROUPS = 8
  * costs nothing and nothing beats nothing.
  */
 const ROLL_COST = 1
+
+/**
+ * How far this group's pitches are from what the player struck, with the
+ * group's ornaments removed from the played side first (ADR-0009). Every cost
+ * in the matcher goes through here, so an ornament can never make a step look
+ * more expensive than the same passage without one.
+ */
+export function ornamentAwareDifference(
+  group: ExpectedGroup,
+  struck: readonly number[]
+): number {
+  return pitchDifference(group.pitches, withoutOrnaments(struck, group.optionalPitches))
+}
+
+/**
+ * How many played groups one expected group may absorb. A written chord bounds
+ * it by the notes in the chord; an ornament adds to that bound, because a
+ * grace note struck ahead of its principal arrives as **its own played group**
+ * -- 50 ms cannot hold an acciaccatura together with the note it decorates,
+ * and no window could without also merging two deliberate beats.
+ *
+ * That is the case the ornament rule mostly turns on: not an extra pitch
+ * inside a matched group, but a whole group that is nothing but ornament.
+ */
+function absorbLimit(group: ExpectedGroup): number {
+  return Math.min(MAX_ABSORBED_GROUPS, group.pitches.length + group.optionalPitches.length)
+}
 
 export type Step =
   /**
@@ -193,7 +221,7 @@ export function align(
       let absorbed = 1
       if (i > 0 && j > 0 && expectedGroup !== undefined && playedGroup !== undefined) {
         const substitution =
-          at(i - 1, j - 1) + pitchDifference(expectedGroup.pitches, playedGroup.pitches)
+          at(i - 1, j - 1) + ornamentAwareDifference(expectedGroup, playedGroup.pitches)
         if (substitution < best) {
           best = substitution
           how = 'match'
@@ -201,17 +229,31 @@ export function align(
         }
 
         // The same written chord against a run of played groups: the chord as
-        // the player actually broke it.
-        const most = Math.min(MAX_ABSORBED_GROUPS, expectedGroup.pitches.length, j)
+        // the player actually broke it, or the ornament they played ahead of
+        // it, or both.
+        //
+        // `ROLL_COST` is charged per *spread* group, and a group that is
+        // nothing but this group's ornaments is not one: it is not part of the
+        // chord, it is the decoration in front of it. Charging it would make
+        // taking an ornament cost more than leaving it out, which is the one
+        // thing ADR-0009 says must not happen.
+        const most = Math.min(absorbLimit(expectedGroup), j)
         const union = [...playedGroup.pitches]
+        let ornamentGroups = 0
         for (let run = 2; run <= most; run++) {
           const earlier = played[j - run]
           if (earlier === undefined) break
           union.push(...earlier.pitches)
+          if (
+            expectedGroup.optionalPitches.length > 0 &&
+            withoutOrnaments(earlier.pitches, expectedGroup.optionalPitches).length === 0
+          ) {
+            ornamentGroups++
+          }
           const rolled =
             at(i - 1, j - run) +
-            pitchDifference(expectedGroup.pitches, [...union].sort((a, b) => a - b)) +
-            (run - 1) * ROLL_COST
+            ornamentAwareDifference(expectedGroup, [...union].sort((a, b) => a - b)) +
+            Math.max(0, run - 1 - ornamentGroups) * ROLL_COST
           if (rolled < best) {
             best = rolled
             how = 'match'
@@ -247,7 +289,7 @@ export function align(
         difference:
           expectedGroup === undefined
             ? 0
-            : pitchDifference(expectedGroup.pitches, [...struck].sort((a, b) => a - b)),
+            : ornamentAwareDifference(expectedGroup, [...struck].sort((a, b) => a - b)),
       })
       i--
       j -= run
@@ -305,9 +347,7 @@ function findUnalignable(
       sharesNothing = true
     } else {
       const expectedGroup = expected[step.expected]
-      sharesNothing =
-        expectedGroup !== undefined &&
-        step.difference >= expectedGroup.pitches.length + struckCount(played, step)
+      sharesNothing = expectedGroup !== undefined && matchSharesNothing(expectedGroup, played, step)
     }
 
     if (!sharesNothing) {
@@ -320,6 +360,50 @@ function findUnalignable(
     if (run >= band && runStartsAt !== null) return runStartsAt
   }
   return null
+}
+
+/**
+ * True when a matched step has not one pitch in common with what was written:
+ * the difference is as large as it could possibly be, which is every expected
+ * pitch missing plus every struck one unaccounted for.
+ *
+ * The struck side is counted **after** the group's ornaments come out
+ * (ADR-0009), because `step.difference` was computed that way too. Counting
+ * them here and not there would make a group with an ornament look like it
+ * shared something it did not, and a run of those is what earns
+ * `unalignableFrom`.
+ */
+function matchSharesNothing(
+  expectedGroup: ExpectedGroup,
+  played: readonly PlayedGroup[],
+  step: Extract<Step, { kind: 'match' }>
+): boolean {
+  const kept = withoutOrnaments(struckPitches(played, step), expectedGroup.optionalPitches)
+  return step.difference >= expectedGroup.pitches.length + kept.length
+}
+
+/**
+ * When the player arrived at this group, for the purpose of timing.
+ *
+ * Not simply the first group of the run: an ornament is struck **ahead of the
+ * beat**, so a grace note is the wrong thing to measure a bar's timing from --
+ * it would read a correctly placed note as early by however long the player
+ * took over the ornament. The beat is the first group in the run that carries
+ * a pitch the score actually scores.
+ */
+export function arrivalTime(
+  expectedGroup: ExpectedGroup,
+  played: readonly PlayedGroup[],
+  step: Extract<Step, { kind: 'match' }>
+): number {
+  const fallback = played[step.played]?.t ?? 0
+  if (expectedGroup.optionalPitches.length === 0) return fallback
+  for (let k = 0; k < step.playedCount; k++) {
+    const group = played[step.played + k]
+    if (group === undefined) continue
+    if (withoutOrnaments(group.pitches, expectedGroup.optionalPitches).length > 0) return group.t
+  }
+  return fallback
 }
 
 /** How many pitches a match consumed from the played side. */
@@ -360,9 +444,10 @@ export function confidentPairs(
     if (expectedGroup === undefined || playedGroup === undefined) continue
     // A group where nothing at all matched says nothing about when the player
     // meant to be; it would drag the fit towards a note they did not intend.
-    if (step.difference >= expectedGroup.pitches.length + struckCount(played, step)) continue
-    // The first note of a broken chord is when the player arrived at it.
-    pairs.push({ onset: expectedGroup.onset, t: playedGroup.t })
+    if (matchSharesNothing(expectedGroup, played, step)) continue
+    // The first note of a broken chord is when the player arrived at it -- but
+    // an ornament ahead of the beat is not the arrival.
+    pairs.push({ onset: expectedGroup.onset, t: arrivalTime(expectedGroup, played, step) })
   }
   return pairs
 }

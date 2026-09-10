@@ -1,6 +1,6 @@
 import type { MidiEvent } from '../../../shared/midi'
 import type { ExpectedNote, ExpectedTimeline } from '../../../shared/score'
-import { scoredNotes } from '../score/timeline'
+import { graceNotes, scoredNotes } from '../score/timeline'
 
 /**
  * Both sides of the comparison, reduced to **onset groups** before anything is
@@ -32,6 +32,17 @@ export interface ExpectedGroup {
   notes: ExpectedNote[]
   /** Sorted, and a multiset: a doubled pitch is two entries. */
   pitches: number[]
+  /**
+   * The ornaments written against this group: grace notes, sorted, a multiset
+   * like `pitches`. **They cost nothing struck and nothing skipped** (ADR-0009)
+   * -- they are removed from what the player played before the two sets are
+   * compared, and they produce no verdict of any kind.
+   *
+   * The player is learning the notes of a piece; an appoggiatura they leave
+   * out while they do is not a mistake, and one they put in is not an extra
+   * note. Judging ornaments is a later decision and a superseding ADR.
+   */
+  optionalPitches: number[]
 }
 
 export interface PlayedNoteOn {
@@ -66,7 +77,7 @@ export function expectedGroups(timeline: ExpectedTimeline): ExpectedGroup[] {
     else existing.push(note)
   }
 
-  return [...byOnset.entries()]
+  const groups = [...byOnset.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([onset, notes], index) => ({
       index,
@@ -76,7 +87,35 @@ export function expectedGroups(timeline: ExpectedTimeline): ExpectedGroup[] {
       bar: notes[0]?.bar ?? 0,
       notes,
       pitches: sortedPitches(notes.map((note) => note.midi)),
+      optionalPitches: [] as number[],
     }))
+
+  attachOrnaments(groups, timeline)
+  return groups
+}
+
+/**
+ * A grace note joins the group at its own onset, and failing that the first
+ * group at or after it -- never the one before (ADR-0009). An ornament
+ * anticipates the note it decorates; it never trails the previous one, so
+ * attaching backwards would charge its pitch to a beat the player had already
+ * left.
+ *
+ * A grace note written after the last scored group has nothing to decorate and
+ * is dropped: there is no group whose judgement it could soften.
+ */
+function attachOrnaments(groups: ExpectedGroup[], timeline: ExpectedTimeline): void {
+  if (groups.length === 0) return
+  for (const note of graceNotes(timeline)) {
+    const host =
+      groups.find((group) => group.onset === note.onset) ??
+      groups.find((group) => group.onset > note.onset)
+    if (host === undefined) continue
+    host.optionalPitches.push(note.midi)
+  }
+  for (const group of groups) {
+    if (group.optionalPitches.length > 1) group.optionalPitches.sort((a, b) => a - b)
+  }
 }
 
 /**
@@ -148,6 +187,23 @@ export function pitchDifference(a: readonly number[], b: readonly number[]): num
     }
   }
   return difference + (a.length - i) + (b.length - j)
+}
+
+/**
+ * What the player struck, with this group's ornaments taken back out
+ * (ADR-0009). Everything downstream -- the cost of a step, the verdicts, the
+ * counts -- sees only what is left, which is why an ornament played produces
+ * no `extra` and an ornament skipped produces no `missing`.
+ *
+ * A group with no ornament is the overwhelmingly common case and returns a
+ * copy without touching the multiset arithmetic.
+ */
+export function withoutOrnaments(
+  played: readonly number[],
+  optional: readonly number[]
+): number[] {
+  if (optional.length === 0) return [...played]
+  return pitchesMissingFrom(played, optional)
 }
 
 /** The pitches in `a` that `b` does not have, as a multiset. */

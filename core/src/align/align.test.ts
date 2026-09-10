@@ -8,13 +8,17 @@ import { BAND, align, confidentPairs } from './align'
  * here may change when every played time is multiplied by a constant.
  */
 
-function expected(pitchesPerGroup: number[][]): ExpectedGroup[] {
+function expected(
+  pitchesPerGroup: number[][],
+  ornaments: Record<number, number[]> = {}
+): ExpectedGroup[] {
   return pitchesPerGroup.map((pitches, index) => ({
     index,
     onset: index,
     bar: Math.floor(index / 4),
     notes: [],
     pitches: [...pitches].sort((a, b) => a - b),
+    optionalPitches: [...(ornaments[index] ?? [])].sort((a, b) => a - b),
   }))
 }
 
@@ -271,5 +275,79 @@ describe('a chord the player broke', () => {
     expect(alignment.steps.every((step) => step.kind === 'match' && step.playedCount === 1)).toBe(
       true
     )
+  })
+})
+
+describe('an ornament costs nothing either way (ADR-0009)', () => {
+  // A written C5 in the middle of a line, with a grace B4 against it. The
+  // grace is struck ahead of the beat, so it arrives as its OWN played group:
+  // 50 ms cannot hold an acciaccatura together with the note it decorates, and
+  // that -- not an extra pitch inside a matched group -- is the case the rule
+  // mostly turns on.
+  const WITH_ORNAMENT = expected([[60], [62], [72], [74]], { 2: [71] })
+
+  it('absorbs the ornament struck ahead of the beat', () => {
+    const alignment = align(WITH_ORNAMENT, played([[60], [62], [71], [72], [74]]))
+
+    expect(alignment.cost).toBe(0)
+    expect(alignment.steps.filter((step) => step.kind === 'extra')).toEqual([])
+    expect(alignment.steps.filter((step) => step.kind === 'missing')).toEqual([])
+    // Four written groups, four matches; the ornament rode in on its principal.
+    expect(alignment.steps).toHaveLength(4)
+    const decorated = alignment.steps[2]
+    expect(decorated?.kind).toBe('match')
+    if (decorated?.kind === 'match') expect(decorated.playedCount).toBe(2)
+  })
+
+  it('costs nothing when the ornament is left out', () => {
+    const alignment = align(WITH_ORNAMENT, played([[60], [62], [72], [74]]))
+
+    expect(alignment.cost).toBe(0)
+    expect(alignment.steps).toHaveLength(4)
+    expect(alignment.steps.every((step) => step.kind === 'match')).toBe(true)
+  })
+
+  it('is the same cost whether the ornament was played or not', () => {
+    const taken = align(WITH_ORNAMENT, played([[60], [62], [71], [72], [74]]))
+    const left = align(WITH_ORNAMENT, played([[60], [62], [72], [74]]))
+    expect(taken.cost).toBe(left.cost)
+  })
+
+  it('still finds a wrong note on the beat the ornament decorates', () => {
+    // The ornament is forgiven; the principal played a semitone out is not,
+    // and it is exactly as wrong as the same slip on an undecorated note.
+    const decorated = align(WITH_ORNAMENT, played([[60], [62], [71], [73], [74]])).steps[2]
+    const bare = align(expected([[60], [62], [72], [74]]), played([[60], [62], [73], [74]]))
+      .steps[2]
+
+    expect(decorated?.kind).toBe('match')
+    expect(bare?.kind).toBe('match')
+    if (decorated?.kind === 'match' && bare?.kind === 'match') {
+      expect(decorated.difference).toBe(bare.difference)
+      expect(decorated.difference).toBeGreaterThan(0)
+    }
+  })
+
+  it('does not forgive an unwritten note that is not the ornament', () => {
+    const alignment = align(WITH_ORNAMENT, played([[60], [62], [66], [72], [74]]))
+    expect(alignment.cost).toBeGreaterThan(0)
+  })
+})
+
+describe('timing reads the beat, not the ornament that anticipates it', () => {
+  it('pairs the principal time with the score onset, not the grace note time', () => {
+    const groups = expected([[60], [72]], { 1: [71] })
+    // The grace at 400 ms, the principal on the beat at 500 ms.
+    const take: PlayedGroup[] = [
+      { index: 0, t: 0, notes: [{ midi: 60, t: 0, velocity: 70 }], pitches: [60] },
+      { index: 1, t: 400, notes: [{ midi: 71, t: 400, velocity: 70 }], pitches: [71] },
+      { index: 2, t: 500, notes: [{ midi: 72, t: 500, velocity: 70 }], pitches: [72] },
+    ]
+
+    const pairs = confidentPairs(align(groups, take), groups, take)
+    expect(pairs).toEqual([
+      { onset: 0, t: 0 },
+      { onset: 1, t: 500 },
+    ])
   })
 })

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ExpectedTimelineSchema, type ExpectedTimeline } from '../../../shared/score'
 import type { MidiEvent } from '../../../shared/midi'
+import graceJson from '../../fixtures/scores/grace-note.timeline.json'
 import multiRestJson from '../../fixtures/scores/multi-rest-and-ties.timeline.json'
 import pickupJson from '../../fixtures/scores/pickup-two-hands.timeline.json'
 import {
@@ -9,10 +10,12 @@ import {
   pitchDifference,
   pitchesMissingFrom,
   playedGroups,
+  withoutOrnaments,
 } from './onsetGroups'
 
 const pickup: ExpectedTimeline = ExpectedTimelineSchema.parse(pickupJson)
 const multiRest: ExpectedTimeline = ExpectedTimelineSchema.parse(multiRestJson)
+const grace: ExpectedTimeline = ExpectedTimelineSchema.parse(graceJson)
 
 function on(t: number, note: number): MidiEvent {
   return { kind: 'noteOn', t, ch: 0, note, velocity: 70 }
@@ -104,6 +107,71 @@ describe('playedGroups', () => {
     const ordered = playedGroups([on(0, 60), on(10, 64), on(800, 67)])
     const jumbled = playedGroups([on(800, 67), on(10, 64), on(0, 60)])
     expect(jumbled).toEqual(ordered)
+  })
+})
+
+describe('ornaments attach to the group they decorate (ADR-0009)', () => {
+  it('hangs the grace note off its principal, and off no other group', () => {
+    const groups = expectedGroups(grace)
+    const decorated = groups.filter((group) => group.optionalPitches.length > 0)
+
+    expect(decorated).toHaveLength(1)
+    // B4 optional, C5 scored: the same group, and the ornament is not one of
+    // the pitches the player is judged on.
+    expect(decorated[0]?.optionalPitches).toEqual([71])
+    expect(decorated[0]?.pitches).toEqual([72])
+  })
+
+  it('leaves the ornament out of the scored sequence entirely', () => {
+    const groups = expectedGroups(grace)
+    expect(groups.flatMap((group) => group.pitches)).not.toContain(71)
+    // Eleven scored notes, each its own onset: one group apiece.
+    expect(groups).toHaveLength(11)
+  })
+
+  it('attaches forwards when no group sits on the ornament, never backwards', () => {
+    // A grace note timestamped a shade ahead of its principal, which is what
+    // OSMD produces for some engravings. It must decorate the note it comes
+    // before, not the beat the player has already left.
+    const ahead: ExpectedTimeline = {
+      ...grace,
+      notes: grace.notes.map((note) =>
+        note.grace ? { ...note, onset: note.onset - 0.25 } : note
+      ),
+    }
+    const groups = expectedGroups(ahead)
+    const host = groups.find((group) => group.optionalPitches.length > 0)
+
+    expect(host?.pitches).toEqual([72])
+    expect(host?.onset).toBe(6)
+  })
+
+  it('drops an ornament with nothing after it to decorate', () => {
+    // A grace note past the last scored note decorates nothing, so there is no
+    // group whose judgement it could soften. Dropping it is the honest end of
+    // "attaches forwards, never backwards".
+    const trailing: ExpectedTimeline = {
+      ...grace,
+      notes: grace.notes.map((note) => (note.grace ? { ...note, onset: 99 } : note)),
+    }
+    const groups = expectedGroups(trailing)
+    expect(groups.every((group) => group.optionalPitches.length === 0)).toBe(true)
+  })
+})
+
+describe('withoutOrnaments', () => {
+  it('takes each ornament out once, not every copy of that pitch', () => {
+    // The player struck the grace B4 and also a written B4 in the same group.
+    // One of them is the ornament; the other is a note they are judged on.
+    expect(withoutOrnaments([71, 71, 72], [71])).toEqual([71, 72])
+  })
+
+  it('leaves a group with no ornament exactly as it was', () => {
+    expect(withoutOrnaments([60, 64, 67], [])).toEqual([60, 64, 67])
+  })
+
+  it('ignores an ornament the player did not strike', () => {
+    expect(withoutOrnaments([72], [71])).toEqual([72])
   })
 })
 

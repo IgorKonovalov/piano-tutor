@@ -7,12 +7,14 @@ import {
   type PracticeReport,
 } from '../../../shared/score'
 import type { MidiEvent } from '../../../shared/midi'
+import graceJson from '../../fixtures/scores/grace-note.timeline.json'
 import keyAndTimeJson from '../../fixtures/scores/key-and-time-change.timeline.json'
 import multiRestJson from '../../fixtures/scores/multi-rest-and-ties.timeline.json'
 import pickupJson from '../../fixtures/scores/pickup-two-hands.timeline.json'
 import scaleJson from '../../fixtures/scores/scale-c-major.timeline.json'
 import { DEFAULT_BPM } from '../midi/generate'
 import { type Perturbation, perturb } from '../midi/perturb'
+import { scoredNotes } from '../score/timeline'
 import { barsByTiming, practiceReport } from './report'
 
 /**
@@ -29,6 +31,7 @@ const TIMELINES: Record<string, ExpectedTimeline> = {
   'pickup-two-hands': ExpectedTimelineSchema.parse(pickupJson),
   'key-and-time-change': ExpectedTimelineSchema.parse(keyAndTimeJson),
   'multi-rest-and-ties': ExpectedTimelineSchema.parse(multiRestJson),
+  'grace-note': ExpectedTimelineSchema.parse(graceJson),
 }
 
 const SEED = 20260910
@@ -36,6 +39,8 @@ const SEED = 20260910
 interface RunOptions {
   perturbations?: readonly Perturbation[]
   jitter?: boolean
+  /** Whether the generated performance takes the ornaments (ADR-0009). */
+  ornaments?: 'skipped' | 'played'
 }
 
 function run(name: keyof typeof TIMELINES | string, options: RunOptions = {}) {
@@ -44,6 +49,7 @@ function run(name: keyof typeof TIMELINES | string, options: RunOptions = {}) {
   const take = perturb(timeline, {
     seed: SEED,
     jitter: options.jitter,
+    ornaments: options.ornaments,
     perturbations: options.perturbations,
   })
   const report = PracticeReportSchema.parse(
@@ -71,7 +77,9 @@ describe('a clean take of every fixture score', () => {
     expect(report.counts.wrongPitch).toBe(0)
     expect(report.counts.missing).toBe(0)
     expect(report.counts.extra).toBe(0)
-    expect(report.counts.correct).toBe(timeline.notes.length)
+    // Scored notes, not every note: an ornament is in the timeline and is
+    // judged neither way (ADR-0009).
+    expect(report.counts.correct).toBe(scoredNotes(timeline).length)
     expect(report.unalignableFromBar).toBeNull()
   })
 
@@ -429,6 +437,86 @@ describe('a piece played with broken chords', () => {
     const report = practiceReport({ timeline, events, takeId: 'broken-wrong' })
     expect(report.counts.wrongPitch).toBe(1)
     expect(report.counts.missing).toBe(0)
+    expect(report.counts.extra).toBe(0)
+  })
+})
+
+describe('an ornament is scored neither way (ADR-0009)', () => {
+  const ORNAMENT_BAR = 1
+
+  it('is clean when the player takes the ornament, with no extra note', () => {
+    // The defect this fixture exists for: before ADR-0009 the grace note
+    // matched nothing on the expected side, so playing what is written was
+    // charged as an extra note and reddened the bar.
+    const { report } = run('grace-note', { ornaments: 'played' })
+
+    expect(states(report)).toEqual(report.bars.map(() => 'clean'))
+    expect(report.counts.extra).toBe(0)
+    expect(report.counts.wrongPitch).toBe(0)
+    expect(report.counts.missing).toBe(0)
+    expect(verdicts(report, 'extra')).toEqual([])
+  })
+
+  it('is clean when the player leaves the ornament out, with nothing missing', () => {
+    const { report } = run('grace-note', { ornaments: 'skipped' })
+
+    expect(states(report)).toEqual(report.bars.map(() => 'clean'))
+    expect(report.counts.missing).toBe(0)
+    expect(report.counts.extra).toBe(0)
+    expect(verdicts(report, 'missing')).toEqual([])
+  })
+
+  it('reports the same counts either way', () => {
+    const taken = run('grace-note', { ornaments: 'played' }).report
+    const left = run('grace-note', { ornaments: 'skipped' }).report
+    expect(taken.counts).toEqual(left.counts)
+  })
+
+  it('never names the ornament in any verdict', () => {
+    // B4 is the grace note. It appears in the timeline and must appear in no
+    // verdict at all -- not correct, not missing, not extra, not wrong.
+    const { report } = run('grace-note', { ornaments: 'played' })
+    const mentioned = report.bars.flatMap((bar) =>
+      bar.notes.flatMap((note) => [
+        'expected' in note ? note.expected : -1,
+        'played' in note ? note.played : -1,
+      ])
+    )
+    expect(mentioned).not.toContain(71)
+  })
+
+  it('does not read the ornament as the beat when timing the bar', () => {
+    // The generator strikes the grace note ahead of its principal. If the bar
+    // were timed from the ornament it would read early by that lead, so the
+    // decorated bar must sit no further from the fitted tempo than the others.
+    const { report } = run('grace-note', { ornaments: 'played', jitter: false })
+    const decorated = report.bars.find((bar) => bar.bar === ORNAMENT_BAR)
+    const worst = Math.max(
+      ...report.bars.filter((bar) => bar.bar !== ORNAMENT_BAR).map((bar) =>
+        Math.abs(bar.timingDeviation)
+      )
+    )
+
+    expect(decorated?.state).toBe('clean')
+    expect(Math.abs(decorated?.timingDeviation ?? 0)).toBeLessThanOrEqual(worst + 1)
+  })
+
+  it('still finds a wrong note in the bar that carries the ornament', () => {
+    // The ornament is forgiven; a real mistake beside it is not.
+    // Index 3 of the played bar is C5, the note the grace decorates. Index 2
+    // is the ornament itself, and perturbing that would be asking the aligner
+    // to report something ADR-0009 says it must never report.
+    const { take, report } = run('grace-note', {
+      ornaments: 'played',
+      perturbations: [{ kind: 'substitutePitch', bar: ORNAMENT_BAR, index: 3 }],
+    })
+    const declared = take.verdicts[0]
+    if (declared?.kind !== 'wrongPitch') throw new Error('the oracle changed shape')
+    expect(declared.expected).toBe(72)
+
+    const wrong = verdicts(report, 'wrongPitch')
+    expect(wrong).toHaveLength(1)
+    expect(wrong[0]?.bar).toBe(declared.bar)
     expect(report.counts.extra).toBe(0)
   })
 })

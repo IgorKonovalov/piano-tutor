@@ -5,6 +5,7 @@ import {
   DEFAULT_BPM,
   type PlayOptions,
   type PlayedNote,
+  type TimelineNoteOptions,
   playNotes,
   timelineNotes,
 } from './generate'
@@ -60,7 +61,7 @@ export type ExpectedVerdict =
   | { kind: 'timing'; bar: number }
   | { kind: 'notAttempted'; bar: number }
 
-export interface PerturbOptions extends PlayOptions {
+export interface PerturbOptions extends PlayOptions, TimelineNoteOptions {
   perturbations?: readonly Perturbation[]
 }
 
@@ -102,7 +103,7 @@ export function perturb(
   timeline: ExpectedTimeline,
   options: PerturbOptions = {}
 ): PerturbedTake {
-  let notes = timelineNotes(timeline)
+  let notes = timelineNotes(timeline, options)
   const verdicts: ExpectedVerdict[] = []
   let tempoScale = options.tempoScale ?? 1
 

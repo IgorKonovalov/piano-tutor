@@ -6,7 +6,7 @@ import type {
   NoteVerdict,
   PracticeReport,
 } from '../../../shared/score'
-import { type Alignment, align, confidentPairs, struckPitches } from './align'
+import { type Alignment, align, arrivalTime, confidentPairs, struckPitches } from './align'
 import {
   type ExpectedGroup,
   type PlayedGroup,
@@ -14,6 +14,7 @@ import {
   expectedGroups,
   pitchesMissingFrom,
   playedGroups,
+  withoutOrnaments,
 } from './onsetGroups'
 import { type TempoFit, deviationMs, fitTempo } from './tempo'
 
@@ -97,8 +98,11 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
       lastMatchedExpected = Math.max(lastMatchedExpected, step.expected)
 
       // A match may span several played groups when the player broke the
-      // chord, so what it is judged against is every note in the run.
-      const heard = struckPitches(played, step)
+      // chord, so what it is judged against is every note in the run -- minus
+      // this group's ornaments, which are scored neither way (ADR-0009). A
+      // grace note the player struck is not in `heard` at all, so it reaches
+      // no verdict, no count and no bar state.
+      const heard = withoutOrnaments(struckPitches(played, step), expectedGroup.optionalPitches)
       const heardNotes = played
         .slice(step.played, step.played + step.playedCount)
         .flatMap((group) => group.notes)
@@ -131,9 +135,13 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
       }
 
       if (fit !== null && absent.length < expectedGroup.pitches.length) {
-        deviations
-          .get(expectedGroup.bar)
-          ?.push(deviationMs(fit, { onset: expectedGroup.onset, t: playedGroup.t }))
+        deviations.get(expectedGroup.bar)?.push(
+          deviationMs(fit, {
+            onset: expectedGroup.onset,
+            // The beat, not the ornament that anticipates it.
+            t: arrivalTime(expectedGroup, played, step),
+          })
+        )
       }
     } else if (step.kind === 'missing') {
       const expectedGroup = expected[step.expected]

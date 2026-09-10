@@ -1,6 +1,6 @@
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
 import type { ExpectedTimeline } from '../../../shared/score'
-import { scoredNotes } from '../score/timeline'
+import { graceNotes, roundQuarters, scoredNotes } from '../score/timeline'
 import { makeRng } from './rng'
 
 /**
@@ -258,17 +258,55 @@ export function playNotes(notes: readonly PlayedNote[], options: PlayOptions = {
   return byTime(events)
 }
 
-/** Every note the score expects to be struck; grace notes are not scored. */
-export function timelineNotes(timeline: ExpectedTimeline): PlayedNote[] {
-  return scoredNotes(timeline).map((note) => ({
+/**
+ * How far ahead of its principal an ornament is struck, in quarter notes. At
+ * the default tempo that is a little over eighty milliseconds -- deliberately
+ * **outside** the 50 ms grouping window, because a grace note arriving as its
+ * own played group is the case ADR-0009 exists for. A generator that placed it
+ * on the beat would test the easy half and leave the real one uncovered.
+ */
+export const GRACE_LEAD_QUARTERS = 0.125
+
+export interface TimelineNoteOptions {
+  /**
+   * Whether the player takes the ornaments. Both are correct playing
+   * (ADR-0009), and `skipped` is the default because it is what a player
+   * learning the notes does.
+   */
+  ornaments?: 'skipped' | 'played'
+}
+
+/**
+ * Every note the score expects to be struck. Grace notes are not scored, so
+ * they are left out unless the caller asks for a performance that takes them.
+ */
+export function timelineNotes(
+  timeline: ExpectedTimeline,
+  options: TimelineNoteOptions = {}
+): PlayedNote[] {
+  const played = scoredNotes(timeline).map((note) => ({
     midi: note.midi,
     onset: note.onset,
     duration: note.duration,
     bar: note.bar,
   }))
+  if (options.ornaments !== 'played') return played
+
+  for (const note of graceNotes(timeline)) {
+    played.push({
+      midi: note.midi,
+      onset: roundQuarters(Math.max(0, note.onset - GRACE_LEAD_QUARTERS)),
+      duration: GRACE_LEAD_QUARTERS,
+      bar: note.bar,
+    })
+  }
+  return played
 }
 
 /** The piece, played correctly. `perturb.ts` is how it is played wrongly. */
-export function playTimeline(timeline: ExpectedTimeline, options: PlayOptions = {}): MidiEvent[] {
-  return playNotes(timelineNotes(timeline), options)
+export function playTimeline(
+  timeline: ExpectedTimeline,
+  options: PlayOptions & TimelineNoteOptions = {}
+): MidiEvent[] {
+  return playNotes(timelineNotes(timeline, options), options)
 }
