@@ -9,7 +9,7 @@
 > [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (proposed) governs
 > the processes and the new `score:*` domain
 > **NFRs claimed:** 3, 9, 11, 12 in [nfr.md](../nfr.md)
-> **Depends on:** Plan [0001](0001-the-keyboard-shows-on-screen.md) Phases 1 to 6 — the take
+> **Depends on:** Plan [0001](done/0001-the-keyboard-shows-on-screen.md) Phases 1 to 6 — the take
 > format, the `MidiSource` seam, the seeded generator and `npm run gate`
 
 ## TL;DR

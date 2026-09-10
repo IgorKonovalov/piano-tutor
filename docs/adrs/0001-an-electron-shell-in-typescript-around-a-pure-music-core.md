@@ -1,8 +1,8 @@
 # ADR-0001 — An Electron shell in TypeScript around a pure music core, with MIDI owned by the main process
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-10, on the close of Plan 0001
 > **Date:** 2026-09-09
-> **Related plan(s):** [0001 — The keyboard shows on screen](../plans/0001-the-keyboard-shows-on-screen.md)
+> **Related plan(s):** [0001 — The keyboard shows on screen](../plans/done/0001-the-keyboard-shows-on-screen.md)
 
 ## Context
 

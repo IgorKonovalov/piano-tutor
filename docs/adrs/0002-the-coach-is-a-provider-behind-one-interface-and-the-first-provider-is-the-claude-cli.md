@@ -2,7 +2,7 @@
 
 > **Status:** proposed
 > **Date:** 2026-09-09
-> **Related plan(s):** [0001](../plans/0001-the-keyboard-shows-on-screen.md) (records the takes the
+> **Related plan(s):** [0001](../plans/done/0001-the-keyboard-shows-on-screen.md) (records the takes the
 > coach will read); the coach itself lands in Plan [0003](../plans/0003-the-coach-speaks.md)
 
 ## Context

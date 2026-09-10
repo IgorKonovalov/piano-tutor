@@ -170,13 +170,19 @@ share the Vite dev port, and the stash stack is shared across worktrees, so pref
   "TO HOST" port (the same port also carries USB audio, which this app never opens) or the 5-pin
   DIN OUT through an interface. A Bluetooth MIDI path would need an external adapter on the DIN
   ports; it is not a software feature of this instrument.
-- **Whether Windows needs Yamaha's USB driver for the MIDI half is a Phase 1 `human` check**, not
-  a documented fact. Yamaha ships the Yamaha Steinberg USB Driver for the audio half; the MIDI
-  half is usually class-compliant. The port list view is where the answer shows.
+- **Windows needs no Yamaha driver for the MIDI half.** Measured at the instrument (Plan 0001
+  Phase 7): the ports appeared with no Yamaha driver installed, so the MIDI half is
+  class-compliant. Yamaha's Steinberg USB Driver is for the audio half, which this app never
+  opens. The CK88 enumerates as **two** ports, `CK Series-1` and `CK Series-2`; the first carries
+  the keyboard.
 - **The CK88 has four zones.** A zone can transmit on its own channel; the parser keeps the
   channel on every event and the display merges channels by default.
-- **Windows has no system-wide MIDI sharing.** If a DAW holds the port, the app cannot open it;
-  the port list says so instead of failing silently.
+- **A MIDI input port is not exclusive across processes — on this device.** Measured (Plan 0001
+  Phase 7 item 8) against a single-reader control: two processes opened `CK Series-1` at once and
+  **both received the stream**, so the app can run beside a DAW on the same port. What does fail
+  is a second open of the same port *within one process*, which is the likeliest origin of the
+  folk belief that Windows MIDI is exclusive. The port list still has a `busy` path and still
+  probes for it; on this instrument that path has never fired.
 - **No audio here, so no Local Control dance.** The instrument always sounds itself.
 
 ## Commit hygiene

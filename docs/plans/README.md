@@ -12,9 +12,16 @@ to pick the plan up. The plan file carries everything else.
 
 | Plan | Title | Status | Owner | Live constraint |
 |------|-------|--------|-------|-----------------|
-| [0001](0001-the-keyboard-shows-on-screen.md) | The keyboard shows on screen | draft | dev, human | ADR-0001, 0003, 0004. The walking skeleton every later plan stands on: MIDI in, keyboard, staff, labels, takes, and the synthetic source that lets everything after it be proved with nothing plugged in. **Phase 1 stops if the native MIDI binding will not install.** Phase 7 is the user at the CK88. |
-| [0002](0002-a-piece-is-practised.md) | A piece is practised | draft | dev, human | ADR-0003, 0004, 0005. Score in, take aligned after the fact, bars coloured. Needs Plan 0001 Phases 1-6. Feedback is after the take, not live; repeats are not unfolded in v1. Phase 7 is a real piece at the piano and it is the only evidence the generator cannot supply. |
+| [0002](0002-a-piece-is-practised.md) | A piece is practised | draft | dev, human | ADR-0003, 0004, 0005. Score in, take aligned after the fact, bars coloured. Its dependency on Plan 0001 is met — that plan closed 2026-09-10, so the takes, the seams and the harness are all in. Feedback is after the take, not live; repeats are not unfolded in v1. Phase 7 is a real piece at the piano and it is the only evidence the generator cannot supply. |
 | [0003](0003-the-coach-speaks.md) | The coach speaks | draft | dev, human | ADR-0002 is its whole design. One-shot Analyse, replies saved beside the take, free-play and practised takes both summarised. Every `dev` phase runs on a recorded fixture reply and a stub binary, so it queues with no subscription; **Phase 2 is a spike against the real `claude` CLI** and Phase 6 is the only phase where a model actually answers. |
+
+## Recently closed
+
+- [0001 — The keyboard shows on screen](done/0001-the-keyboard-shows-on-screen.md) — closed
+  2026-09-10, v0.2.0. Seven phases, no blockers in the code; the full gate green end to end on the
+  finished tree and NFR 1 measured at the CK88 at p50 3.4 / p95 6.1 ms. ADRs 0001, 0003 and 0004
+  accepted on it, 0004 with its Decision amended first. Three code-side followups survive it, in
+  that plan's `## Followups`.
 
 ## Roadmap (agreed 2026-09-09 in the interview; numbers assigned when drafted)
 

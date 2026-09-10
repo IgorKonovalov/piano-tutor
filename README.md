@@ -5,8 +5,11 @@ play it, lets you practise a piece with per-bar feedback, generates exercises, a
 asks an LLM coach what to work on. Everything but the coach works offline. The piano makes the
 sound; the app never does.
 
-**Status:** in build. [Plan 0001](docs/plans/0001-the-keyboard-shows-on-screen.md) is landing the
-walking skeleton: the shell, the MIDI pipeline and the live display.
+**Status:** in build. The walking skeleton is in —
+[Plan 0001](docs/plans/done/0001-the-keyboard-shows-on-screen.md) closed on 2026-09-10 with the
+Electron shell, the MIDI pipeline, the live keyboard, staff and labels, and take recording and
+replay, all measured at the CK88. Next is
+[Plan 0002](docs/plans/0002-a-piece-is-practised.md): a piece is practised.
 
 ## Where to start reading
 
@@ -17,7 +20,7 @@ walking skeleton: the shell, the MIDI pipeline and the live display.
 | How the LLM coach reaches a model, and the terms-of-service caveat | [ADR-0002](docs/adrs/0002-the-coach-is-a-provider-behind-one-interface-and-the-first-provider-is-the-claude-cli.md) |
 | Why two notation engines | [ADR-0003](docs/adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) |
 | The numbers behind "real-time" and "offline" | [docs/nfr.md](docs/nfr.md) |
-| What gets built first, phase by phase | [Plan 0001](docs/plans/0001-the-keyboard-shows-on-screen.md) |
+| How the live pipeline was built, phase by phase | [Plan 0001](docs/plans/done/0001-the-keyboard-shows-on-screen.md) |
 | What comes after | [docs/plans/README.md](docs/plans/README.md) |
 
 ## Decisions from the interview (2026-09-09)
@@ -85,9 +88,11 @@ packaged build without that variable lists hardware only.
 `PT_HARNESS` decides in both directions whenever it is set: `PT_HARNESS=0` hides the harness even
 when running from source, which is how the end-to-end suite proves the gate is real.
 
-A green run of those checks means the pipeline is intact. It does not mean the piano works: only
-[Plan 0001](docs/plans/0001-the-keyboard-shows-on-screen.md) Phase 7, at the instrument, says
-that.
+A green run of those checks means the pipeline is intact. It does not mean the piano works: only a
+human at the instrument says that.
+[Plan 0001](docs/plans/done/0001-the-keyboard-shows-on-screen.md) Phase 7 is the checklist that did
+it, and its answers — the port names, the real key-to-pixel figures, the velocity range — are in
+that plan's implementation log.
 
 ## Working in this repository
 

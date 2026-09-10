@@ -1,9 +1,10 @@
 # ADR-0003 — Two notation surfaces: VexFlow draws what is being played, OpenSheetMusicDisplay draws the score
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-10, on the close of Plan 0001 (the live staff half; the score
+> half is evidenced when Plan 0002 closes)
 > **Date:** 2026-09-09
-> **Related plan(s):** [0001](../plans/0001-the-keyboard-shows-on-screen.md) (the live staff);
-> the score view lands in Plan 0003
+> **Related plan(s):** [0001](../plans/done/0001-the-keyboard-shows-on-screen.md) (the live staff);
+> the score view lands in Plan [0002](../plans/0002-a-piece-is-practised.md)
 
 ## Context
 

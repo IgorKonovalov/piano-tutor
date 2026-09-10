@@ -1,8 +1,9 @@
 # ADR-0004 — The app plays itself: a synthetic MidiSource behind virtual ports, not an injection channel
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-10, on the close of Plan 0001, with the Decision amended the
+> same day (see the note under Decision)
 > **Date:** 2026-09-09
-> **Related plan(s):** Plan [0001](../plans/0001-the-keyboard-shows-on-screen.md) (amended by this
+> **Related plan(s):** Plan [0001](../plans/done/0001-the-keyboard-shows-on-screen.md) (amended by this
 > ADR), and every plan after it
 
 ## Context
@@ -50,8 +51,20 @@ alongside the hardware ports, with ids of the form `virtual:<scenario>`, and `op
 those ids starts that scenario through the identical parse, record, IPC and paint path. There is
 **no new IPC channel, no new preload capability and no test hook in the renderer** — the harness
 drives the application through the same `midi:*` surface a player drives it through. Virtual
-ports are enumerated only when `app.isPackaged === false` or the environment sets `PT_HARNESS=1`;
-a packaged build lists hardware.
+ports are enumerated when the build is unpackaged, and `PT_HARNESS` overrides that in **both**
+directions whenever it is set at all: `PT_HARNESS=1` opens the gate on a packaged build, and any
+other value shuts it even on an unpackaged one. A packaged build with the variable unset lists
+hardware.
+
+*Amended 2026-09-10, before acceptance, at the user's decision during Plan 0001 Phase 6.* As
+first written the gate was `!app.isPackaged || PT_HARNESS=1`, with no way to shut it. Under that
+rule the claim this ADR rests on — that the gate is a real runtime decision rather than an
+assumption — could not be tested: the end-to-end suite drives an unpackaged build, where the
+first half of the disjunction is already true, so there was no configuration in which the suite
+could watch the harness disappear. The alternatives were to package a build for the e2e run or
+to leave the claim unproven; making the variable authoritative in both directions is cheaper
+than either and takes nothing away, since a packaged build with the variable unset still lists
+hardware only.
 
 A headless run **asserts properties and reports measurements**. The properties are
 machine-independent and are the ones a regression actually breaks: every injected event reaches

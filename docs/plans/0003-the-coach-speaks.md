@@ -10,7 +10,7 @@
 > [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (proposed)
 > governs the processes, the secret, and the new `coach:*` and `settings:*` domains
 > **NFRs claimed:** 3, 6, 7, 9, 11 in [nfr.md](../nfr.md)
-> **Depends on:** Plan [0001](0001-the-keyboard-shows-on-screen.md) Phase 5 (takes) for the input.
+> **Depends on:** Plan [0001](done/0001-the-keyboard-shows-on-screen.md) Phase 5 (takes) for the input.
 > Plan [0002](0002-a-piece-is-practised.md) Phases 4 and 5 supply the per-bar half of the summary;
 > without them the coach still works on free-play takes, with the practised half absent rather
 > than empty.

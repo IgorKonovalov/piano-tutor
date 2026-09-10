@@ -1,14 +1,22 @@
 # 0001 — The keyboard shows on screen
 
-> **Status:** in-progress
+> **Status:** done — closed 2026-09-10
 > **Created:** 2026-09-09
 > **Owner skill(s):** dev, human
-> **Related ADRs:** [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (proposed),
-> [0003](../adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) (proposed),
-> [0004](../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (proposed);
-> [0002](../adrs/0002-the-coach-is-a-provider-behind-one-interface-and-the-first-provider-is-the-claude-cli.md)
+> **Related ADRs:** [0001](../../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (accepted),
+> [0003](../../adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) (accepted),
+> [0004](../../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (accepted, with its
+> Decision amended at this close);
+> [0002](../../adrs/0002-the-coach-is-a-provider-behind-one-interface-and-the-first-provider-is-the-claude-cli.md)
 > is built on by Plan 0003, and Phase 5 here records the takes it will read
-> **NFRs claimed:** 1, 2, 3, 4, 8, 9, 11 in [nfr.md](../nfr.md)
+> **NFRs claimed:** 1, 2, 3, 4, 8, 9, 11 in [nfr.md](../../nfr.md)
+> **Closed:** 2026-09-10 — all seven phases landed (`37ae827`, `ad95841`, `dd1f69f`, `8d4b9d9`,
+> `11b6d77`, `b4a67c3`, plus Phase 7's answers and the `5174bb8` followup fixes). Architect
+> review: **no blockers in the code**; the full gate re-run green end to end on the finished tree
+> (typecheck, lint, 273 unit tests, both Node gates, 6 end-to-end tests). One blocker on the
+> bookkeeping — ADR-0004's Decision no longer described the gate that shipped — resolved by
+> amending the ADR before accepting it. The findings that survive as work are in `## Followups`
+> below. Version bumped to v0.2.0.
 > **Amended:** 2026-09-09 — the former Phase 0 (copy and adapt the skills) was done at scaffold
 > time, before the plan started; removed rather than marked done
 > **Amended:** 2026-09-09 — ADR-0004. Phase 2 absorbs the seeded scenario generator and
@@ -663,10 +671,12 @@ Run on 2026-09-10 with the CK88 on USB, against `npm run dev` so the overlay was
 - ~~**The live view shifts vertically as notes are added.**~~ Raised at Phase 7, fixed in
   `5174bb8`. It was the labels panel, not the staff: it grew by up to 60 px as rows appeared. Every
   row is now always rendered and none may wrap.
-- **`CLAUDE.md`'s MIDI-sharing note is wrong for this device and needs rewriting.** Phase 7 item 8
-  measured two processes reading `CK Series-1` at the same time, both receiving. The note claims a
-  port another application holds cannot be opened. What is still true, and worth keeping, is that
-  a second open *within one process* fails.
+- ~~**`CLAUDE.md`'s MIDI-sharing note is wrong for this device and needs rewriting.**~~ Rewritten
+  at the close from Phase 7 item 8's measurement, along with the Yamaha-driver note above it. **The
+  same falsified claim is still in three places in the code** and one of them is user-facing:
+  `shared/midi.ts` (the `busy` comment), `electron/midi/RtMidiSource.ts` (the file header) and the
+  `MidiPortUnavailable` message at `RtMidiSource.ts:104`, which tells the player "there is no
+  system-wide MIDI sharing". `dev` rewrites those three.
 - **The `busy` port path has never fired, and on this instrument it cannot.** It is implemented
   and probed on every two-second poll -- an open and a close per hardware port -- to detect a
   condition this device does not produce. Worth deciding whether the probe earns that, or whether
@@ -679,3 +689,30 @@ Run on 2026-09-10 with the CK88 on USB, against `npm run dev` so the overlay was
 - One real recorded take is committed under `core/fixtures/takes/` after Phase 7 and the `core/`
   tests gain it alongside the generated scenarios, so the theory code sees human timing at least
   once (the generator-drift risk above).
+
+### Raised by the close review (2026-09-10)
+
+- ~~ADR-0004's Decision no longer matched the shipped gate.~~ Amended before acceptance; the ADR
+  now records `PT_HARNESS` as authoritative in both directions and why.
+- ~~`docs/nfr.md` rows 1 and 4 described measurements that were not the ones taken.~~ Row 1 now
+  names the epoch-anchored stamp; row 4 now names process creation and says what it over-estimates.
+- **`installCsp` keys off packaging, not off whether Vite is serving.** `electron/main.ts` passes
+  `isDev = !app.isPackaged`, so the end-to-end run — which drives a *built* renderer loaded from
+  `file:` — still gets the loose policy with `'unsafe-inline'` and the localhost origins in
+  `default-src`. The packaged policy (`default-src 'self'`) is therefore installed by nothing the
+  gate runs, and NFR 3's "verified by a Playwright run with networking disabled" verifies the
+  wrong one. `createWindow` already holds the real condition: `opts.rendererUrl !== undefined`.
+  Either derive the flag from that, or make the release plan's packaged-build check cover the CSP.
+- **A take id is validated for shape but not for meaning.** `TakeIdSchema` is
+  `z.string().min(1)` and `takeHandlers.ts` joins it straight into `userData/takes` through
+  `takePath`, so `../../…` escapes the directory. Nothing untrusted reaches the renderer today,
+  which is the only reason this is small; constrain the id at the seam to the character set
+  `takeIdFor` produces.
+- **`electron/midi/MidiSource.ts` documents `t` as `performance.now()`**, which `shared/midi.ts`
+  correctly documents as epoch-anchored. The seam's own comment is the first thing the author of a
+  fourth transport reads.
+- **`RtMidiSource.describeHardwarePort` seeds `detail: 'In use by this app'`** on the base object
+  and every branch overwrites it; the string is unreachable.
+- **`Recorder.test.ts`'s "bounds the loss by the flush interval"** asserts
+  `events.length + 150 - recovered.length === 150`, which is `recovered.length === events.length`
+  written the long way round. Say the shorter thing.
