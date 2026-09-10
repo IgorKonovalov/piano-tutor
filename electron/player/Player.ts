@@ -52,6 +52,19 @@ export const systemPlayerClock: PlayerClock = {
   clearInterval: (handle) => clearInterval(handle as ReturnType<typeof setInterval>),
 }
 
+/**
+ * Everything that has to happen before this window or this process goes.
+ *
+ * It is a named function rather than two copies of the same two lines in
+ * `main.ts`, because both of them are on the path where getting it wrong
+ * leaves a chord sounding on an instrument nobody is holding any more, and
+ * because a unit test can call this and cannot call Electron's lifecycle.
+ */
+export async function silence(player: Player, output: MidiSink): Promise<void> {
+  player.stop()
+  await output.close()
+}
+
 export interface PlayerDeps {
   /** Where playback starts; `NullSink` until an output port is chosen. */
   sink: MidiSink

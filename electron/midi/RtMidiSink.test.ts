@@ -52,7 +52,7 @@ vi.mock('@julusian/midi', () => ({ Output: midi.FakeOutput }))
 import type { MidiEvent } from '../../shared/midi'
 import { CC_SUSTAIN } from '../../shared/midi'
 import { scheduleFromEvents } from '../../core/src/player/schedule'
-import { RtMidiSink } from './RtMidiSink'
+import { CC_ALL_NOTES_OFF, RtMidiSink } from './RtMidiSink'
 import { serialise } from './serialise'
 
 beforeEach(() => {
@@ -167,6 +167,19 @@ describe('a schedule reaches the instrument as bytes', () => {
 })
 
 describe('the sink remembers what it has sounded', () => {
+  /**
+   * The controllers that follow the note-offs on every channel the sink has
+   * written to. Both are sent because neither is sufficient: the note-offs
+   * only cover what this process knows it started, and CC 123 is a message
+   * some instruments ignore.
+   */
+  function controllers(channel: number): number[][] {
+    return [
+      [0xb0 | channel, CC_ALL_NOTES_OFF, 0],
+      [0xb0 | channel, CC_SUSTAIN, 0],
+    ]
+  }
+
   it('releases every note still down, on every channel it touched', async () => {
     const sink = new RtMidiSink()
     await sink.open('out:0')
@@ -181,6 +194,8 @@ describe('the sink remembers what it has sounded', () => {
     expect(midi.state.written).toEqual([
       [0x80, 60, 0],
       [0x80, 67, 0],
+      ...controllers(0),
+      ...controllers(2),
     ])
   })
 
@@ -194,7 +209,7 @@ describe('the sink remembers what it has sounded', () => {
 
     sink.release()
 
-    expect(midi.state.written).toEqual([[0x80, 60, 0]])
+    expect(midi.state.written).toEqual([[0x80, 60, 0], ...controllers(0)])
   })
 
   it('spends the memory, so a second release writes nothing', async () => {
@@ -217,7 +232,7 @@ describe('the sink remembers what it has sounded', () => {
 
     await sink.close()
 
-    expect(midi.state.written).toEqual([[0x80, 60, 0]])
+    expect(midi.state.written).toEqual([[0x80, 60, 0], ...controllers(0)])
     expect(midi.state.closes).toBe(1)
   })
 

@@ -1,5 +1,5 @@
 import { Output } from '@julusian/midi'
-import type { MidiEvent, MidiPort } from '../../shared/midi'
+import { CC_SUSTAIN, type MidiEvent, type MidiPort } from '../../shared/midi'
 import {
   type HeldNotes,
   emptyHeldNotes,
@@ -31,12 +31,25 @@ import { serialise } from './serialise'
  */
 const OUTPUT_PORT_ID = /^out:(\d+)$/
 
+/**
+ * All Notes Off. The belt; the explicit note-offs are the braces.
+ *
+ * Both are sent because neither is sufficient alone. The note-offs only cover
+ * what this process knows it started, which is nothing if it has just been
+ * handed a port another application left notes ringing on; and CC 123 is a
+ * message some instruments ignore, which must not be the only thing standing
+ * between the player and a chord that will not stop.
+ */
+export const CC_ALL_NOTES_OFF = 123
+
 export class RtMidiSink implements MidiSink {
   private enumerator: Output | null = null
   private output: Output | null = null
   private openPortIndex: number | null = null
   private failures = new Map<string, string>()
   private held: HeldNotes = emptyHeldNotes
+  /** Every channel this sink has written to, so the panic reaches all of them. */
+  private channelsTouched = new Set<number>()
   /** Reported once per open; a failing port would otherwise flood the log. */
   private warned = false
 
@@ -119,14 +132,26 @@ export class RtMidiSink implements MidiSink {
     // Tracked whether or not a port is open, so that opening one mid-schedule
     // never inherits an empty idea of what is sounding.
     this.held = reduceHeldNotes(this.held, event)
+    if (event.kind !== 'unknown') this.channelsTouched.add(event.ch)
     this.write(event)
   }
 
+  /**
+   * Everything this sink has sounded, stopped: a note-off for each note it
+   * knows is down, then All Notes Off and sustain-up on every channel it has
+   * written to. This is the last thing between a schedule and a chord ringing
+   * in the room, so it is deliberately more than is strictly needed.
+   */
   release(): void {
     for (const note of soundingNotes(this.held)) {
       this.write({ kind: 'noteOff', t: 0, ch: note.ch, note: note.note, velocity: 0 })
     }
+    for (const ch of [...this.channelsTouched].sort((a, b) => a - b)) {
+      this.write({ kind: 'cc', t: 0, ch, controller: CC_ALL_NOTES_OFF, value: 0 })
+      this.write({ kind: 'cc', t: 0, ch, controller: CC_SUSTAIN, value: 0 })
+    }
     this.held = emptyHeldNotes
+    this.channelsTouched.clear()
   }
 
   private write(event: MidiEvent): void {

@@ -1,9 +1,41 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+/**
+ * `@julusian/midi`, faked the way the sink's own test fakes it. It is here as
+ * well because the panic paths are only worth asserting where they land: the
+ * bytes an instrument would actually receive.
+ */
+const midi = vi.hoisted(() => {
+  const state = { written: [] as number[][], closes: 0 }
+
+  class FakeOutput {
+    getPortCount(): number {
+      return 1
+    }
+    getPortName(): string {
+      return 'CK Series-1'
+    }
+    openPort(): void {}
+    sendMessage(bytes: number[]): void {
+      state.written.push([...bytes])
+    }
+    closePort(): void {
+      state.closes++
+    }
+    destroy(): void {}
+  }
+
+  return { state, FakeOutput }
+})
+
+vi.mock('@julusian/midi', () => ({ Output: midi.FakeOutput }))
+
 import { CC_SUSTAIN, type MidiEvent } from '../../shared/midi'
 import type { PlayerState } from '../../shared/player'
 import { scheduleFromEvents } from '../../core/src/player/schedule'
 import type { MidiSink } from '../midi/MidiSink'
-import { LOOKAHEAD_MS, Player, type PlayerClock, TICK_MS } from './Player'
+import { CC_ALL_NOTES_OFF, RtMidiSink } from '../midi/RtMidiSink'
+import { LOOKAHEAD_MS, Player, type PlayerClock, TICK_MS, silence } from './Player'
 
 /**
  * A clock the test drives. An eighteen-second passage is checked in
@@ -13,12 +45,18 @@ import { LOOKAHEAD_MS, Player, type PlayerClock, TICK_MS } from './Player'
  * armed one-shots and not from the tick boundary.
  */
 class TestClock implements PlayerClock {
+  /** Set to make the next reading throw, once, as a bug in the tick would. */
+  throwOnNextNow = false
   private t = 1_000_000
   private nextHandle = 1
   private timeouts = new Map<number, { at: number; fn: () => void }>()
   private intervals = new Map<number, { every: number; next: number; fn: () => void }>()
 
   now(): number {
+    if (this.throwOnNextNow) {
+      this.throwOnNextNow = false
+      throw new Error('something went wrong inside the tick')
+    }
     return this.t
   }
 
@@ -117,6 +155,8 @@ beforeEach(() => {
   // The onset-error line is a measurement for a human at the instrument
   // (NFR 13), not test output.
   vi.spyOn(console, 'info').mockImplementation(() => {})
+  midi.state.written = []
+  midi.state.closes = 0
   clock = new TestClock()
   sink = new RecordingSink()
   events = []
@@ -342,5 +382,142 @@ describe('the onset error is measured, not asserted', () => {
 
   it('has nothing to report before anything has played', () => {
     expect(player.onsetError).toBeNull()
+  })
+})
+
+/**
+ * The six ways playback can end that are not the schedule running out.
+ *
+ * They are checked against the **faked `Output`** rather than against the
+ * player's own callbacks, because the thing this plan exists to prevent
+ * happens on the far side of that boundary: a chord ringing on an instrument
+ * in the room. What each path must produce is the same three things -- a
+ * note-off for every note then sounding, then All Notes Off and sustain-up on
+ * every channel touched.
+ */
+describe('stop always stops, and the instrument hears it', () => {
+  const CHORD = scheduleFromEvents(
+    [
+      { kind: 'cc', t: 0, ch: 0, controller: CC_SUSTAIN, value: 127 },
+      on(0, 60),
+      on(0, 64, 3),
+      off(9000, 60),
+      off(9000, 64, 3),
+      { kind: 'cc', t: 9000, ch: 0, controller: CC_SUSTAIN, value: 0 },
+    ],
+    SOURCE
+  )
+
+  let sink: RtMidiSink
+
+  /** Play the chord, let it sound, and forget everything written so far. */
+  async function sounding(): Promise<void> {
+    sink = new RtMidiSink()
+    await sink.open('out:0')
+    player.setSink(sink)
+    player.play(CHORD)
+    clock.advance(200)
+    expect(midi.state.written.length).toBeGreaterThan(0)
+    midi.state.written = []
+  }
+
+  /**
+   * The note-offs for what was sounding, then the controllers on every channel
+   * the schedule touched. Channel 0 held the pedal and note 60; channel 3 held
+   * note 64.
+   */
+  const RELEASED = [
+    [0x80, 60, 0],
+    [0x83, 64, 0],
+    [0xb0, CC_ALL_NOTES_OFF, 0],
+    [0xb0, CC_SUSTAIN, 0],
+    [0xb3, CC_ALL_NOTES_OFF, 0],
+    [0xb3, CC_SUSTAIN, 0],
+  ]
+
+  /** Everything the player pushes on a release, before the sink's own panic. */
+  const PLAYER_RELEASE = [
+    [0x80, 60, 0],
+    [0x83, 64, 0],
+    [0xb0, CC_SUSTAIN, 0],
+    [0xb3, CC_SUSTAIN, 0],
+  ]
+
+  it('on stop', async () => {
+    await sounding()
+    player.stop()
+    expect(midi.state.written).toEqual([
+      ...PLAYER_RELEASE,
+      [0xb0, CC_ALL_NOTES_OFF, 0],
+      [0xb0, CC_SUSTAIN, 0],
+      [0xb3, CC_ALL_NOTES_OFF, 0],
+      [0xb3, CC_SUSTAIN, 0],
+    ])
+  })
+
+  it('on an output change mid-play', async () => {
+    await sounding()
+    player.setSink(new RecordingSink())
+
+    // The sink being left behind is silenced by its own panic: the note-offs
+    // the schedule still holds are about to go somewhere else entirely.
+    expect(midi.state.written).toEqual(RELEASED)
+  })
+
+  it('on a second play over a running one', async () => {
+    await sounding()
+    player.play(scheduleFromEvents([on(0, 72), off(400, 72)], SOURCE))
+
+    // The first schedule's chord is released before the second is struck.
+    expect(midi.state.written.slice(0, PLAYER_RELEASE.length + 4)).toEqual([
+      ...PLAYER_RELEASE,
+      [0xb0, CC_ALL_NOTES_OFF, 0],
+      [0xb0, CC_SUSTAIN, 0],
+      [0xb3, CC_ALL_NOTES_OFF, 0],
+      [0xb3, CC_SUSTAIN, 0],
+    ])
+  })
+
+  it('on the window closing, and on the app quitting', async () => {
+    // Both lifecycle events run the same two lines in main; this is them.
+    await sounding()
+    await silence(player, sink)
+
+    expect(midi.state.written).toEqual([
+      ...PLAYER_RELEASE,
+      [0xb0, CC_ALL_NOTES_OFF, 0],
+      [0xb0, CC_SUSTAIN, 0],
+      [0xb3, CC_ALL_NOTES_OFF, 0],
+      [0xb3, CC_SUSTAIN, 0],
+    ])
+    expect(midi.state.closes).toBe(1)
+  })
+
+  it('on a throw inside the tick', async () => {
+    await sounding()
+    clock.throwOnNextNow = true
+
+    // The throw propagates -- a scheduler that silently swallows its own bugs
+    // is worse than one that stops -- but not before the release has gone out.
+    expect(() => clock.advance(TICK_MS + 1)).toThrow(/tick/)
+
+    expect(midi.state.written).toEqual([
+      ...PLAYER_RELEASE,
+      [0xb0, CC_ALL_NOTES_OFF, 0],
+      [0xb0, CC_SUSTAIN, 0],
+      [0xb3, CC_ALL_NOTES_OFF, 0],
+      [0xb3, CC_SUSTAIN, 0],
+    ])
+    expect(player.playing).toBe(false)
+  })
+
+  it('leaves nothing armed after any of them', async () => {
+    await sounding()
+    player.stop()
+    midi.state.written = []
+
+    clock.advance(20_000)
+
+    expect(midi.state.written).toEqual([])
   })
 })

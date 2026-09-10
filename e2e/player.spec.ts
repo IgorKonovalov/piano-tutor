@@ -28,10 +28,11 @@ import {
 /** Fast enough that a test is not a wait, slow enough to be a real schedule. */
 const TEST_BPM = 240
 
-let launched: LaunchedApp
+let launched: LaunchedApp | null = null
 
 test.afterEach(async () => {
   await launched?.close()
+  launched = null
 })
 
 interface TimelineNote {
@@ -285,4 +286,33 @@ test('the two verbs are both present and neither triggers the other', async () =
   // Replaying feeds the app's own input pipeline, which is the live view.
   await row.getByTestId('take-replay-2').click()
   await expect(page.getByTestId('live-view')).toBeVisible()
+})
+
+test('closing the window mid-playback exits without an error', async () => {
+  test.setTimeout(120_000)
+  const app = await launchApp()
+  launched = app
+  await waitForPortsView(app.page)
+
+  await app.page.getByTestId('player-play').click()
+  await expect(app.page.getByTestId('playback').getByTestId('keyboard')).not.toHaveAttribute(
+    'data-playing',
+    '0'
+  )
+
+  // The window goes while a chord is still sounding. Main is the process that
+  // outlives the renderer (ADR-0007), so it is main that has to send the
+  // note-offs -- and then leave cleanly rather than taking the failure with it.
+  const child = app.app.process()
+  const exited = new Promise<number | null>((resolve) => {
+    child.once('exit', (code) => resolve(code))
+  })
+  const window = await app.app.browserWindow(app.page)
+  await window.evaluate((win) => {
+    win.close()
+  })
+
+  expect(await exited).toBe(0)
+  // Already gone; the shared teardown must not try to close it again.
+  launched = null
 })

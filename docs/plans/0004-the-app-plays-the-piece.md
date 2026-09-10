@@ -384,13 +384,28 @@ interface MidiSink {
 | 2 — A tempo, a velocity, and a range of bars | dev | done | `0fb0d66` |
 | 3 — The Score view plays the piece | dev | done | `47c69ed` |
 | 4 — A take plays back out to the instrument | dev | done | `cd71382` |
-| 5 — You can hear it with nothing plugged in | dev | done | committed with this row |
-| 6 — Stop always stops | dev | not started | |
-| 7 — At the piano | human | not started | |
+| 5 — You can hear it with nothing plugged in | dev | done | `94cde15` |
+| 6 — Stop always stops | dev | done | committed with this row |
+| 7 — At the piano | human | **outstanding** | |
 
 ### Measurements
 
-_(NFR 13: onset error p50 / p95 / max, the machine, the phase)_
+**NFR 13's milliseconds are not measured yet, and cannot be by a `dev` phase.** They are a
+measurement of a real schedule reaching a real device, which is Phase 7 item 4 at the CK88.
+
+Where the figure comes from when it is taken: `Player` accumulates the onset error of every
+note-on and prints one line to **main's console** when a schedule ends or is stopped —
+
+```
+player: onset error over 29 note-ons — p50 1.4 ms, p95 3.2 ms, max 5.9 ms
+```
+
+Run `npm run dev` and read the `main` pane. Nothing in the interface shows it and no test asserts
+it, which is what that row's "reported, not asserted" means.
+
+| NFR | figure | machine | phase |
+|---|---|---|---|
+| 13 | _(not yet measured)_ | | 7 |
 
 ### Notes
 
@@ -570,12 +585,60 @@ still carry no `connect-src` — the latter already asserted by `electron/window
 
 Only `npx playwright test player` was run for this phase; the full gate is owed at Phase 6.
 
+**Phase 6.** `RtMidiSink.release()` now sends note-offs for what it knows is down, then All Notes
+Off (CC 123) and sustain-up (CC 64, value 0) on every channel it has written to. Three Phase 1
+assertions in `RtMidiSink.test.ts` were updated to expect the controllers.
+
+**Window close and app quit are one named function**, `silence(player, output)` in `Player.ts`,
+called from both `mainWindow.on('close')` and `before-quit`. It exists because a unit test can call
+it and cannot call Electron's lifecycle, and because two copies of the same two lines on the one
+path that leaves a chord ringing is two places to get it wrong. The window handler is on `close`,
+not `closed`: by `closed` there is nothing left to stop.
+
+The six paths are asserted in `Player.test.ts` against the **faked `Output`**, not against the
+player's callbacks, because the thing this plan exists to prevent happens on the far side of that
+boundary. Each of stop, an output change, a second play, the shutdown sequence, and a throw inside
+the tick produces the same bytes: a note-off per sounding note, then CC 123 and CC 64=0 on both
+channels the schedule touched. A sixth case asserts nothing is left armed afterwards.
+
+A throw inside the tick **releases and then propagates**, as the phase specifies. In production
+that is an uncaught exception in main, which is a crash — but a crash with nothing sounding, and a
+scheduler that silently swallows its own bugs is worse than one that stops.
+
+The end-to-end run closes the window mid-chord and asserts the process exits with code 0.
+
+`NullSink`'s instance in `main.ts` was renamed `noOutput`; `silence` is now the imported function.
+
+### The full gate, on this tree
+
+- `npm run typecheck` — exit 0
+- `npm run lint` — exit 0
+- `npm test` — exit 0, 715 tests in 31 files
+- `node scripts/check-pins.mjs` — exit 0
+- `node scripts/check-doc-links.mjs` — exit 0, 44 files
+- `npm run test:e2e` — exit 0, 32 tests in 3.6 minutes
+
+Reported by the suite on this machine, unchanged by this plan and recorded because the run
+produced them: NFR 11 frames p50 1 / p95 1 / max 1 and ms p50 3.7 / p95 6.6 / max 14.3 over 500
+note-ons; NFR 4 startup 1071 ms; NFR 12 alignment turnaround 10 ms.
+
 ### Close triggers
 
-- **What shipped:**
-- **User-visible docs touched:**
-- **Full gate at the last phase:**
-- **Outstanding `human` phases:**
+- **What shipped:** feature. A `player:*` IPC domain, a `MidiSink` seam with two implementations,
+  a lookahead scheduler in main, `PlaybackSchedule` and three builders in `core/`, a transport in
+  the Score and Takes views, a second verb on a take, and a synthesised fallback voice in the
+  renderer. New runtime surface: five invokes and two push channels; one new `core/` module; one
+  new renderer module. No new dependency (NFR 9) and no change to install size.
+- **User-visible docs touched:** none. `docs/nfr.md` already carries NFR 13 and the ADR-0008
+  revision to the audio non-requirement, both written when the ADRs were drafted.
+- **Full gate at the last phase:** all six commands green on the finished tree; the commands and
+  exit codes are listed under `### Notes`, Phase 6.
+- **Outstanding `human` phases:** **Phase 7, all six items.** Nothing in the plan can close until
+  the CK88 is plugged in: the output port opening beside the input, the channel the instrument
+  responds on, the musical judgement, **NFR 13's milliseconds** (which no `dev` phase can produce),
+  the stuck-note checks including the unplugged cable, and the product call on whether the
+  synthesised tone was worth the reversal ADR-0008 made.
+- **ADRs awaiting acceptance:** 0007 and 0008, both still `proposed`.
 
 ## Followups (after this lands)
 

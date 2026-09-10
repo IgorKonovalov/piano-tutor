@@ -9,7 +9,7 @@ import { NullSink } from './midi/NullSink'
 import { RtMidiSink } from './midi/RtMidiSink'
 import { RtMidiSource } from './midi/RtMidiSource'
 import { SyntheticSource } from './midi/SyntheticSource'
-import { Player } from './player/Player'
+import { Player, silence } from './player/Player'
 import { scoresDirectory } from './score/library'
 import { Recorder } from './take/Recorder'
 import { takesDirectory } from './take/takeFile'
@@ -39,7 +39,7 @@ const synthetic = new SyntheticSource(gate)
 const recorder = new Recorder()
 
 const output = new RtMidiSink()
-const silence = new NullSink()
+const noOutput = new NullSink()
 
 /**
  * Pushed to the window, never to the recorder (ADR-0007). The recorder
@@ -53,7 +53,7 @@ const sendToWindow = (channel: string, payload: unknown): void => {
 }
 
 const player = new Player({
-  sink: silence,
+  sink: noOutput,
   onEvent: (event) => sendToWindow(IPC_CHANNELS.PLAYER_EVENT, event),
   onState: (state) => sendToWindow(IPC_CHANNELS.PLAYER_STATE, state),
 })
@@ -80,10 +80,15 @@ void app.whenReady().then(() => {
   registerMidiHandlers({ pipeline, rtMidi, synthetic })
   registerTakeHandlers({ pipeline, takesDirectory: takesDir })
   registerScoreHandlers({ getWindow: () => mainWindow, scoresDirectory: scoresDir })
-  registerPlayerHandlers({ player, output, silence, gate, takesDirectory: takesDir })
+  registerPlayerHandlers({ player, output, silence: noOutput, gate, takesDirectory: takesDir })
 
   const paths = getRendererPaths(rendererUrl !== undefined)
   mainWindow = createWindow({ ...paths, rendererUrl })
+  // Before the window goes, not after: `closed` fires once there is nothing
+  // left to stop, and a schedule mid-chord would already have outlived it.
+  mainWindow.on('close', () => {
+    void silence(player, output)
+  })
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -99,8 +104,7 @@ app.on('before-quit', () => {
   void pipeline.close()
   // Silence before anything else: a chord left sounding outlives this process
   // on the instrument, which no later cleanup can undo.
-  player.stop()
-  void output.close()
+  void silence(player, output)
   cleanupMidiHandlers()
   cleanupTakeHandlers()
   cleanupScoreHandlers()
