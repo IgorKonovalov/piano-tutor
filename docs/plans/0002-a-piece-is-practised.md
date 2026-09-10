@@ -468,7 +468,7 @@ type PracticeReport = {
 | 4 — A take aligns to a score | dev | done | 43373bb |
 | 5 — The score colours and the numbers show | dev | done | 6f704b2 |
 | 6 — A MIDI file is a second-class score | dev | done | 85350e9 |
-| 7 — At the piano, with a real piece | human | partly answered | see Notes; items 3 and 6 open |
+| 7 — At the piano, with a real piece | human | answered 2026-09-10 evening | see `### Phase 7 at the piano`; item 6 open |
 
 ### Measurements
 
@@ -676,6 +676,67 @@ type PracticeReport = {
 - Phase 1 observation for Phase 2: OSMD's `MeasureList` has one entry per source measure --
   seven for `multi-rest-and-ties`, whose bars 3 to 5 are drawn as a single multi-measure-rest
   object. The bar index survives the collapse; the drawn box does not.
+
+### Phase 7 at the piano, 2026-09-10 evening
+
+The session the phase asks for, run with the CK88 attached and three fixes landing during it.
+Observations, and the numbers they came from. Nothing here was fixed except where a row says so.
+
+**Two defects were found and fixed before the checklist could be run at all**, because the app was
+unusable for the question being asked:
+
+- **A long piece played only at its opening scattered its matches down the whole score.** Bach
+  BWV 847, 1 028 expected groups, 73 played: matches out to group 945, **1 585 notes missing**, a
+  fitted tempo of **2 663 bpm**, and 7 of 69 bars called not attempted. Diagnosed against the take
+  on disk and the score in the library, decided by ADR-0010 and fixed in `e1cc711`. The same take,
+  re-run afterwards: 9 missing, **87 bpm**, 66 of 69 bars not attempted, matches confined to the
+  opening. This is the regime every real practice session is in and no fixture contained it.
+- **A bar mark said "23 wrong notes" on a take whose own statistics line said zero wrong notes.**
+  `markLabel` printed "wrong" for any non-correct verdict, so extras were reported as wrong notes.
+  The two halves of one report contradicting each other.
+
+**Item 1 — does a real file draw?** Answered previously, yes. Ten `.mxl` pieces plus three `.xml`
+Bach files. Note that the three `BWV_*.xml` files show as "Untitled Score": they carry no
+`<work-title>`, no `<movement-title>` and a single `<credit-words>` of `#`, having come through
+`CapToMusic.py CapXML to MusicXML converter version 1.34`. "Untitled Score" is OSMD's own
+placeholder, not ours. The app is reporting the file correctly; the followup is that a filename
+would be more useful than a placeholder repeated three times.
+
+**Item 2 — do the coloured bars match the player's own sense of it?** **Answered, yes.** A clean
+run of the first four bars of BWV 846: 64 as written, 0 wrong, 0 missed, 0 extra, 4 of 4 bars
+clean, 64 bpm, worst bar 20 ms from the fit. The player accepted the reading.
+
+**Item 3 — the false start.** **Answered, and it is two answers.**
+
+- **The notes recover completely.** Playing four bars, stopping mid-bar, going back one bar and
+  continuing gave **144 as written, 0 wrong, 0 missed**. The matcher never lost the thread. This
+  is the question the plan said the generator could not ask, and the aligner passes it.
+- **The timing does not recover, and cannot.** 7 of 9 attempted bars read `out of time`, with
+  deviations of -2 450, +2 105 and -1 235 ms. The residuals of the 144 matched notes against the
+  fitted line form a **monotonic ramp from +1 741 ms through zero to -1 191 ms**, and the fit
+  reports 53 bpm where the player played about 64, with an RMS of **1 671 ms** against a 45 ms
+  threshold. Replaying a bar gives one score position two different times, which least squares
+  cannot represent, so the slope flattens and every note inherits a linearly growing error --
+  including the bars before the restart. The player's own words: "once timing is wrong I can't go
+  back to right timing after." Correct, and the mechanism is that deviation is measured against a
+  global line rather than against anything local to the bar.
+
+**Item 4 — rubato read as error.** Being played at the time of writing; the mechanism above is
+the same one, so the expectation is that it reads as error for the same reason.
+
+**Item 5 — the 50 ms window and a rolled chord.** Answered earlier in the plan, no, and fixed
+then: one expected group may absorb a run of played groups.
+
+**Item 6 — well against badly.** **Not attempted.** The timing finding above makes the comparison
+uninformative until it is fixed: both takes would read `out of time` throughout.
+
+**Item 7 — NFR 12 by feel.** Answered, the colouring appears at once.
+
+**What the evening produced that outlives it:** the timing model needs replacing. One fitted
+tempo over a whole take cannot describe a take with a restart, a pause or a rallentando in it,
+and the per-bar verdict needs to be about the bar -- its evenness against a local tempo -- rather
+than its displacement from a line fitted across everything. That is the largest single finding of
+Phase 7 and it is a plan of its own, not a threshold to widen.
 
 ### Close triggers
 
