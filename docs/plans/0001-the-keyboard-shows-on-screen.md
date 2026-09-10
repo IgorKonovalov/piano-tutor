@@ -620,17 +620,19 @@ Run on 2026-09-10 with the CK88 on USB, against `npm run dev` so the overlay was
 6. **Latency by feel.** No visible trailing of the lit key behind the sound.
 7. **Unplug and replug mid-session.** The port list recovers and the port reopens without
    restarting the app.
-8. **A DAW holding the port.** No DAW is installed, so this was tested with a second process
-   holding `CK Series-1` instead -- and it produced a finding rather than a pass. **A MIDI input
-   port on this machine is not exclusive.** With one process holding the port open, a second
-   process opened the same port successfully, and two independent readers held it at once. The
-   ports view therefore keeps showing `Ready`, and the `busy` path never fires. Whether both
-   readers actually receive the notes was not established: the two-reader run happened while
-   nothing was being played, and both counted zero messages.
+8. **A DAW holding the port.** No DAW is installed, so a second process held `CK Series-1`
+   instead -- and the result is a finding, not a pass. **A MIDI input port on this machine is not
+   exclusive, and sharing it works.** Measured against a single-reader control, playing
+   continuously throughout: one reader alone heard 64 note-ons in 15 s; two readers running at
+   once heard 53 and 52 in the next 15 s. Both shared readers received the stream, so opening is
+   not merely permitted, delivery is genuinely duplicated. (The one-note gap between them is a
+   note falling on a start or stop boundary, not loss.)
 
-   This contradicts the platform note in `CLAUDE.md` ("Windows has no system-wide MIDI sharing.
-   If a DAW holds the port, the app cannot open it"). Within a single process a second open of
-   the same port does fail, which is probably where the belief came from. Followup below.
+   Two consequences. The ports view will never show `busy` for this instrument, so that path
+   stays unexercised. And the platform note in `CLAUDE.md` -- "Windows has no system-wide MIDI
+   sharing. If a DAW holds the port, the app cannot open it" -- is wrong for this device: the app
+   can run beside a DAW on the same port. Within a *single* process a second open of the same
+   port does fail, which is the likeliest origin of the belief. Followups below.
 9. **Hardware beside the harness.** The two groups read as distinct.
 
 ### Close triggers
@@ -661,14 +663,15 @@ Run on 2026-09-10 with the CK88 on USB, against `npm run dev` so the overlay was
 - ~~**The live view shifts vertically as notes are added.**~~ Raised at Phase 7, fixed in
   `5174bb8`. It was the labels panel, not the staff: it grew by up to 60 px as rows appeared. Every
   row is now always rendered and none may wrap.
-- **`CLAUDE.md`'s MIDI-sharing note is wrong, at least for this device.** Phase 7 item 8 found
-  that two processes can hold `CK Series-1` open at the same time; the note says a port another
-  application holds cannot be opened. Rewriting it needs one more observation -- whether both
-  readers actually receive the notes, which needs someone playing during the test.
-- **The `busy` port path has never fired.** It is implemented, probed on every poll, and covered
-  by nothing: this instrument does not produce the condition. Either find a device or an
-  application that does hold a port exclusively, or reconsider whether the probe earns the open
-  and close it does on every poll.
+- **`CLAUDE.md`'s MIDI-sharing note is wrong for this device and needs rewriting.** Phase 7 item 8
+  measured two processes reading `CK Series-1` at the same time, both receiving. The note claims a
+  port another application holds cannot be opened. What is still true, and worth keeping, is that
+  a second open *within one process* fails.
+- **The `busy` port path has never fired, and on this instrument it cannot.** It is implemented
+  and probed on every two-second poll -- an open and a close per hardware port -- to detect a
+  condition this device does not produce. Worth deciding whether the probe earns that, or whether
+  `busy` should be discovered at open time instead. Note the probe is also the only reason
+  `listPorts` touches the device at all.
 - The `architect` review decides whether ADR-0001, ADR-0003 and ADR-0004 move to `accepted`.
   ADR-0004's evidence is Phase 6 going green with nothing attached and Phase 7 confirming that
   the real instrument still behaves.
