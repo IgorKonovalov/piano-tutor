@@ -446,8 +446,8 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 | 2 — The keys light up, and the app can play itself | dev | done | ad95841 |
 | 3 — The notes get names | dev | done | dd1f69f |
 | 4 — The staff draws what is held | dev | done | 8d4b9d9 |
-| 5 — Every session is a take | dev | done | committed with this row |
-| 6 — The whole gate runs with nothing plugged in | dev | not started | |
+| 5 — Every session is a take | dev | done | 11b6d77 |
+| 6 — The whole gate runs with nothing plugged in | dev | done | committed with this row |
 | 7 — At the instrument | human | not started | |
 
 ### Measurements
@@ -462,7 +462,16 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 - **NFR 11 (Phase 4, staff mounted), synthetic:** frame delta p50 1, p95 1, max 1; milliseconds
   p50 9.3, p95 30.0, max 49.6 over 500 note-ons from `virtual:dense-2000`, development machine.
   Before the 30 Hz coalescing described below the same run read p50 12.1, p95 33.0, max 88.3.
-- **NFR 4 (Phase 6), synthetic:** `app.whenReady` to first painted key _ ms.
+- **NFR 11 (Phase 6, whole app, production build), synthetic:** frame delta p50 1, p95 1, max 1;
+  milliseconds p50 5.3, p95 7.9, max 14.2 over 500 note-ons from `virtual:dense-2000`, development
+  machine. Three runs of the same suite gave 4.1/6.2/7.4, 5.0/6.9/7.1 and 5.3/7.9/14.2 ms. These
+  are lower than Phases 2 to 4 because those were read through the Vite dev server, which adds
+  HMR and React's development double-render; this is the built renderer.
+- **NFR 4 (Phase 6), synthetic:** 437 ms, 463 ms and 806 ms across three runs on the development
+  machine, measured from **process creation** to the first painted key on `virtual:c-major-scale`.
+  Process creation is earlier than `app.whenReady`, so the figure is a slight over-estimate of the
+  row as written; it is the earliest instant available without putting a hook in main. Budget is
+  3 000 ms.
 - **NFR 1 (Phase 7), at the instrument:** p50 _ ms, p95 _ ms, max _ ms over 500 note-ons.
   *This is the number NFR 1 means; the synthetic figures above do not traverse USB.*
 - **Windows port name (Phase 7):** _
@@ -560,6 +569,51 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
   The takes row read 0:06, 13 notes, 32 events, `virtual:ii-V-I-in-F`, tagged Generated.
 - Under the Vite dev server the same check reads one event higher, for the StrictMode reason
   already noted at Phase 2. It is a development-only artifact and does not appear in a build.
+- **A change to ADR-0004's gate, authorised by the user during this session.** `PT_HARNESS` is now
+  authoritative in both directions: `1` opens the harness, and any other value shuts it even in an
+  unpackaged build. The ADR as written says virtual ports are enumerated when
+  `!app.isPackaged || PT_HARNESS=1`, under which Phase 6's done-when clause "unsetting
+  `PT_HARNESS` makes the e2e suite fail to find a port" cannot hold: the suite drives an
+  unpackaged build, where the first half of the disjunction is already true. The alternatives put
+  to the user were leaving the gate alone and logging the clause unmet, or packaging a build for
+  the e2e; the opt-out was chosen. **ADR-0004 needs amending to match.**
+- The latency overlay is now shown when a `virtual:` port is being watched, not only under
+  `import.meta.env.DEV`. Without it the end-to-end run could not read NFR 11 off the build it
+  actually drives. A `virtual:` port only exists when the gate above is open, so this adds no
+  capability and no new way to reach one.
+- `e2e/harness.ts` is the only file that names `PT_HARNESS`, as the plan asks.
+- NFR 4 is reported from process creation rather than from `app.whenReady`, because reading
+  `whenReady` would mean storing a timestamp in main for the harness to fetch -- the kind of test
+  hook ADR-0004 exists to avoid. The difference is the Electron bootstrap, tens of milliseconds
+  against a 3 000 ms budget.
+- Followup not acted on: the renderer bundle is 1.48 MB (799 kB gzipped) and Vite warns about it.
+  VexFlow is most of it. It costs startup, which NFR 4 has room for today; the release plan's
+  install-size row (NFR 10) is where it will matter.
+- Followup not acted on: `npm run test:e2e` runs `npm run build` first, so `npm run gate` builds
+  even when nothing changed. It costs a couple of seconds.
+
+### Close triggers
+
+- **What shipped:** feature. The whole walking skeleton: the Electron shell, the MIDI pipeline,
+  the live keyboard, staff and labels, take recording and replay, and the end-to-end gate.
+- **User-visible docs touched:** `README.md` (status, the run/build/gate commands, and how to run
+  with no instrument attached). `CLAUDE.md` and `docs/nfr.md` untouched.
+- **Full gate at the last phase**, each run from the repository root on the development machine:
+  - `npm run typecheck` - exit 0
+  - `npm run lint` - exit 0
+  - `npm test` - exit 0 (11 files, 263 tests)
+  - `node scripts/check-pins.mjs` - exit 0
+  - `node scripts/check-doc-links.mjs` - exit 0
+  - `npm run test:e2e` - exit 0 (6 tests)
+  - `npm run gate`, which is all six in that order - exit 0
+- **Outstanding `human` phases:** Phase 7, at the instrument. Not attempted. Everything in it
+  needs the CK88 plugged in, and it is the only evidence in this plan about the product rather
+  than the pipeline: the port name Windows reports and whether Yamaha's driver was needed, the
+  four zone channels, the three pedals, the velocity range, **NFR 1 measured for real over 500
+  note-ons**, latency by feel, unplug and replug recovery, a DAW holding the port, and whether the
+  hardware and harness groups read as distinct.
+- **Also for the architect:** ADR-0004's gate no longer matches the code, by a change the user
+  authorised in session. See the first line of `### Notes`.
 
 ## Followups (after this lands)
 

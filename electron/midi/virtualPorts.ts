@@ -69,9 +69,17 @@ export interface HarnessGate {
  * Virtual ports are enumerated in an unpackaged build, or when PT_HARNESS=1
  * opens the gate explicitly (ADR-0004). A packaged build without that variable
  * lists hardware and nothing else.
+ *
+ * When PT_HARNESS is set it is authoritative in both directions: `1` turns the
+ * harness on, and any other value turns it off even unpackaged. That opt-out
+ * is what lets a test prove the gate is a real runtime decision without
+ * packaging a build first, and it lets the app be run from source with the
+ * generated ports out of the way.
  */
 export function virtualPortsEnabled(gate: HarnessGate): boolean {
-  return !gate.isPackaged || gate.env.PT_HARNESS === '1'
+  const explicit = gate.env.PT_HARNESS
+  if (explicit !== undefined) return explicit === '1'
+  return !gate.isPackaged
 }
 
 export function isVirtualPortId(portId: string): boolean {

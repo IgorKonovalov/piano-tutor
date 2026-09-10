@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "npm run build && playwright test",
+    "gate": "npm run typecheck && npm run lint && npm test && node scripts/check-pins.mjs && node scripts/check-doc-links.mjs && npm run test:e2e",
     "package": "npm run build && electron-builder"
   },
   "dependencies": {

@@ -48,16 +48,26 @@ npm run build     # the three bundles into dist/
 npm run package   # a portable zip through electron-builder
 ```
 
-Checks, in the order the pre-push hook runs them:
+One command runs everything:
+
+```
+npm run gate
+```
+
+That is typecheck, lint, unit tests, the two Node gates and the end-to-end run,
+in that order, stopping at the first failure. The pieces individually:
 
 ```
 npm run typecheck # tsc over all four tsconfigs
 npm run lint      # eslint, including the process-boundary rules
 npm test          # vitest
-npm run test:e2e  # playwright drives the built Electron app (opens a window)
+npm run test:e2e  # builds, then Playwright drives the app (opens a window)
 node scripts/check-pins.mjs      # every dependency pinned exact (NFR 9)
 node scripts/check-doc-links.mjs # every relative markdown link resolves
 ```
+
+The pre-push hook runs everything except the end-to-end step, which is slow and
+opens a window. Run `npm run gate` before closing a plan.
 
 Hot reload covers the renderer only. After a change under `electron/`, restart Electron; the
 esbuild watchers rebuild the bundle but Electron does not reload it.
@@ -71,6 +81,9 @@ seeded generated passage through the identical parse, record and paint path a re
 uses, which is what makes every check above runnable with nothing plugged in
 ([ADR-0004](docs/adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md)). A
 packaged build without that variable lists hardware only.
+
+`PT_HARNESS` decides in both directions whenever it is set: `PT_HARNESS=0` hides the harness even
+when running from source, which is how the end-to-end suite proves the gate is real.
 
 A green run of those checks means the pipeline is intact. It does not mean the piano works: only
 [Plan 0001](docs/plans/0001-the-keyboard-shows-on-screen.md) Phase 7, at the instrument, says

@@ -24,11 +24,24 @@ describe('the harness gate', () => {
     expect(virtualPortsEnabled({ isPackaged: true, env: { PT_HARNESS: '0' } })).toBe(false)
     expect(virtualPortsEnabled({ isPackaged: true, env: { PT_HARNESS: 'yes' } })).toBe(false)
   })
+
+  it('is shut by an explicit PT_HARNESS=0 even in an unpackaged build', () => {
+    // The variable is authoritative in both directions when it is set at all,
+    // which is what makes the gate provable without packaging a build.
+    expect(virtualPortsEnabled({ isPackaged: false, env: { PT_HARNESS: '0' } })).toBe(false)
+    expect(listVirtualPorts({ isPackaged: false, env: { PT_HARNESS: '0' } })).toEqual([])
+    expect(virtualPortsEnabled({ isPackaged: false, env: { PT_HARNESS: 'off' } })).toBe(false)
+  })
 })
 
 describe('listPorts', () => {
   it('returns no virtual entry when packaged and PT_HARNESS is unset', async () => {
     const ports = await new RtMidiSource(packagedWithoutHarness).listPorts()
+    expect(ports.filter((p) => p.kind === 'virtual')).toEqual([])
+  })
+
+  it('returns no virtual entry when PT_HARNESS=0 shuts the gate explicitly', async () => {
+    const ports = await new RtMidiSource({ isPackaged: false, env: { PT_HARNESS: '0' } }).listPorts()
     expect(ports.filter((p) => p.kind === 'virtual')).toEqual([])
   })
 

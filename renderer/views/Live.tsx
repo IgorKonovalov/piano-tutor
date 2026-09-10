@@ -57,6 +57,7 @@ export function Live({ source, onStop }: LiveProps) {
   const stream = useMidiEvents()
   const sounding = soundingPitches(stream.held)
   const what = describe(source)
+  const watchingHarnessPort = source.kind === 'port' && source.port.kind === 'virtual'
 
   // The component is keyed by source in App, so a different one remounts it
   // and the open state starts clean without an effect resetting it.
@@ -120,7 +121,16 @@ export function Live({ source, onStop }: LiveProps) {
         <EventLog entries={stream.log} received={stream.received} />
       </div>
 
-      {import.meta.env.DEV && <LatencyOverlay stats={stream.latency} synthetic={what.generated} />}
+      {/*
+        The overlay is a development instrument. It shows in a dev build, and
+        also whenever a harness port is what is being watched -- a
+        `virtual:` port only exists when ADR-0004's gate is open, so that
+        condition adds no capability and no new way to open one. It is what
+        lets the end-to-end run read NFR 11 off the real build.
+      */}
+      {(import.meta.env.DEV || watchingHarnessPort) && (
+        <LatencyOverlay stats={stream.latency} synthetic={what.generated} />
+      )}
     </section>
   )
 }

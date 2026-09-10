@@ -12,6 +12,7 @@
     "renderer/**/*.test.ts",
     "renderer/**/*.test.tsx",
     "e2e/**/*",
+    "renderer/types/global.d.ts",
     "vitest.config.ts",
     "playwright.config.ts",
     "vite.config.ts"
