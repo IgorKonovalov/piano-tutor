@@ -10,7 +10,6 @@
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2);
-  min-height: 92px;
 }
 
 .caption {
@@ -26,6 +25,9 @@
   font-size: 28px;
   font-weight: 600;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .smallValue {
@@ -53,12 +55,19 @@
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--color-fg-dim);
+  /* One line, always: a wrap would move everything below the panel. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .alternatives {
   margin-top: var(--space-1);
   font-size: 12px;
   color: var(--color-fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .confidence {

@@ -4,6 +4,9 @@ import type { KeyEstimate } from '../../core/src/theory/key'
 import { spellingFor } from '../../core/src/theory/spelling'
 import styles from './Labels.module.css'
 
+/** A reserved, empty line: keeps a row's height without any content in it. */
+const BLANK = ' '
+
 export interface LabelsProps {
   /** Every pitch currently sounding, keys down and pedalled alike. */
   sounding: number[]
@@ -29,27 +32,27 @@ function LabelsView({ sounding, musicalKey }: LabelsProps) {
     <div className={styles.labels} data-testid="labels">
       <div className={styles.panel}>
         <p className={styles.caption}>Chord</p>
-        {chord === null ? (
-          <p className={`${styles.value} ${styles.silent}`} data-testid="chord-name">
-            {sounding.length === 0 ? '—' : notes.join(' ')}
-          </p>
-        ) : (
-          <>
-            <p className={styles.value} data-testid="chord-name">
-              {chord.name}
-            </p>
-            <p className={styles.notes}>{notes.join('  ')}</p>
-            {candidates.length > 1 && (
-              <p className={styles.alternatives} title="Other readings of the same notes">
-                also{' '}
-                {candidates
-                  .slice(1, 4)
-                  .map((c) => c.name)
-                  .join(', ')}
-              </p>
-            )}
-          </>
-        )}
+        <p
+          className={chord === null ? `${styles.value} ${styles.silent}` : styles.value}
+          data-testid="chord-name"
+        >
+          {chord?.name ?? (sounding.length === 0 ? '—' : notes.join(' '))}
+        </p>
+        {/*
+          Every row is always rendered, empty ones included. The panel's height
+          is then a constant, and the staff and the keyboard below it do not
+          move when a chord gains a notes line or an alternative reading. A
+          fixed pixel height would do the same until someone changed a font.
+        */}
+        <p className={styles.notes}>{chord === null ? BLANK : notes.join('  ')}</p>
+        <p className={styles.alternatives} title="Other readings of the same notes">
+          {chord !== null && candidates.length > 1
+            ? `also ${candidates
+                .slice(1, 4)
+                .map((c) => c.name)
+                .join(', ')}`
+            : BLANK}
+        </p>
       </div>
 
       <div className={styles.panel}>
@@ -65,18 +68,16 @@ function LabelsView({ sounding, musicalKey }: LabelsProps) {
         >
           {musicalKey === null ? '—' : musicalKey.name}
         </p>
-        {musicalKey !== null && (
-          <div className={styles.confidence} aria-hidden="true">
-            <div
-              className={
-                musicalKey.confident
-                  ? styles.confidenceFill
-                  : `${styles.confidenceFill} ${styles.low}`
-              }
-              style={{ width: `${Math.round(musicalKey.confidence * 100)}%` }}
-            />
-          </div>
-        )}
+        <div className={styles.confidence} aria-hidden="true">
+          <div
+            className={
+              musicalKey?.confident === true
+                ? styles.confidenceFill
+                : `${styles.confidenceFill} ${styles.low}`
+            }
+            style={{ width: `${Math.round((musicalKey?.confidence ?? 0) * 100)}%` }}
+          />
+        </div>
       </div>
 
       <div className={styles.panel}>

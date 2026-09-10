@@ -51,6 +51,32 @@ const LAYOUT: KeyLayout[] = (() => {
 const WHITE_KEYS = LAYOUT.filter((k) => !k.black)
 const BLACK_KEYS = LAYOUT.filter((k) => k.black)
 
+/**
+ * How hard the key was struck, as a tint fraction.
+ *
+ * Measured at the CK88 (Plan 0001 Phase 7): over 1 139 note-ons the velocity
+ * distribution was min 1, p10 38, p50 61, p90 79, p99 89, max 94, with
+ * deliberate force reaching 125. Ordinary playing never approaches the top of
+ * the MIDI range, so tinting linearly on `velocity / 127` left a normal stroke
+ * under half lit and the loudest real playing at three-quarters.
+ *
+ * A gamma below 1 lifts the range that is actually played while keeping the
+ * whole scale reachable, so a genuine fortissimo still reads as louder than a
+ * forte. The floor stops the very softest note from vanishing; it can be small
+ * because being pressed at all is carried by the accent bar, not by the tint.
+ *
+ * This is a display mapping. It says nothing about loudness -- the instrument
+ * makes the sound.
+ */
+export const VELOCITY_GAMMA = 0.62
+export const VELOCITY_FLOOR = 0.15
+
+export function velocityTint(velocity: number): number {
+  const clamped = Math.min(127, Math.max(0, velocity))
+  if (clamped === 0) return 0
+  return VELOCITY_FLOOR + (1 - VELOCITY_FLOOR) * Math.pow(clamped / 127, VELOCITY_GAMMA)
+}
+
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 export function noteLabel(note: number): string {
@@ -76,13 +102,10 @@ const Key = memo(function Key({ layout, state, velocity }: KeyProps) {
   if (state === 'pedalled') classes.push(styles.pedalled)
   if (layout.note === MIDDLE_C) classes.push(styles.middleC)
 
+  const tint = velocityTint(velocity)
   const style = layout.black
-    ? {
-        left: `${layout.left}%`,
-        width: `${layout.width}%`,
-        '--velocity': velocity / 127,
-      }
-    : { '--velocity': velocity / 127 }
+    ? { left: `${layout.left}%`, width: `${layout.width}%`, '--velocity': tint }
+    : { '--velocity': tint }
 
   return (
     <div
