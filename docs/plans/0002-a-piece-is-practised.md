@@ -468,7 +468,7 @@ type PracticeReport = {
 | 4 — A take aligns to a score | dev | done | 43373bb |
 | 5 — The score colours and the numbers show | dev | done | 6f704b2 |
 | 6 — A MIDI file is a second-class score | dev | done | 85350e9 |
-| 7 — At the piano, with a real piece | human | not started | deferred, see Notes |
+| 7 — At the piano, with a real piece | human | partly answered | see Notes; items 3 and 6 open |
 
 ### Measurements
 
@@ -537,6 +537,24 @@ type PracticeReport = {
   no `min-height: 0`, so `height: 100%` inside it resolved against nothing, and the Score view's
   grid row was implicit and therefore `auto`, so it overflowed the container it was sized to.
   Both are Plan 0001-era CSS that no earlier view exercised.
+- **Phase 7, answered from real use rather than from the checklist being run in order.** The user
+  imported real repertoire and played at the CK88 while the app was open. What that established,
+  item by item, recorded here because it is evidence the close needs and it is not a green gate:
+  - **Item 1 (does a real file draw?)** Answered, yes. Ten public-domain `.mxl` pieces from the
+    MuseTrainer library import and draw, Clair de lune among them at 72 bars in 548 ms. Nothing
+    was refused and nothing rendered visibly wrongly.
+  - **Item 2 (do the coloured bars match your own sense of where you fumbled?)** Not answered.
+  - **Item 3 (the false start)** Not attempted. This is the one the plan singles out as the
+    question the generator cannot ask.
+  - **Item 4 (rubato read as error)** Observed but not judged by the player: an exploratory
+    working-through scored every bar `timing`, with deviations near a second, because one fitted
+    tempo cannot describe a take where the player is finding the notes. Not fixed.
+  - **Item 5 (does the 50 ms window hold a rolled chord together?)** Answered, **no** -- see the
+    row below. This is the finding of the whole plan.
+  - **Item 6 (play the same piece well and badly; do the statistics tell them apart?)** Not
+    attempted.
+  - **Item 7 (NFR 12 by feel)** Answered: the colouring appears at once, 3 to 5 ms measured in
+    the app.
 - **First contact with the instrument found a real defect in the aligner**, before Phase 7 was
   formally run. The user practised `pickup-two-hands` on the CK88, arpeggiating every chord at
   about 650 ms per note, and played all nineteen pitches correctly and in order. The report said
@@ -679,6 +697,27 @@ type PracticeReport = {
 
 ## Followups (after this lands)
 
+- **A metronome, and an optional follow mode.** Asked for by the user on 2026-09-10 after using
+  the app. Four decisions were taken with them at the time, recorded here so the architect drafts
+  from them rather than re-interviewing:
+  1. **The click is audio, produced by the app**, which needs an ADR: `docs/nfr.md` currently
+     lists audio under *what is deliberately not a requirement* ("the application never
+     synthesises, never opens an audio device"), and that has to be overturned deliberately
+     rather than eroded. The rejected alternatives were a visual-only beat, and a MIDI click sent
+     out to the CK88 so the sound comes from the instrument -- the latter needs a MIDI-output
+     path, which is its own roadmap item.
+  2. **With a click running, timing is judged against the click**, not against the fitted tempo.
+     This is a second scoring path beside the tempo-free one, not a replacement: alignment stays
+     tempo-free when there is no click, which is what every test in `core/src/align/` defends.
+  3. **Follow mode highlights the current bar**, reusing the bar-marking mechanism this plan
+     already built and proved. Note-level highlighting and OSMD's own cursor were both considered
+     and not chosen.
+  4. **It is a plan of its own, drafted after this one closes**, not extra phases here.
+- **The follow cursor this plan's prose promised was never built.** "The score follows with a
+  cursor, nothing is judged until you stop" appears in *Context & problem* and in *What this plan
+  does NOT do*, but no phase carries a done-when for it and none was implemented. The gap is
+  between the plan's narrative and its phases, not between the phases and the code. The followup
+  above is where it now lives.
 - **Repeat unfolding** — first and second endings, da capo, segno. The single largest thing this
   plan cut, and the one most likely to be asked for by real repertoire.
 - **The false-start recovery**, if Phase 7 item 3 says the single pass is not enough.
