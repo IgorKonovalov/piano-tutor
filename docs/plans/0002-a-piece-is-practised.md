@@ -464,8 +464,8 @@ type PracticeReport = {
 |---|---|---|---|
 | 1 — A score appears on screen | dev | done | 4f5c45d |
 | 2 — The expected notes come off the score | dev | done | 46a6b3e |
-| 3 — The app plays the score, badly on purpose | dev | done | committed with this row |
-| 4 — A take aligns to a score | dev | not started | |
+| 3 — The app plays the score, badly on purpose | dev | done | 7da16b5 |
+| 4 — A take aligns to a score | dev | done | committed with this row |
 | 5 — The score colours and the numbers show | dev | not started | |
 | 6 — A MIDI file is a second-class score | dev | not started | |
 | 7 — At the piano, with a real piece | human | not started | |
@@ -509,6 +509,28 @@ type PracticeReport = {
   the OSMD instance, so extraction happens there and rides out on `onLoaded`;
   `renderer/views/Score.module.css` styles the panel added to `Score.tsx`, which is in the list;
   `renderer/score/timelineFromOsmd.test.ts` is new, see the row below.
+- Phase 4: `BarVerdict.state` has five values, not the four the plan's data shape sketches. The
+  fifth is `unalignable`, which is what the plan's own answer to the false start asks for --
+  "unalignable past a point, rather than a wall of red". Phase 5 renders it.
+- Phase 4: the band is `24 + |expected - played|` groups. Widening it by the length difference is
+  what stops a take that simply stopped from being pushed out of the band; the consequence is
+  that a gap run can never exceed the band, so `unalignableFrom` is earned instead by a run of
+  `band` consecutive steps in which the score and the player share **no** pitch -- the wall of
+  errors itself, detected as such. The first version keyed off gap runs and could not fire at
+  all; that was found by writing the test for it, not by reasoning.
+- Phase 4: on a tie the matcher prefers a gap to a match, which reads an ambiguous take as
+  starting at the earliest place in the score that fits. Without it, a player who stopped after
+  two bars of a piece whose material repeats was read as having played the *last* two, and the
+  bars they never reached came back as wrong notes. Found by the `stopAfterBar` test.
+- Phase 4: dropping the **last** note of a piece and stopping just before it are the same
+  evidence, and both read as `notAttempted`. So a fluffed final note is never reported as
+  missing. Asserted in `report.test.ts` so it stays a decision; worth putting to the player at
+  Phase 7.
+- Phase 4: the done-when names bar 5 for `substitutePitch`, bar 9 for `dropNote` and bar 12 for
+  `rushBar`. The fixture scores have four to seven bars, so those tests use the bar the
+  perturbation names within the fixture used -- bar 5 of `multi-rest-and-ties` for the
+  substitution, bars 1, 2 and 5 for the drops, bar 2 of `scale-c-major` for the rush. The
+  assertion in each case is "the bar the perturbation declared", not a literal number.
 - Phase 3: adding the `virtual:score:*` family changes what the port list contains, so three
   files outside the phase's list were edited to keep saying something true rather than to go
   green: `electron/midi/virtualPorts.test.ts` and `electron/midi/SyntheticSource.test.ts` (Plan

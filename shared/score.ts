@@ -126,6 +126,72 @@ export const ExpectedTimelineSchema = z.object({
 export type ExpectedTimeline = z.infer<typeof ExpectedTimelineSchema>
 
 /**
+ * What a take was, judged against a score. Produced by `core/src/align/`,
+ * rendered by the Score view, and summarised for the coach in Plan 0003.
+ *
+ * It is **sized by bars, not by events**: a ten-minute take and a one-minute
+ * take of the same piece produce reports of the same order of size, because
+ * what is described is the score. That is the property that keeps the coach's
+ * token budget (NFR 7) reachable, and it is cheapest to guarantee here.
+ */
+export const NoteVerdictSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('correct'),
+    expected: z.number().int().min(0).max(127),
+    /** Milliseconds into the take. */
+    playedAt: z.number(),
+  }),
+  z.object({
+    kind: z.literal('wrongPitch'),
+    expected: z.number().int().min(0).max(127),
+    played: z.number().int().min(0).max(127),
+  }),
+  z.object({ kind: z.literal('missing'), expected: z.number().int().min(0).max(127) }),
+  z.object({ kind: z.literal('extra'), played: z.number().int().min(0).max(127) }),
+])
+export type NoteVerdict = z.infer<typeof NoteVerdictSchema>
+
+/**
+ * `notAttempted` is a third thing beside right and wrong: a player who stops
+ * halfway has not played the second half wrongly, and must not be shown a red
+ * one. `unalignable` is the fourth: past a certain amount of divergence the
+ * matcher has lost the thread, and saying so is honest where a wall of wrong
+ * notes would be a confident lie.
+ */
+export const BarStateSchema = z.enum(['clean', 'timing', 'wrong', 'notAttempted', 'unalignable'])
+export type BarState = z.infer<typeof BarStateSchema>
+
+export const BarVerdictSchema = z.object({
+  bar: z.number().int().nonnegative(),
+  state: BarStateSchema,
+  notes: z.array(NoteVerdictSchema),
+  /**
+   * Mean signed distance of this bar's notes from the one fitted tempo, in
+   * milliseconds. Negative is early. Zero when the bar has nothing to time.
+   */
+  timingDeviation: z.number(),
+})
+export type BarVerdict = z.infer<typeof BarVerdictSchema>
+
+export const PracticeReportSchema = z.object({
+  scoreId: z.string(),
+  takeId: z.string(),
+  /** One entry per bar in the timeline, in order. */
+  bars: z.array(BarVerdictSchema),
+  /** Quarter notes per minute, fitted after the match. Null if unfittable. */
+  fittedTempo: z.number().nullable(),
+  counts: z.object({
+    correct: z.number().int().nonnegative(),
+    wrongPitch: z.number().int().nonnegative(),
+    missing: z.number().int().nonnegative(),
+    extra: z.number().int().nonnegative(),
+  }),
+  /** The first bar the matcher lost, or null when the take aligned throughout. */
+  unalignableFromBar: z.number().int().nonnegative().nullable(),
+})
+export type PracticeReport = z.infer<typeof PracticeReportSchema>
+
+/**
  * The `score` half of `window.api`, declared where both sides can see it.
  */
 export interface ScoreApi {
