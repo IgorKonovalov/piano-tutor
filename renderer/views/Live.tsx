@@ -5,6 +5,7 @@ import { EventLog } from '../components/EventLog'
 import { Keyboard } from '../components/Keyboard'
 import { Labels } from '../components/Labels'
 import { LatencyOverlay } from '../components/LatencyOverlay'
+import { LiveStaff } from '../components/LiveStaff'
 import { useMidiEvents } from '../hooks/useMidiEvents'
 import styles from './Live.module.css'
 
@@ -22,6 +23,7 @@ export function Live({ port, onStop }: LiveProps) {
   const [openError, setOpenError] = useState<string | null>(null)
   // Listening starts on mount; the port is opened underneath it.
   const stream = useMidiEvents()
+  const sounding = soundingPitches(stream.held)
 
   // The component is keyed by port id in App, so a different port remounts it
   // and the open state starts clean without an effect resetting it.
@@ -59,7 +61,12 @@ export function Live({ port, onStop }: LiveProps) {
 
       <div className={styles.section}>
         <h2 className={styles.sectionHeading}>Playing</h2>
-        <Labels sounding={soundingPitches(stream.held)} musicalKey={stream.key} />
+        <Labels sounding={sounding} musicalKey={stream.key} />
+      </div>
+
+      <div className={styles.section}>
+        <h2 className={styles.sectionHeading}>Staff</h2>
+        <LiveStaff sounding={sounding} musicalKey={stream.key} />
       </div>
 
       <div className={styles.section}>

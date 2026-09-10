@@ -444,8 +444,8 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 |---|---|---|---|
 | 1 — The shell opens and lists the ports | dev | done | 37ae827 |
 | 2 — The keys light up, and the app can play itself | dev | done | ad95841 |
-| 3 — The notes get names | dev | done | committed with this row |
-| 4 — The staff draws what is held | dev | not started | |
+| 3 — The notes get names | dev | done | dd1f69f |
+| 4 — The staff draws what is held | dev | done | committed with this row |
 | 5 — Every session is a take | dev | not started | |
 | 6 — The whole gate runs with nothing plugged in | dev | not started | |
 | 7 — At the instrument | human | not started | |
@@ -459,8 +459,9 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
   Phase 7.
 - **NFR 11 (Phase 3, labels mounted), synthetic:** frame delta p50 1, p95 1, max 1; milliseconds
   p50 5.0, p95 19.8, max 31.8 over 500 note-ons from `virtual:dense-2000`, development machine.
-- **NFR 11 (Phase 4, staff mounted), synthetic:** frame delta p95 _, max _; milliseconds p50 _,
-  p95 _, max _.
+- **NFR 11 (Phase 4, staff mounted), synthetic:** frame delta p50 1, p95 1, max 1; milliseconds
+  p50 9.3, p95 30.0, max 49.6 over 500 note-ons from `virtual:dense-2000`, development machine.
+  Before the 30 Hz coalescing described below the same run read p50 12.1, p95 33.0, max 88.3.
 - **NFR 4 (Phase 6), synthetic:** `app.whenReady` to first painted key _ ms.
 - **NFR 1 (Phase 7), at the instrument:** p50 _ ms, p95 _ ms, max _ ms over 500 note-ons.
   *This is the number NFR 1 means; the synthetic figures above do not traverse USB.*
@@ -523,6 +524,20 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
   enough that the three generated scenarios clear it and low enough that a four-note chord does
   not read as unknown. Nothing calibrates it against human playing yet, which is the
   generator-drift risk the plan names.
+- The staff is the most expensive thing on the paint path, as the plan predicted. Mounting it
+  moved `virtual:dense-2000` from p50 5.0 ms / p95 19.8 ms to 12.1 / 33.0. `LiveStaff` now
+  coalesces its VexFlow redraws to 30 Hz -- the fallback ADR-0003 and the plan both name -- which
+  brought it to 9.3 / 30.0. A change is still drawn immediately whenever the staff has been idle,
+  so a single key press is never delayed; only a burst faster than 30 changes a second is batched.
+  The keyboard stays on the 60 Hz path.
+- Three of the staff-split tests were wrong as first written, in the test rather than the code:
+  a semitone straddling middle C is one hand under the plan's own under-a-tenth rule, and A3-C4-E4
+  reads in the treble because its middle sits above middle C. Corrected in the test.
+- The live staff draws no key signature. There are no measures and no bar line to reset one
+  (ADR-0003), so every altered note carries its own accidental, spelled from the estimated key.
+- `LiveStaff.test.tsx` stubs `HTMLCanvasElement.getContext`: jsdom implements no canvas and
+  VexFlow measures text through one. Without the stub the file logged 29 warnings and took 47 s;
+  with it, 4 s.
 
 ## Followups (after this lands)
 
