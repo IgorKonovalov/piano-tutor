@@ -383,8 +383,8 @@ interface MidiSink {
 | 1 — The app plays a scale into the room | dev | done | `88e9b59` |
 | 2 — A tempo, a velocity, and a range of bars | dev | done | `0fb0d66` |
 | 3 — The Score view plays the piece | dev | done | `47c69ed` |
-| 4 — A take plays back out to the instrument | dev | done | committed with this row |
-| 5 — You can hear it with nothing plugged in | dev | not started | |
+| 4 — A take plays back out to the instrument | dev | done | `cd71382` |
+| 5 — You can hear it with nothing plugged in | dev | done | committed with this row |
 | 6 — Stop always stops | dev | not started | |
 | 7 — At the piano | human | not started | |
 
@@ -531,6 +531,42 @@ the place that owns it: `core/src/player/schedule.test.ts` normalises an event l
 unreleased note-on and asserts the schedule's last event releases it, and every take plays through
 that same builder. The end-to-end run asserts the consequence — nothing sounding once the take has
 finished.
+
+Only `npx playwright test player` was run for this phase; the full gate is owed at Phase 6.
+
+**Phase 5.** Three files outside the phase's list: `renderer/views/Ports.tsx` and its stylesheet
+(the third view holding a transport, and the one where the output port is chosen, so the sound
+control belongs there too) and `e2e/player.spec.ts` (one assertion). All three were already written
+in earlier phases of this plan.
+
+`AudioContext` is **injected, not constructed**, through an optional `usePlayer({
+createAudioContext })`. Production passes nothing; the test passes a fake. It is the same
+dependency injection `Player` uses for its clock and `MidiSource` for its harness gate, and it is
+the only way a `jsdom` run can see this lifecycle — `jsdom` has no Web Audio at all.
+
+**The done-when's test is a real mount and unmount**, not an inspection of the wiring:
+`synth.test.ts` renders the hook through `react-dom/client` and React's own `act`, plays, feeds the
+events main would push, unmounts, and asserts the context is closed and every oscillator stopped.
+No testing library was added (NFR 9); `react-dom` is already a dependency.
+
+The default rule is asserted in the same place, with no hardware: an output whose row says `Open`
+makes the target default to the instrument **and the app open no audio device at all**, which is
+the half of ADR-0008 that keeps a note from sounding twice a few milliseconds apart. An explicit
+choice overrides it in both directions. The end-to-end run asserts only that with nothing open the
+control reads "this computer" — **whether it is actually audible, and whether the tone is
+tolerable, is Phase 7 item 6 and cannot be asserted by any test.**
+
+The sound target is derived, not stored: `chosenTarget ?? (outputOpen ? 'instrument' :
+'computer')`, with `outputOpen` polled on the same two-second interval the ports view uses. Listing
+outputs opens no handle (ADR-0006), so asking is free.
+
+`react-hooks` refused two shapes on the way, both rightly: a ref written during render, and a
+`setState` inside an effect. The ref that the animation-frame loop reads is now written in an
+effect keyed on the target, and `play` takes the target as a dependency instead.
+
+NFR 3 re-checked by hand for this phase: `renderer/` contains no `node:*`, `electron`, `fs`,
+`path`, `child_process`, `require`, `fetch`, `XMLHttpRequest` or `WebSocket`, and both CSP strings
+still carry no `connect-src` — the latter already asserted by `electron/window.test.ts`.
 
 Only `npx playwright test player` was run for this phase; the full gate is owed at Phase 6.
 

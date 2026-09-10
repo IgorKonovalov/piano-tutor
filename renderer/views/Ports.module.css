@@ -201,3 +201,23 @@
 .playbackKeyboard {
   margin-top: var(--space-4);
 }
+
+/*
+ * Where the app's own playing is heard (ADR-0008): the instrument when one is
+ * selected, this computer when none is, or nothing. One choice rather than two
+ * switches, so a note cannot sound twice by accident.
+ */
+.soundLabel {
+  font-size: 12px;
+  color: var(--color-fg-dim);
+}
+
+.sound {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-sunken);
+  color: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-1);
+  font: inherit;
+  font-size: 12px;
+}

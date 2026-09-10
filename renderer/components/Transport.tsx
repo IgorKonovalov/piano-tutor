@@ -1,4 +1,5 @@
 import { MAX_BPM, MIN_BPM, type PlayerState } from '../../shared/player'
+import { SOUND_TARGETS, SOUND_TARGET_LABELS, type SoundTarget } from '../audio/synth'
 import styles from './Transport.module.css'
 
 /**
@@ -24,6 +25,18 @@ export interface TransportRange {
   onChange(from: number, to: number): void
 }
 
+/**
+ * Where the app's own playing is heard (ADR-0008). One choice, not two
+ * switches, so the instrument and the fallback tone cannot both be on by
+ * accident and sound every note twice.
+ */
+export interface TransportSound {
+  target: SoundTarget
+  onChange(target: SoundTarget): void
+  /** True while an output port is open, which is what the default follows. */
+  outputOpen: boolean
+}
+
 export interface TransportProps {
   state: PlayerState
   /** Note-ons since this playback started. */
@@ -34,6 +47,7 @@ export interface TransportProps {
   onStop(): void
   tempo?: TransportTempo
   range?: TransportRange
+  sound?: TransportSound
   /** Nothing to play: no score drawn, no take chosen. */
   disabled?: boolean
   error?: string | null
@@ -56,6 +70,7 @@ export function Transport({
   onStop,
   tempo,
   range,
+  sound,
   disabled = false,
   error = null,
   onDismissError,
@@ -72,6 +87,7 @@ export function Transport({
       data-notes={notesPlayed}
       data-sounding={soundingCount}
       data-bar={playing ? (state.bar ?? '') : ''}
+      data-sound={sound?.target ?? ''}
     >
       <button
         type="button"
@@ -151,6 +167,28 @@ export function Transport({
           >
             Whole piece
           </button>
+        </>
+      )}
+
+      {sound !== undefined && (
+        <>
+          <label className={styles.field} htmlFor={`${testId}-sound`}>
+            Heard through
+          </label>
+          <select
+            id={`${testId}-sound`}
+            className={styles.select}
+            value={sound.target}
+            onChange={(event) => sound.onChange(event.target.value as SoundTarget)}
+            data-testid={`${testId}-sound`}
+          >
+            {SOUND_TARGETS.map((target) => (
+              <option key={target} value={target}>
+                {SOUND_TARGET_LABELS[target]}
+                {target === 'instrument' && !sound.outputOpen ? ' (no output chosen)' : ''}
+              </option>
+            ))}
+          </select>
         </>
       )}
 

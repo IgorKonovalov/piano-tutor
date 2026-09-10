@@ -98,6 +98,13 @@ test('the demonstration lights the keyboard and leaves nothing lit', async () =>
   expect(lit.size).toBe(15)
 
   await expect(keyboard).toHaveAttribute('data-playing', '0')
+
+  // ADR-0008 defaults to this computer when no instrument is listening, so
+  // the demonstration is audible on a machine with no piano attached. That it
+  // is actually heard is a human judgement (Phase 7); what is asserted here is
+  // that the app is aimed at the speakers rather than at nothing.
+  await expect(page.getByTestId('player-sound')).toHaveValue('computer')
+
   expect(launched.networkRequests).toEqual([])
 })
 

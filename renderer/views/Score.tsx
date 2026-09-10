@@ -510,6 +510,11 @@ export function Score() {
                 max: lastBar,
                 onChange: (from, to) => setRange({ from, to }),
               }}
+              sound={{
+                target: player.soundTarget,
+                onChange: player.setSoundTarget,
+                outputOpen: player.outputOpen,
+              }}
               error={player.error}
               onDismissError={player.clearError}
               playLabel="Play the score"

@@ -88,6 +88,11 @@ export function Takes({ onReplay }: TakesProps) {
         }}
         onStop={() => void player.stop()}
         disabled={chosen === null}
+        sound={{
+          target: player.soundTarget,
+          onChange: player.setSoundTarget,
+          outputOpen: player.outputOpen,
+        }}
         error={player.error}
         onDismissError={player.clearError}
         testId="take-transport"

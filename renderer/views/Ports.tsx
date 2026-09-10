@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { emptyHeldNotes } from '../../core/src/midi/HeldNotes'
 import type { MidiPort } from '../../shared/midi'
+import { SOUND_TARGETS, SOUND_TARGET_LABELS, type SoundTarget } from '../audio/synth'
 import { Keyboard } from '../components/Keyboard'
 import { usePlayer } from '../hooks/usePlayer'
 import styles from './Ports.module.css'
@@ -235,6 +236,24 @@ function Playback({ harnessAvailable }: { harnessAvailable: boolean }) {
         >
           Stop
         </button>
+        <label className={styles.soundLabel} htmlFor="playback-sound">
+          Heard through
+        </label>
+        <select
+          id="playback-sound"
+          className={styles.sound}
+          value={player.soundTarget}
+          onChange={(event) => player.setSoundTarget(event.target.value as SoundTarget)}
+          data-testid="player-sound"
+        >
+          {SOUND_TARGETS.map((target) => (
+            <option key={target} value={target}>
+              {SOUND_TARGET_LABELS[target]}
+              {target === 'instrument' && !player.outputOpen ? ' (no output chosen)' : ''}
+            </option>
+          ))}
+        </select>
+
         <span className={styles.transportState} data-testid="player-state">
           {player.state.state === 'playing'
             ? `Playing, ${(player.state.positionMs / 1000).toFixed(1)} of ${(player.state.durationMs / 1000).toFixed(1)} s`

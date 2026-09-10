@@ -89,3 +89,13 @@
   font-size: 12px;
   color: var(--color-error);
 }
+
+.select {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-sunken);
+  color: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-1);
+  font: inherit;
+  font-size: 12px;
+}
