@@ -1,0 +1,91 @@
+/*
+ * The app's own playing, so it wears the playback colour rather than the
+ * accent: the accent is the player's hands everywhere else in the app.
+ */
+.transport {
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-playback);
+  border-radius: var(--radius-2);
+  background: var(--color-bg-raised);
+}
+
+.play,
+.stop,
+.reset {
+  flex: none;
+  padding: var(--space-1) var(--space-4);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+}
+
+.play {
+  border-color: var(--color-playback);
+  color: var(--color-playback);
+}
+
+.play:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-playback) 15%, transparent);
+}
+
+.reset {
+  font-size: 12px;
+  padding: 2px var(--space-3);
+}
+
+.play:disabled,
+.stop:disabled,
+.reset:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--color-border);
+  color: var(--color-fg-dim);
+}
+
+.field {
+  font-size: 12px;
+  color: var(--color-fg-dim);
+}
+
+.unit {
+  font-size: 12px;
+  color: var(--color-fg-dim);
+}
+
+.number {
+  width: 4.5em;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-sunken);
+  color: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-1);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.number:disabled {
+  opacity: 0.5;
+}
+
+.reading {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.error {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 12px;
+  color: var(--color-error);
+}

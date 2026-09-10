@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { type MidiEvent, type MidiPort } from './midi'
+import { ExpectedTimelineSchema } from './score'
 
 /**
  * The `player:*` domain (ADR-0007): what the app plays, as opposed to what the
@@ -83,9 +84,25 @@ export interface PlaybackSchedule {
   bars: readonly ScheduleBar[]
 }
 
-/** What the renderer asks main to play. Validated once, on receive. */
+/**
+ * What the renderer asks main to play. Validated once, on receive.
+ *
+ * The `timeline` variant carries the whole extracted timeline rather than a
+ * score id, because the renderer is the only process that parses a score
+ * (ADR-0005) and main has no way to produce one. It crosses the bridge once
+ * per play, not per event: a 200-bar score is a few hundred kilobytes and this
+ * is not a hot path.
+ */
 export const PlayRequestSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('scenario'), id: z.string().min(1) }),
+  z.object({
+    kind: z.literal('timeline'),
+    timeline: ExpectedTimelineSchema,
+    bpm: z.number(),
+    /** Inclusive, in OSMD's own bar numbering. */
+    fromBar: z.number().int().nonnegative(),
+    toBar: z.number().int().nonnegative(),
+  }),
 ])
 export type PlayRequest = z.infer<typeof PlayRequestSchema>
 

@@ -20,11 +20,14 @@ import {
   NO_QUANTISE,
   timelineFromMidi,
 } from '../../core/src/score/timelineFromMidi'
+import { DEFAULT_BPM, clampBpm } from '../../shared/player'
 import { BarDetail } from '../components/BarDetail'
 import { BarList } from '../components/BarList'
 import { PracticeStats } from '../components/PracticeStats'
+import { Transport } from '../components/Transport'
 import { type BarMark, OsmdView, type ScoreLoaded } from '../score/OsmdView'
 import { useScoreContent, useScoreLibrary } from '../hooks/useScore'
+import { usePlayer } from '../hooks/usePlayer'
 import { usePracticeReport } from '../hooks/usePracticeReport'
 import styles from './Score.module.css'
 
@@ -72,6 +75,7 @@ function markLabel(state: BarState, notes: readonly NoteVerdict[]): string {
 export function Score() {
   const library = useScoreLibrary()
   const practice = usePracticeReport()
+  const player = usePlayer()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loaded, setLoaded] = useState<ScoreLoaded | null>(null)
@@ -86,6 +90,15 @@ export function Score() {
    * which is the precedent the quantisation grid set.
    */
   const [strictness, setStrictness] = useState<TimingStrictness>(DEFAULT_STRICTNESS)
+  /**
+   * What the app plays back, as opposed to what the player plays. The tempo is
+   * per play and forgotten: the score states none (ADR-0005) and there is no
+   * settings store to remember one in. A null range means the whole piece;
+   * clicking a bar narrows it to that bar, which the inputs then widen.
+   */
+  const [bpm, setBpm] = useState(DEFAULT_BPM)
+  const [range, setRange] = useState<{ from: number; to: number } | null>(null)
+
   const [ports, setPorts] = useState<MidiPort[]>([])
   const [portId, setPortId] = useState<string>('')
   const [recording, setRecording] = useState(false)
@@ -121,6 +134,10 @@ export function Score() {
     : (loaded?.timeline ?? null)
   const barCount = midi ? (timeline?.bars.length ?? 0) : (loaded?.barCount ?? 0)
   const report = practice.state.status === 'ready' ? practice.state.report : null
+  const lastBar = Math.max(0, barCount - 1)
+  const playRange = range ?? { from: 0, to: lastBar }
+  const playingBar = player.state.state === 'playing' ? player.state.bar : null
+  const markedBar = playingBar ?? player.lastBar
   const chosenPort = ports.find((port) => port.id === portId)
   // More than one instrument, or a build that carries the generated ports.
   const choosable =
@@ -156,12 +173,27 @@ export function Score() {
       setLoaded(null)
       setRenderError(null)
       setSelectedBar(null)
+      setRange(null)
       setShowRead(false)
       setPracticeError(null)
+      player.clearLastBar()
       practice.clear()
+      void player.stop()
     },
-    [practice]
+    [practice, player]
   )
+
+  /**
+   * Pointing at a bar is also choosing what to play. Both ways of pointing --
+   * clicking the engraving and typing the number -- go through here, so the
+   * transport's range never disagrees with the bar the view is showing.
+   */
+  const chooseBar = useCallback((bar: number | null) => {
+    setSelectedBar(bar)
+    setRange(bar === null ? null : { from: bar, to: bar })
+    // Pointing at a bar replaces the one playback left marked.
+    player.clearLastBar()
+  }, [player])
 
   const onLoaded = useCallback(
     (info: ScoreLoaded) => {
@@ -232,23 +264,48 @@ export function Score() {
   }, [recording])
 
   // The port is main's, so a view that unmounts mid-recording has to let go of
-  // it or the next open finds it held.
+  // it or the next open finds it held. Playback is main's too, and a schedule
+  // left running past this view would go on sounding into the instrument with
+  // nothing on screen to stop it.
   useEffect(() => {
     return () => {
       void window.api.midi.close()
+      void window.api.player.stop()
     }
   }, [])
 
-  const marks = useMemo<BarMark[]>(() => {
-    if (report === null) {
-      return selectedBar === null
-        ? []
-        : [{ bar: selectedBar, state: 'highlight', label: `bar ${selectedBar}` }]
-    }
-    return report.bars.map((bar) => {
-      return { bar: bar.bar, state: bar.state, label: markLabel(bar.state, bar.notes) }
+  const playScore = useCallback(() => {
+    if (timeline === null) return
+    void player.play({
+      kind: 'timeline',
+      timeline,
+      bpm: clampBpm(bpm),
+      fromBar: Math.min(playRange.from, playRange.to),
+      toBar: Math.max(playRange.from, playRange.to),
     })
-  }, [report, selectedBar])
+  }, [bpm, player, playRange.from, playRange.to, timeline])
+
+  const marks = useMemo<BarMark[]>(() => {
+    const base: BarMark[] =
+      report === null
+        ? selectedBar === null
+          ? []
+          : [{ bar: selectedBar, state: 'highlight', label: `bar ${selectedBar}` }]
+        : report.bars.map((bar) => ({
+            bar: bar.bar,
+            state: bar.state,
+            label: markLabel(bar.state, bar.notes),
+          }))
+
+    // The bar the app is sounding, through the same marking capability the
+    // verdicts use rather than a second way to mark a bar. It replaces
+    // whatever else that bar was carrying for as long as it is sounding.
+    if (markedBar === null) return base
+    return [
+      ...base.filter((mark) => mark.bar !== markedBar),
+      { bar: markedBar, state: 'highlight', label: `playing bar ${markedBar}` },
+    ]
+  }, [report, selectedBar, markedBar])
 
   const selectedVerdict =
     report === null || selectedBar === null
@@ -377,7 +434,7 @@ export function Score() {
                 disabled={barCount === 0}
                 onChange={(event) => {
                   const value = event.target.value
-                  setSelectedBar(value === '' ? null : Number(value))
+                  chooseBar(value === '' ? null : Number(value))
                 }}
                 data-testid="highlight-bar"
               />
@@ -389,7 +446,7 @@ export function Score() {
               <button
                 type="button"
                 className={styles.clear}
-                onClick={() => setSelectedBar(null)}
+                onClick={() => chooseBar(null)}
                 data-testid="highlight-clear"
               >
                 Clear
@@ -438,6 +495,25 @@ export function Score() {
                 </>
               )}
             </div>
+
+            <Transport
+              state={player.state}
+              notesPlayed={player.notesPlayed}
+              soundingCount={player.held.down.size + player.held.pedalled.size}
+              onPlay={playScore}
+              onStop={() => void player.stop()}
+              disabled={barCount === 0 || timeline === null}
+              tempo={{ bpm, onChange: (next) => setBpm(next) }}
+              range={{
+                from: playRange.from,
+                to: playRange.to,
+                max: lastBar,
+                onChange: (from, to) => setRange({ from, to }),
+              }}
+              error={player.error}
+              onDismissError={player.clearError}
+              playLabel="Play the score"
+            />
 
             {recording && (
               <p
@@ -496,7 +572,7 @@ export function Score() {
                   marks={marks}
                   onLoaded={onLoaded}
                   onError={onError}
-                  onBarClick={setSelectedBar}
+                  onBarClick={chooseBar}
                 />
               </div>
             )}
@@ -506,7 +582,7 @@ export function Score() {
                   timeline={timeline}
                   marks={marks}
                   selected={selectedBar}
-                  onBarClick={setSelectedBar}
+                  onBarClick={chooseBar}
                 />
               </div>
             )}

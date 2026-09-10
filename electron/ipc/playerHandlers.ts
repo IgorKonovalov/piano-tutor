@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { scheduleFromEvents } from '../../core/src/player/schedule'
+import { scheduleFromEvents, scheduleFromTimeline } from '../../core/src/player/schedule'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { MidiPortListSchema } from '../../shared/midi'
 import {
@@ -85,5 +85,14 @@ function buildSchedule(request: PlayRequest, gate: HarnessGate): PlaybackSchedul
       }
       return scheduleFromEvents(scenario.generate(), { kind: 'scenario', id: request.id })
     }
+
+    case 'timeline':
+      // The same core/ builder as every other source, so the tempo arithmetic
+      // and the note-off invariant have one implementation rather than three.
+      return scheduleFromTimeline(request.timeline, {
+        bpm: request.bpm,
+        fromBar: request.fromBar,
+        toBar: request.toBar,
+      })
   }
 }

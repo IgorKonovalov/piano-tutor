@@ -18,29 +18,50 @@ export interface PlayerStream {
   /** What the app has sounding right now. Empty whenever it is idle. */
   held: HeldNotes
   state: PlayerState
+  /**
+   * Note-ons since this playback started. It is a count, not a log: it is what
+   * a view shows to say the app is producing notes, and what an end-to-end run
+   * counts against the notes the schedule was built from (NFR 13).
+   */
+  notesPlayed: number
+  /**
+   * The last bar playback reached, kept after it stops. The walk ends
+   * somewhere and the bar it ended on is the one still worth looking at, so it
+   * outlives the `playing` state that produced it. Cleared by the next play,
+   * and by `clearLastBar` when the view has something else to point at.
+   */
+  lastBar: number | null
   play(request: PlayRequest): Promise<void>
   stop(): Promise<void>
   /** The last transport command that failed, for the view to show. */
   error: string | null
   clearError(): void
+  clearLastBar(): void
 }
 
 export function usePlayer(): PlayerStream {
   const [held, setHeld] = useState<HeldNotes>(emptyHeldNotes)
   const [state, setState] = useState<PlayerState>(idlePlayerState)
+  const [notesPlayed, setNotesPlayed] = useState(0)
+  const [lastBar, setLastBar] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const pending = useRef<MidiEvent[]>([])
   const current = useRef<HeldNotes>(emptyHeldNotes)
+  const played = useRef(0)
 
   useEffect(() => {
     pending.current = []
     current.current = emptyHeldNotes
+    played.current = 0
 
     const stopEvents = window.api.player.onEvent((event) => {
       pending.current.push(event)
     })
-    const stopStates = window.api.player.onState(setState)
+    const stopStates = window.api.player.onState((next) => {
+      setState(next)
+      if (next.state === 'playing' && next.bar !== null) setLastBar(next.bar)
+    })
 
     let raf = 0
     const tick = () => {
@@ -52,9 +73,13 @@ export function usePlayer(): PlayerStream {
       let next = current.current
       // The whole batch is reduced, never a sample of it: a note-off dropped
       // here would leave a key lit after playback ended.
-      for (const event of batch) next = reduceHeldNotes(next, event)
+      for (const event of batch) {
+        next = reduceHeldNotes(next, event)
+        if (event.kind === 'noteOn') played.current++
+      }
       current.current = next
       setHeld(next)
+      setNotesPlayed(played.current)
     }
     raf = requestAnimationFrame(tick)
 
@@ -67,6 +92,13 @@ export function usePlayer(): PlayerStream {
 
   const play = useCallback(async (request: PlayRequest) => {
     setError(null)
+    // Reset before the invoke, not after: main can dispatch an event at at 0
+    // before the promise resolves, and counting it against the previous run
+    // would be the same off-by-a-note the recorder's own subscribe-first rule
+    // avoids.
+    played.current = 0
+    setNotesPlayed(0)
+    setLastBar(null)
     try {
       await window.api.player.play(request)
     } catch (err) {
@@ -83,6 +115,7 @@ export function usePlayer(): PlayerStream {
   }, [])
 
   const clearError = useCallback(() => setError(null), [])
+  const clearLastBar = useCallback(() => setLastBar(null), [])
 
-  return { held, state, play, stop, error, clearError }
+  return { held, state, notesPlayed, lastBar, play, stop, error, clearError, clearLastBar }
 }

@@ -381,8 +381,8 @@ interface MidiSink {
 | phase | owner | state | commit |
 |---|---|---|---|
 | 1 — The app plays a scale into the room | dev | done | `88e9b59` |
-| 2 — A tempo, a velocity, and a range of bars | dev | done | committed with this row |
-| 3 — The Score view plays the piece | dev | not started | |
+| 2 — A tempo, a velocity, and a range of bars | dev | done | `0fb0d66` |
+| 3 — The Score view plays the piece | dev | done | committed with this row |
 | 4 — A take plays back out to the instrument | dev | not started | |
 | 5 — You can hear it with nothing plugged in | dev | not started | |
 | 6 — Stop always stops | dev | not started | |
@@ -473,6 +473,38 @@ velocity 72, a 60 ms ornament, the 30 ms / 20% release gap, channel 1 — is a n
 The end-to-end suite was **not run for this phase**, with the user's agreement: it touches only
 `core/` and a constants file, nothing the suite exercises, and it was green at Phase 1. It is owed
 in full at the last phase.
+
+**Phase 3.** `Transport` is one component with every control optional, because the sources do not
+have the same knobs: a score has a tempo and a bar range, a take has neither. Phase 4 reuses it
+with both left out.
+
+The bar range is **the bar the player clicked, widened by two number inputs**, rather than a new
+click gesture. Extending `onBarClick` to carry a modifier would have meant editing
+`renderer/score/OsmdView.tsx`, which is in no phase's file list; both existing ways of pointing at
+a bar — clicking the engraving and typing the number — now route through one `chooseBar`, so the
+transport's range can never disagree with the bar the view is showing.
+
+The sounding bar is marked through Plan 0002's `highlight` state, not a second marking capability,
+as the phase asked. It is **sticky**: the walk ends on the last bar of the range and the mark stays
+there rather than vanishing with the `playing` state, which is what "lands on the last chosen bar"
+has to mean to be observable. It lives in `usePlayer` as `lastBar`, set inside the `player:state`
+handler — an event callback. Two earlier attempts were rejected by the gate rather than by taste:
+`react-hooks/set-state-in-effect` refuses a mirroring effect, and `react-hooks/refs` refuses a ref
+written during render.
+
+`usePlayer` gained `notesPlayed`, reset **before** the play invoke rather than after, because main
+can dispatch an event at `at: 0` before the promise resolves.
+
+The Score view stops playback when it unmounts, beside the existing release of the input port.
+
+`e2e/player.spec.ts` carries six cases, including the three Phase 1 done-when observations that
+had no committed home at the time. The helper that presses play **waits for `playing` before
+waiting for `idle`**: a click only sends the request, so a test that goes straight to waiting for
+`idle` is handed the idle it started from and asserts against a playback that never happened. That
+was a real green-when-it-should-have-been-red, caught because the note count came back zero.
+
+Only `npx playwright test player` was run for this phase, not the whole suite; the full gate is
+owed at Phase 6.
 
 ### Close triggers
 
