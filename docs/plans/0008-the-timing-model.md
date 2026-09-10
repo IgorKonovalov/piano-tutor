@@ -354,7 +354,7 @@ interface PracticeReportAdditions {
 | 3 — A restart is named, not counted as mistakes | dev | done | 1296c40 |
 | 4 — The tempo you kept, and the shape you gave it | dev | done | 4e11434 |
 | 5 — How fussy the app should be | dev | done | 28fd9a8 |
-| 6 — At the piano, with the takes that started this | human | outstanding | — |
+| 6 — At the piano, with the takes that started this | human | answered 2026-09-10 evening | see `### Phase 6 at the piano`; items 3, 4 and 5 failed |
 
 ### Measurements
 
@@ -464,6 +464,48 @@ is a number about one machine and is reported, never asserted.
 - **Phase 1, the ratio assertions are to two decimal places.** `playNotes` rounds to whole
   milliseconds, so a ratio over one ~667 ms gap carries about a part in a thousand of rounding.
 
+### Phase 6 at the piano
+
+At the CK88 on 2026-09-10, BWV 846 (the library file carries the Prelude **and** the Fugue, 62
+bars). Four takes, read from the screen with the user. Items 1, 2, 6 and 7 pass; **3, 4 and 5 do
+not.**
+
+1. **The false start again.** *Passes on the notes.* 112 as written, 0 wrong, 0 missed and
+   **0 extra**, with two restarts named: "went back over bar 3 and played 18 notes again", "went
+   back over bar 4 and played 3 notes again". Bars 0 to 3 read `as written`.
+2. **Can you get back to right timing?** *Partly.* The bars **before** the restart are clean,
+   which is the propagation property and the thing this plan exists for. The seam itself is not:
+   bar 4 reads **+3992 ms** and bar 5 -86 ms, and those two are the only bars out of time in the
+   take. The mechanism is visible in the number — the bar the player went back *inside* has
+   matched groups on both sides of the detour, so the bar's own pace, which `barDeviation` reads,
+   spans the gap. This is the open question the plan already carried, now with a measurement.
+3. **A genuinely rushed bar.** *Fails.* One bar rushed deliberately in an otherwise even take: the
+   report put `out of time` on **three bars around it** — bar 2 (-619 ms), bar 3 (+314 ms), bar 1
+   (+200 ms) — and left the rushed bar itself `as written`. The player's own reading: *"i think
+   that we measure time between bars, not individual notes - we should measure notes taking into
+   account everything."* That names exactly the cost `barDeviation` states in its own comment. On
+   the generated oracle the property holds and the rushed bar reaches 585 ms at its mildest; with
+   a real hand it does not, because a hand hurries *inside* a bar rather than taking the whole bar
+   uniformly faster. **This is the most important result of the phase.**
+4. **Rubato.** *Fails.* A deliberate rallentando produced **no tempo observation at all** — just
+   amber: bar 6 (+220 ms), bar 2 (+198 ms), bar 4 (+143 ms), 4 of 8 bars clean. `tempoObservations`
+   wants a strictly monotonic run of three bar paces each moving more than `TEMPO_STEP_TOLERANCE`,
+   and bar-to-bar noise in a human take breaks the run before it is three long. So a rallentando
+   is still punished rather than described, which is the half of ADR-0014 that has not landed.
+   Noticed alongside it: `renderer/components/BarDetail.tsx` still says a bar is late "against the
+   fitted tempo", copy that Phase 2 made wrong and that no phase's file list covered.
+5. **Plan 0002 Phase 7 item 6.** *Unanswered.* Two performances landed in one take and ran on into
+   the Fugue, so the figures (695 as written, 244 wrong, 323 missed, 75 extra, 29/61 clean)
+   describe neither of them. **Plan 0002 stays open on this item.** The run did surface two
+   defects worth their own rows: about **thirty-five restart sentences in one paragraph** —
+   restart entries are bounded in shape but not in count, unlike the tempo observations, which are
+   capped — and restart detection firing repeatedly on the Prelude's repeated broken-chord
+   figuration, bar 30 alone appearing six times and several at the two-group minimum. Also one
+   nonsense figure, "You pressed on 240% over bars 39 to 41", read across a seam.
+6. **Strictness.** *Yes.* It reads as strictness rather than as a different opinion.
+7. **The tempo figure.** *Yes.* 71, 74, 64 and 83 bpm across the four takes; the player recognises
+   them as what they were playing.
+
 ### Close triggers
 
 - **What shipped:** a feature. `timingDeviation` changes its reference from one line through the
@@ -477,16 +519,51 @@ is a number about one machine and is reported, never asserted.
 - **Full gate at the last phase:** `npm run typecheck` 0, `npm run lint` 0, `npm test` 0 (578 tests
   across 26 files), `node scripts/check-pins.mjs` 0, `node scripts/check-doc-links.mjs` 0,
   `npm run build` 0, `npx playwright test` 0 (23 tests).
-- **Outstanding `human` phases:** **Phase 6, at the piano.** Not attempted. It needs the CK88 and
-  the user's own judgement on seven questions, one of which (item 5) is Plan 0002's Phase 7 item 6
-  and belongs in that plan's log as well.
+- **Outstanding `human` phases:** none. **Phase 6 was answered at the instrument on 2026-09-10**
+  and three of its seven items failed; see `### Phase 6 at the piano`. Nothing was fixed in that
+  phase, per its own done-when: every failure is a followup row below. The architect should read
+  the close knowing that **the local reference lands and the two things built on top of it do
+  not** — a bar is judged by its overall pace rather than note by note (item 3), and a rallentando
+  is still punished rather than described (item 4). Plan 0002's Phase 7 item 6 is still open.
 
 ## Followups (after this lands)
 
+From Phase 6 at the instrument, worst first:
+
+- **Judge a bar note by note, not by its overall pace.** Phase 6 item 3: a bar the player really
+  did rush read `as written` while three bars around it went amber. `barDeviation` compares the
+  bar's fitted pace with its neighbours', which is blind to a hand that hurries *inside* a bar and
+  which lets a rushed bar drag the references either side of it instead of being flagged itself.
+  The cost is stated in the code, and the oracle cannot catch it because `rushBar` compresses a
+  bar uniformly and a hand does not. **This wants an ADR rather than a tuning pass**: the
+  note-level residual was written first in Phase 2 and dropped for being too noisy — a clean take
+  reached 22 ms and a rallentando 55 ms against a 45 ms threshold — so "measure notes taking into
+  account everything" is a design question with a measured obstacle in front of it. The oracle
+  needs a perturbation that rushes *within* a bar before any of it can be tested.
+- **A rallentando is still not described.** Phase 6 item 4: real playing never produced an
+  observation. Wants the pace curve smoothed before a monotonic run is looked for, and a test
+  built from a **recorded** take rather than from the generator, since the generator is the reason
+  this looked finished.
+- **A restart should split the tempo curve and the bar's own pace**, not merely be reported.
+  Phase 6 item 2 measured the leak: +3992 ms on the bar the player went back inside, because that
+  bar's own matched groups sit on both sides of the detour. Carried from Risks, now with a number.
+- **Bound the restart sentences.** Phase 6 item 5: thirty-five in one paragraph.
+  `MAX_TEMPO_OBSERVATIONS` does this for the other new sentence and `WORST_BARS_SHOWN` for the bar
+  list; restarts were given no such cap.
+- **Tighten restart detection against repeating figuration.** Phase 6 item 5: the Prelude repeats
+  a broken-chord figure every bar and `MIN_RESTART_GROUPS = 2` fired on it many times over. The
+  plan named this risk and the fixture tests could not reach it, because no fixture repeats. The
+  corroborating time gap ADR-0014 mentions is the obvious guard and is not implemented.
+- **A tempo observation read across a seam** gives a figure like "pressed on 240% over bars 39 to
+  41". Whatever splits the curve at a restart should stop an observation crossing one too.
+- **`BarDetail` says "against the fitted tempo".** One line of stale copy; the reference is local
+  now. `renderer/components/BarDetail.tsx:97`.
+- **Re-run Plan 0002 Phase 7 item 6 cleanly**, one take each, and answer it in that plan's log.
+  Two performances landed in one take on the night and the figures describe neither.
+
+Carried from before the phase:
+
 - **Persist the strictness control** once Plan 0003 creates the settings store.
-- **Re-answer Plan 0002 Phase 7 item 6** in that plan's log, and close Plan 0002. This plan
-  existing is the reason that one is still open.
-- **Whether a restart should split the tempo curve**, not merely be reported. See Risks.
 - **The Score view's "notes so far" counter can miss a note struck at `t = 0`**, because it
   subscribes after `window.api.midi.open()` resolves. Display only — the take is complete — but it
-  is one line to move. Found in Phase 3; see the note above.
+  is one line to move. Found in Phase 3.
