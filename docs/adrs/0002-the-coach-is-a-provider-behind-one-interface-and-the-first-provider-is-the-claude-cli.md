@@ -78,6 +78,12 @@ settings panel says in one sentence.
   during playing were deferred in the interview.
 - **Two providers to keep true to one schema.** The Zod schema on `CoachReply` is the contract,
   and a provider whose output fails it reports a provider error rather than a half-parsed reply.
+- **The coach competes with the user's own coding for the same quota.** Measured 2026-09-10: a
+  spawned CLI call draws on the identical five-hour and seven-day windows as the user's own
+  Claude Code sessions, and reports their utilisation back on every call. This is not a cost the
+  application can manage or amortise — it can only be spent deliberately, which is why Analyse is
+  a press rather than anything automatic, and why the `anthropic-api` toggle is the real relief
+  valve rather than a fallback nobody expects to use.
 
 ### Neutral
 
@@ -101,7 +107,29 @@ statistics are deterministic work that `core/` does better and tests can pin.
 
 ## Notes
 
-The exact CLI invocation is fixed in Plan 0003, after a spike confirms which flags combine in
-print mode (in particular whether `--tools` with an empty list and `--bare` behave as expected
-together with `--json-schema`). The system prompt lives in `electron/coach/prompt.ts` and is
-versioned with the code, not with the user's settings.
+The exact CLI invocation is fixed in Plan 0003. The system prompt lives in
+`electron/coach/prompt.ts` and is versioned with the code, not with the user's settings.
+
+### Spike outcome, 2026-09-10 (CLI 2.1.267)
+
+The spike ran ahead of Plan 0003 Phase 2; its transcript is
+`core/fixtures/coach/cli-transcript.md`. **The decision above stands unchanged** — the
+subscription does reach a model through a spawned CLI, verified with `apiKeySource: "none"` on a
+`claude.ai` login. Three corrections to this ADR's own assumptions, recorded here because they
+are the ones most likely to be repeated from memory:
+
+- **`--bare` must never be used on this path.** This section previously proposed spiking it
+  alongside `--json-schema`. Its help is explicit that Anthropic auth becomes strictly
+  `ANTHROPIC_API_KEY` or `apiKeyHelper`, with OAuth and the keychain never read — so it converts
+  the subscription provider into the API-key provider. **That suggestion is withdrawn.**
+- **Disabling tools does not isolate the process.** `--tools ""` empties the built-in set only;
+  the user's personal MCP servers, skills, plugins and `CLAUDE.md` are inherited. The spike's
+  first run gave a piano-coaching process twelve connected Google Drive tools. Isolation needs
+  `--strict-mcp-config --setting-sources "" --disable-slash-commands --no-session-persistence`,
+  which also cuts the per-call context roughly six-fold.
+- **The reply is an array of events, and a failed call still says `subtype: "success"`.** The
+  provider reads the `type === "result"` element and branches on `is_error`.
+
+The version moved from 2.1.266 to 2.1.267 within a day of this ADR being written, and
+`--output-format json`'s documented shape did not match its actual shape. Both are small
+confirmations of the Negative consequence above rather than new information.

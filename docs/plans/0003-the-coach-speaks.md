@@ -149,35 +149,48 @@ with no subscription, no API key and no network (NFR 3, NFR 11).
   chords named and no practised half; a practised take summarises with the practised half and its
   worst bars in order; and the panel shows the summary for a selected take with nothing plugged in.
 
-### Phase 2 — The spike: what the CLI actually accepts
+### Phase 2 — The argument builder, against a settled invocation
 - **Owner skill:** dev
-- **What:** Fix the exact `claude` invocation, which ADR-0002 deliberately left to this plan. Run
-  the real binary with candidate flag combinations, record verbatim what worked and what did not,
-  and commit an argument builder plus one recorded reply as a fixture.
+- **What:** Build the argument builder for the invocation the spike already settled. **The spike
+  ran on 2026-09-10 against CLI 2.1.267 and its transcript is committed** at
+  `core/fixtures/coach/cli-transcript.md` — read it first; this phase implements its section 7
+  rather than rediscovering it.
 - **Files touched:** `electron/coach/claudeCli.ts` (the argument builder only, this phase),
-  `electron/coach/claudeCli.test.ts`, `core/fixtures/coach/reply-*.json` (recorded replies),
-  `core/fixtures/coach/cli-transcript.md` (what was run, what came back, verbatim).
+  `electron/coach/claudeCli.test.ts`, `core/fixtures/coach/reply-*.json` (recorded replies).
 - **Notes for the implementer:**
-  - The combinations ADR-0002 flags as unverified, and the question each answers: does
-    `--output-format json` return one object or a stream of events? Does `--json-schema` constrain
-    the result and what does a schema violation look like? Does `--system-prompt` replace or
-    append? Does disabling tools work as ADR-0002 assumes, and what is the flag actually called in
-    2.1.266? What is the exit code and the stderr shape when the CLI is not authenticated, which
-    is the error path the user will most often hit?
-  - **Run it, do not reason about it.** `claude --version` and `claude --help` first, then the
-    candidates. Paste what came back into the transcript, including the failures. A flag that
-    ADR-0002 assumed and that does not exist is a finding, not a problem — write it down.
-  - **If the CLI is not on `PATH` or not authenticated:** record exactly that, commit the
-    transcript with the finding, and continue. Every later phase runs against the fixture and the
-    stub, so the plan does not stall — and Phase 6 is where a human settles it. Do not attempt to
-    authenticate, and do not prompt for credentials.
+  - **The five findings the transcript records, because each one is a way to ship a broken
+    provider that looks fine in a happy-path test:**
+    1. `--output-format json` returns an **array of events**, not one object, despite what
+       `--help` says. Parse the array, take the element with `type === "result"`, read its
+       `structured_output` field.
+    2. `--tools ""` empties the built-in tools only. **The user's personal MCP servers, skills,
+       plugins and `CLAUDE.md` come through regardless** — the spike's first run had twelve
+       connected Google Drive tools in a piano-coaching process. The isolation flags
+       (`--strict-mcp-config --setting-sources "" --disable-slash-commands
+       --no-session-persistence`) are not optional hygiene; they are 6× cheaper and ~40 % faster
+       as well, because the inherited context is what costs.
+    3. **Never `--bare`.** It reads only `ANTHROPIC_API_KEY`, never OAuth or the keychain, so it
+       converts the subscription path into an API-key path. ADR-0002's Notes proposed spiking it;
+       that suggestion is withdrawn.
+    4. On a failed call, `subtype` is still `"success"`. **Branch on `is_error === true`**
+       (corroborated by a non-zero exit code); the one-line user-facing message is `result`.
+       **stderr is empty on the not-logged-in path** — do not look there.
+    5. The prompt goes over **stdin**. A 13.8 KB payload with quotes, apostrophes, angle brackets
+       and newlines round-tripped intact on Windows, so no temp file is needed.
+  - `--model` is pinned to the exact id `claude-opus-5` **in one named constant with a comment**,
+    shared with the `anthropic-api` provider in Phase 5 so both answer as the same model. Without
+    it the coach inherits whatever the user's own Claude Code is set to, which makes no fixture
+    reproducible.
   - The argument builder is a pure function from a request to a `string[]`. **Never a shell
-    string.** No prompt text, no filename and no key is ever concatenated into a command line;
-    the prompt goes over stdin or a temp file, whichever the spike shows works.
-- **Done when:** `cli-transcript.md` answers each question above with what was actually run and
-  what came back; at least one real reply is committed as a fixture, or the transcript records
-  precisely why none could be obtained; and `claudeCli.test.ts` asserts the built argument array
-  for a representative request, including that no element of it contains the prompt body.
+    string.** No prompt text, no filename and no key is ever concatenated into a command line.
+  - What the spike could **not** settle, and which therefore stays a real question: what a schema
+    violation looks like on the wire (Phase 3 injects one through the fixture provider instead),
+    and whether a *packaged* Electron app spawning `claude` outside a terminal finds the same
+    OAuth credential (Phase 6 item 1).
+- **Done when:** `claudeCli.test.ts` asserts the built argument array for a representative
+  request — that it contains the pinned model id and every isolation flag, that it never contains
+  `--bare`, and that no element of it contains the prompt body; and at least one real reply is
+  committed as a fixture, or a note records why none could be obtained.
 
 ### Phase 3 — A reply appears, and is kept
 - **Owner skill:** dev
@@ -225,12 +238,19 @@ with no subscription, no API key and no network (NFR 3, NFR 11).
   `electron/coach/CoachProvider.ts` (provider selection: CLI when present, else none).
 - **Notes for the implementer:**
   - **Spawn with an argument array, never a shell string**, and never with `shell: true`. The
-    prompt reaches the process the way Phase 2's transcript says works.
+    prompt goes over **stdin** (transcript section 5).
+  - **Success is `exit 0 && result.is_error === false`.** The transcript's finding 4 is the trap
+    here: a not-logged-in call still reports `subtype: "success"`, so a provider that checks
+    `subtype` hands a schema-violating object to Zod and reports the wrong error. Test that case
+    explicitly against the stub, with the stub emitting the recorded not-logged-in payload
+    verbatim.
   - Every failure path the spike found gets a test against the stub: binary missing, not
-    authenticated, non-zero exit, malformed JSON, valid JSON failing the reply schema, and a
-    process that never returns. **A timeout is required** — pick one against NFR 6's 15 s p95,
-    state it, and kill the child when it fires. A hung `claude` must not leave a zombie or a
-    spinning panel.
+    authenticated (`is_error: true` with `result: "Not logged in · Please run /login"`, exit 1,
+    **empty stderr**), non-zero exit, malformed JSON, a `result` element missing entirely,
+    valid JSON failing the reply schema, and a process that never returns. **A timeout is
+    required** — pick one against NFR 6's 15 s p95, state it, and kill the child when it fires.
+    The spike's own calls returned in 1.9 s to 4.6 s, so 15 s is a generous ceiling rather than a
+    tight one. A hung `claude` must not leave a zombie or a spinning panel.
   - **No retry loop.** ADR-0002 is explicit. One attempt, one message pointing at settings.
   - Detection of the binary is a `PATH` lookup at startup and on settings open, not per request.
 - **Done when:** against the stub, a normal reply parses and renders; each failure above produces
@@ -263,8 +283,10 @@ with no subscription, no API key and no network (NFR 3, NFR 11).
     and this phase is the one most able to break it.
   - The renderer's CSP still has **no `connect-src`**. The network lives in main. If anything in
     this phase seems to want one, the code is in the wrong process.
-  - Use the current Claude model id for the API provider and pin it in one named constant with a
-    comment, so changing models is a one-line edit rather than a search.
+  - **Both providers answer as the same model**, from the one named constant Phase 2 introduced:
+    the exact id `claude-opus-5`, with a comment. Otherwise switching provider silently switches
+    model and the two paths are not comparable — which is exactly what Phase 6 item 6 asks the
+    user to compare.
 - **Done when:** setting a key, restarting the app and reopening settings shows a key is set and
   never reveals it; the settings payload the renderer receives contains no substring of the key,
   asserted by a test; switching providers changes which one answers without a restart; `npm run
@@ -341,8 +363,18 @@ type SettingsForRenderer = {
 
 ## Risks & open questions
 
+- **The coach spends the same five-hour window the user codes in.** Measured in the spike: the
+  CLI reports its own rate-limit state on every call, and a coach request draws on the identical
+  `five_hour` / `seven_day` unified windows as the user's own Claude Code sessions, with overage
+  rejected once credits run out. An isolated, model-pinned call costs roughly 1 000 tokens of
+  harness plus the summary. Analyse is a deliberate press rather than a loop, so a practice
+  session's handful of presses is small against the window — but a user mid-way through a heavy
+  coding day may find the coach competing with their own work, and the honest mitigation is the
+  `anthropic-api` toggle, not a quota the app can manage. The settings sentence ADR-0002 requires
+  should say this, not merely that the CLI "spends subscription usage".
 - **The CLI path breaks without notice.** ADR-0002 says so plainly and this plan does not improve
-  on it. The mitigations are the interface, the `anthropic-api` provider one settings toggle away,
+  on it. The spike found the version had already moved (2.1.266 → 2.1.267) inside one day, and
+  that `--output-format json`'s documented shape does not match its actual shape. The mitigations are the interface, the `anthropic-api` provider one settings toggle away,
   and a failure that is one line rather than a retry loop. If Phase 2 finds the flags have already
   moved in 2.1.266, that is a finding for the transcript, not a reason to stop.
 - **The spike cannot run.** If the CLI is absent or unauthenticated, Phase 2 records it and the
