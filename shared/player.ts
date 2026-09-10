@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { type MidiEvent, type MidiPort } from './midi'
 import { ExpectedTimelineSchema } from './score'
+import { TakeIdSchema, TakeReplayRequestSchema } from './take'
 
 /**
  * The `player:*` domain (ADR-0007): what the app plays, as opposed to what the
@@ -102,6 +103,18 @@ export const PlayRequestSchema = z.discriminatedUnion('kind', [
     /** Inclusive, in OSMD's own bar numbering. */
     fromBar: z.number().int().nonnegative(),
     toBar: z.number().int().nonnegative(),
+  }),
+  /**
+   * Playing a take **out** to the instrument, which is not `take:replay`.
+   * That one feeds a recording back into the app's own input pipeline as if it
+   * were being played (Plan 0001 Phase 5); this one sends it to the piano. The
+   * id and the speed reuse the replay request's shapes, because an id is a
+   * path segment and the range of speeds is the same question either way.
+   */
+  z.object({
+    kind: z.literal('take'),
+    takeId: TakeIdSchema.shape.id,
+    speed: TakeReplayRequestSchema.shape.speed,
   }),
 ])
 export type PlayRequest = z.infer<typeof PlayRequestSchema>

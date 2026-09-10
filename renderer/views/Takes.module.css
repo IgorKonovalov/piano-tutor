@@ -137,3 +137,34 @@
 .freePlay {
   font-style: italic;
 }
+
+/*
+ * Two verbs per row, each labelled with what it does. One feeds the app's own
+ * pipeline and one reaches the instrument, and the outward one wears the
+ * playback colour every other place the app plays something wears.
+ */
+.verbs {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.verb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.verbLabel {
+  font-size: 11px;
+  color: var(--color-fg-dim);
+  white-space: nowrap;
+}
+
+.outward {
+  border-color: var(--color-playback);
+  color: var(--color-playback);
+}
+
+.outward:hover {
+  background: color-mix(in srgb, var(--color-playback) 15%, transparent);
+}

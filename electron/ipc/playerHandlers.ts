@@ -8,6 +8,7 @@ import {
   PlayRequestSchema,
   type PlaybackSchedule,
 } from '../../shared/player'
+import { readTake, takePath } from '../take/takeFile'
 import type { MidiSink } from '../midi/MidiSink'
 import type { RtMidiSink } from '../midi/RtMidiSink'
 import { type HarnessGate, findScenario, virtualPortsEnabled } from '../midi/virtualPorts'
@@ -20,6 +21,8 @@ export interface PlayerHandlerDeps {
   /** Where playback goes while no output port is chosen. */
   silence: MidiSink
   gate: HarnessGate
+  /** Resolvable only once Electron is ready, so a function rather than a value. */
+  takesDirectory: () => string
 }
 
 /**
@@ -54,7 +57,7 @@ export function registerPlayerHandlers(deps: PlayerHandlerDeps): void {
 
   ipcMain.handle(IPC_CHANNELS.PLAYER_PLAY, async (_event, payload: unknown) => {
     const request = PlayRequestSchema.parse(payload)
-    deps.player.play(buildSchedule(request, deps.gate))
+    deps.player.play(buildSchedule(request, deps))
   })
 
   ipcMain.handle(IPC_CHANNELS.PLAYER_STOP, async () => {
@@ -70,13 +73,13 @@ export function cleanupPlayerHandlers(): void {
   ipcMain.removeHandler(IPC_CHANNELS.PLAYER_STOP)
 }
 
-function buildSchedule(request: PlayRequest, gate: HarnessGate): PlaybackSchedule {
+function buildSchedule(request: PlayRequest, deps: PlayerHandlerDeps): PlaybackSchedule {
   switch (request.kind) {
     case 'scenario': {
       // The generated passages are a harness affordance and stay behind the
       // same gate that decides whether they are listed at all (ADR-0004). A
       // packaged build has nothing to play here and says so.
-      if (!virtualPortsEnabled(gate)) {
+      if (!virtualPortsEnabled(deps.gate)) {
         throw new Error(`Generated passages are not available in this build: ${request.id}`)
       }
       const scenario = findScenario(request.id)
@@ -94,5 +97,18 @@ function buildSchedule(request: PlayRequest, gate: HarnessGate): PlaybackSchedul
         fromBar: request.fromBar,
         toBar: request.toBar,
       })
+
+    case 'take': {
+      // Parsed at the reader, as every take already is, and trusted from
+      // there. A file that ends mid-note -- what a crash leaves behind (NFR 8)
+      // -- has its open notes closed by the normaliser rather than on the
+      // instrument.
+      const content = readTake(takePath(deps.takesDirectory(), request.takeId))
+      return scheduleFromEvents(
+        content.events,
+        { kind: 'take', takeId: request.takeId, speed: request.speed },
+        request.speed
+      )
+    }
   }
 }

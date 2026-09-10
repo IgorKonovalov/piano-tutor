@@ -6,7 +6,9 @@ import {
   type LaunchedApp,
   importScore,
   launchApp,
+  openScenario,
   openScoreView,
+  waitForEvents,
   waitForPortsView,
 } from './harness'
 
@@ -215,4 +217,65 @@ test('a play over a running one replaces it rather than overlapping it', async (
     fixtureNotes('scale-c-major.musicxml', 0, 0)
   )
   expect(Number(await attribute(page, 'transport', 'data-sounding'))).toBe(0)
+})
+
+/**
+ * Record a take by playing a generated passage into the app, which is the only
+ * way a take is ever made (ADR-0004). Leaving the live view closes the port,
+ * which is what finalises the file.
+ */
+async function recordTake(page: Page, scenarioId: string, events: number): Promise<number> {
+  await openScenario(page, scenarioId)
+  await waitForEvents(page, events)
+
+  await page.getByTestId('nav-takes').click()
+  const row = page.getByTestId('take-row').first()
+  await expect(row).toBeVisible()
+  return Number(await row.getAttribute('data-note-count'))
+}
+
+test('a recorded take plays out with the notes it was recorded with', async () => {
+  test.setTimeout(120_000)
+  launched = await launchApp()
+  const { page } = launched
+  await waitForPortsView(page)
+
+  // The scale of ADR-0004 is 29 note-ons and their releases: played into the
+  // app and written down, then sent back out of the port again.
+  const notes = await recordTake(page, 'virtual:c-major-scale', 58)
+  expect(notes).toBe(29)
+
+  await page.getByTestId('take-play-2').first().click()
+  const transport = page.getByTestId('take-transport')
+  await expect(transport).toHaveAttribute('data-state', 'playing')
+  await expect(transport).toHaveAttribute('data-state', 'idle', { timeout: 30_000 })
+
+  expect(Number(await attribute(page, 'take-transport', 'data-notes'))).toBe(notes)
+  // The property NFR 13 is about, on the path a truncated take also travels:
+  // whatever the file held, nothing is sounding once it has finished.
+  expect(Number(await attribute(page, 'take-transport', 'data-sounding'))).toBe(0)
+  expect(launched.networkRequests).toEqual([])
+})
+
+test('the two verbs are both present and neither triggers the other', async () => {
+  test.setTimeout(120_000)
+  launched = await launchApp()
+  const { page } = launched
+  await waitForPortsView(page)
+  await recordTake(page, 'virtual:c-major-scale', 58)
+
+  const row = page.getByTestId('take-row').first()
+  await expect(row.getByTestId('take-replay')).toContainText('Replay into the app')
+  await expect(row.getByTestId('take-play')).toContainText('Play on the piano')
+
+  // Playing out reaches the instrument and leaves the view where it is.
+  await row.getByTestId('take-play-2').click()
+  await expect(page.getByTestId('take-transport')).toHaveAttribute('data-state', 'playing')
+  await expect(page.getByTestId('takes-view')).toBeVisible()
+  await expect(page.getByTestId('live-view')).toHaveCount(0)
+  await page.getByTestId('take-transport-stop').click()
+
+  // Replaying feeds the app's own input pipeline, which is the live view.
+  await row.getByTestId('take-replay-2').click()
+  await expect(page.getByTestId('live-view')).toBeVisible()
 })

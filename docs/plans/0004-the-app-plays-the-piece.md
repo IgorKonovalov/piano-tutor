@@ -382,8 +382,8 @@ interface MidiSink {
 |---|---|---|---|
 | 1 — The app plays a scale into the room | dev | done | `88e9b59` |
 | 2 — A tempo, a velocity, and a range of bars | dev | done | `0fb0d66` |
-| 3 — The Score view plays the piece | dev | done | committed with this row |
-| 4 — A take plays back out to the instrument | dev | not started | |
+| 3 — The Score view plays the piece | dev | done | `47c69ed` |
+| 4 — A take plays back out to the instrument | dev | done | committed with this row |
 | 5 — You can hear it with nothing plugged in | dev | not started | |
 | 6 — Stop always stops | dev | not started | |
 | 7 — At the piano | human | not started | |
@@ -505,6 +505,34 @@ was a real green-when-it-should-have-been-red, caught because the note count cam
 
 Only `npx playwright test player` was run for this phase, not the whole suite; the full gate is
 owed at Phase 6.
+
+**Phase 4.** Three files outside the phase's list, all mechanical: `shared/player.ts` (the `take`
+variant of `PlayRequest` — the plan put the whole union in Phase 3's notes and Phase 3 only built
+the `timeline` half), `electron/main.ts` (one more dependency into the handler Phase 4 changes) and
+`e2e/player.spec.ts` (the phase's done-when is an end-to-end observation and Phase 3 created the
+file it belongs in). `renderer/hooks/usePlayer.ts` is used unchanged.
+
+The take's id and speed **reuse the replay request's schemas** rather than restating them: an id is
+a path segment either way, and the admissible speeds are the same question whichever direction the
+take is going.
+
+Both verbs are labelled in words — "Replay into the app" and "Play on the piano" — with the outward
+one in the playback colour. The Takes view carries one `Transport` for the whole list rather than
+one per row, because only one thing plays at a time; it re-sends whichever take was last chosen.
+
+`data-note-count` was added to the take row. Reading the count out of the row's text gave 429 for a
+take of 29 notes: `0:04` and `29 notes` are adjacent spans and `textContent` runs them together. A
+regex that reads a number out of a rendered layout is a test asserting the layout, not the count.
+
+**The truncated-take done-when is asserted in `core/`, not end to end.** Manufacturing a take file
+that ends mid-note would mean a Playwright run reaching past the app into its `userData`, which is
+the kind of test hook ADR-0004 exists to avoid. What is asserted instead is the same property in
+the place that owns it: `core/src/player/schedule.test.ts` normalises an event list ending in an
+unreleased note-on and asserts the schedule's last event releases it, and every take plays through
+that same builder. The end-to-end run asserts the consequence — nothing sounding once the take has
+finished.
+
+Only `npx playwright test player` was run for this phase; the full gate is owed at Phase 6.
 
 ### Close triggers
 

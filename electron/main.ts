@@ -80,7 +80,7 @@ void app.whenReady().then(() => {
   registerMidiHandlers({ pipeline, rtMidi, synthetic })
   registerTakeHandlers({ pipeline, takesDirectory: takesDir })
   registerScoreHandlers({ getWindow: () => mainWindow, scoresDirectory: scoresDir })
-  registerPlayerHandlers({ player, output, silence, gate })
+  registerPlayerHandlers({ player, output, silence, gate, takesDirectory: takesDir })
 
   const paths = getRendererPaths(rendererUrl !== undefined)
   mainWindow = createWindow({ ...paths, rendererUrl })
