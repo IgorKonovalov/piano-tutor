@@ -175,21 +175,23 @@ export function Score() {
   const stopPractice = useCallback(async () => {
     setRecording(false)
     try {
-      await window.api.midi.close()
+      // Main hands back the take it wrote. The view does not go looking for
+      // it: searching the list for "the newest take of this score" returns a
+      // PREVIOUS take whenever this session was too short to keep, and then
+      // reports on a performance the player did not just give.
+      const recorded = await window.api.midi.close()
       if (timeline === null) return
-      const takes = await window.api.take.list()
-      const mine = takes.find((take) => take.scoreId === selectedId)
-      if (mine === undefined) {
+      if (recorded === null || recorded.discarded) {
         setPracticeError(
           'That session was too short to keep. Ten notes or more are recorded as a take.'
         )
         return
       }
-      await practice.analyse(mine.id, timeline)
+      await practice.analyse(recorded.id, timeline)
     } catch (err) {
       setPracticeError((err as Error).message)
     }
-  }, [practice, selectedId, timeline])
+  }, [practice, timeline])
 
   // A count of what has arrived, while it is arriving. Nothing is judged from
   // it -- that is the whole shape of this feature -- but a player needs to see

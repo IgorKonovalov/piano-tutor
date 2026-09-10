@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { MidiOpenRequestSchema, MidiPortListSchema } from '../../shared/midi'
+import { RecordedTakeResultOrNullSchema } from '../../shared/take'
 import type { MidiPipeline } from '../midi/pipeline'
 import type { RtMidiSource } from '../midi/RtMidiSource'
 import type { SyntheticSource } from '../midi/SyntheticSource'
@@ -43,7 +44,19 @@ export function registerMidiHandlers(deps: MidiHandlerDeps): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.MIDI_CLOSE, async () => {
-    await serialise(() => deps.pipeline.close())
+    const recorded = await serialise(() => deps.pipeline.close())
+    // Parsed on the way out as well as in: the schema is what drops the take's
+    // filesystem path, which main knows and the renderer must never receive.
+    return RecordedTakeResultOrNullSchema.parse(
+      recorded === null
+        ? null
+        : {
+            id: recorded.id,
+            noteCount: recorded.noteCount,
+            eventCount: recorded.eventCount,
+            discarded: recorded.discarded,
+          }
+    )
   })
 }
 

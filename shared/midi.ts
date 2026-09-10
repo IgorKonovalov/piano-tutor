@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { RecordedTakeResult } from './take'
 
 /**
  * `hardware` is a port Windows reports; `virtual` is a seeded scenario played
@@ -127,7 +128,8 @@ export const PEDAL_DOWN_THRESHOLD = 64
 export interface MidiApi {
   listPorts(): Promise<MidiPort[]>
   open(portId: string, scoreId?: string): Promise<void>
-  close(): Promise<void>
+  /** Resolves with the take that was recorded, or null if none was. */
+  close(): Promise<RecordedTakeResult | null>
   /** Returns the cleanup that removes the listener. Always call it. */
   onEvent(cb: (event: MidiEvent) => void): () => void
 }

@@ -3,7 +3,7 @@ import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import type { MidiEvent } from '../../shared/midi'
 import type { MidiSource } from './MidiSource'
 import { MidiParser } from './parse'
-import type { Recorder } from '../take/Recorder'
+import type { RecordedTake, Recorder } from '../take/Recorder'
 
 /**
  * One place where a source becomes events on the renderer's screen and lines
@@ -29,7 +29,8 @@ export interface OpenOptions {
 
 export interface MidiPipeline {
   open(options: OpenOptions): Promise<void>
-  close(): Promise<void>
+  /** The take the recorder wrote, or null when this port was not recording. */
+  close(): Promise<RecordedTake | null>
   readonly openPortId: string | null
 }
 
@@ -54,13 +55,16 @@ export function createMidiPipeline(deps: PipelineDeps): MidiPipeline {
     window.webContents.send(IPC_CHANNELS.MIDI_EVENT, event)
   }
 
-  const close = async (): Promise<void> => {
+  const close = async (): Promise<RecordedTake | null> => {
     unsubscribe?.()
     unsubscribe = null
     if (active !== null) await active.close()
     active = null
     openPortId = null
-    deps.recorder.stop()
+    // The recorder is the only thing that knows which file it wrote, and
+    // whether it kept it. Passing that back is what stops the renderer from
+    // having to guess which take it just made.
+    return deps.recorder.stop()
   }
 
   const open = async (options: OpenOptions): Promise<void> => {

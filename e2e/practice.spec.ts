@@ -203,3 +203,38 @@ test('a practised take remembers the piece it was attempting', async () => {
 
   expect(launched.networkRequests).toEqual([])
 })
+
+test('a session too short to keep does not report a previous take', async () => {
+  // The regression: the view used to find its take by score id alone, which
+  // returns the NEWEST take of that piece. A session under ten note-ons is
+  // never written, so that search reached back to the take before it and
+  // showed a report about a performance the player had not just given.
+  test.setTimeout(180_000)
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView(launched)
+  await importScore(launched, 'scale-c-major.musicxml')
+
+  // A first take of this piece, kept. The bound is what matters, not the
+  // exact count: comfortably over the ten note-ons a take is kept at.
+  await page.getByTestId('practice-port').selectOption('virtual:score:scale-c-major')
+  await page.getByTestId('practice-toggle').click()
+  await expect(page.getByTestId('practice-recording')).toBeVisible()
+  await waitForPassage(page, 12)
+  await page.getByTestId('practice-toggle').click()
+  await expect(page.getByTestId('practice-stats')).toBeVisible()
+  const first = await page.getByTestId('stat-take').textContent()
+
+  // A second, abandoned after bar 1: two bars of four, so at most eight notes
+  // however the passage lands -- under the threshold, and no take is written.
+  await page.getByTestId('practice-port').selectOption('virtual:score:scale-c-major-stopped')
+  await page.getByTestId('practice-toggle').click()
+  await expect(page.getByTestId('practice-recording')).toBeVisible()
+  await waitForPassage(page, 6)
+  await page.getByTestId('practice-toggle').click()
+
+  // It must say so, and it must not show the earlier take's report instead.
+  await expect(page.getByTestId('practice-error')).toContainText('too short to keep')
+  expect(await page.getByTestId('practice-stats').count()).toBe(0)
+  expect(first).not.toBeNull()
+})

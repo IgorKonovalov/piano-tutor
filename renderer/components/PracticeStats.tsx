@@ -88,8 +88,31 @@ export function PracticeStats({ report, elapsedMs }: PracticeStatsProps) {
           </>
         )}
       </p>
+
+      <p className={styles.which} data-testid="stat-take">
+        This take: <time dateTime={takeStartedAt(report.takeId)}>{takeLabel(report.takeId)}</time>
+      </p>
     </section>
   )
+}
+
+/**
+ * A take id is its start time with the colons taken out, because a colon is
+ * not legal in a Windows filename. Turning it back into something a person can
+ * read matters when two takes of one piece are being compared: without it a
+ * report is silent about which performance it describes.
+ */
+function takeStartedAt(takeId: string): string {
+  const [date, time] = takeId.split('T')
+  if (date === undefined || time === undefined) return takeId
+  const [h, m, rest] = time.split('-')
+  return `${date}T${h ?? '00'}:${m ?? '00'}:${rest ?? '00'}`
+}
+
+function takeLabel(takeId: string): string {
+  const parsed = new Date(takeStartedAt(takeId))
+  if (Number.isNaN(parsed.getTime())) return takeId
+  return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 interface FigureProps {

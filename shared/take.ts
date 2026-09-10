@@ -80,6 +80,34 @@ const takeId = z.string().regex(TAKE_ID_PATTERN)
 
 export const TakeIdSchema = z.object({ id: takeId })
 
+/**
+ * What closing a recording port hands back: the take main actually wrote.
+ *
+ * It exists because the renderer cannot work it out. Inferring "the newest
+ * take of this score" reaches for a *previous* take whenever this session was
+ * too short to keep, and then shows a report about a performance that is not
+ * the one the player just gave.
+ *
+ * There is deliberately **no path here.** Main writes the file and the
+ * renderer addresses it by id (ADR-0001); a filesystem path crossing this
+ * boundary is the thing the whole shell is arranged to prevent.
+ */
+export const RecordedTakeResultSchema = z.object({
+  id: takeId,
+  noteCount: z.number().int().nonnegative(),
+  eventCount: z.number().int().nonnegative(),
+  /**
+   * True when the session was too short to keep and its file was removed. The
+   * id then names a take that is not on disk, which is exactly what the view
+   * needs to know to say so rather than to show something else.
+   */
+  discarded: z.boolean(),
+})
+export type RecordedTakeResult = z.infer<typeof RecordedTakeResultSchema>
+
+/** `null` when the port was not recording: a replay, or a closed-twice port. */
+export const RecordedTakeResultOrNullSchema = RecordedTakeResultSchema.nullable()
+
 /** 0.5x, 1x and 2x are the speeds the replay view offers. */
 export const TakeReplayRequestSchema = z.object({
   id: takeId,

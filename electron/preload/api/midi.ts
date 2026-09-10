@@ -1,6 +1,7 @@
 import { type IpcRendererEvent, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { type MidiApi, MidiEventSchema, MidiPortListSchema } from '../../../shared/midi'
+import { RecordedTakeResultOrNullSchema } from '../../../shared/take'
 
 export const midi: MidiApi = {
   async listPorts() {
@@ -12,7 +13,9 @@ export const midi: MidiApi = {
   },
 
   async close() {
-    await ipcRenderer.invoke(IPC_CHANNELS.MIDI_CLOSE)
+    return RecordedTakeResultOrNullSchema.parse(
+      await ipcRenderer.invoke(IPC_CHANNELS.MIDI_CLOSE)
+    )
   },
 
   onEvent(cb) {

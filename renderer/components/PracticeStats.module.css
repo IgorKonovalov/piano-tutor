@@ -72,3 +72,9 @@
   color: var(--color-warn);
   font-size: 12px;
 }
+
+.which {
+  margin: 0;
+  color: var(--color-fg-dim);
+  font-size: 0.85em;
+}
