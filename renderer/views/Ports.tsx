@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import { emptyHeldNotes } from '../../core/src/midi/HeldNotes'
 import type { MidiPort } from '../../shared/midi'
+import { Keyboard } from '../components/Keyboard'
+import { usePlayer } from '../hooks/usePlayer'
 import styles from './Ports.module.css'
 
 /**
@@ -79,9 +82,172 @@ export function Ports({ onOpen }: PortsProps) {
             emptyText="Disabled in this build."
             onOpen={onOpen}
           />
+          <Playback harnessAvailable={state.ports.some((p) => p.kind === 'virtual')} />
         </>
       )}
     </section>
+  )
+}
+
+/** The scale of ADR-0004, which is also the passage Phase 1 demonstrates. */
+const DEMONSTRATION_ID = 'virtual:c-major-scale'
+
+/**
+ * The output half (ADR-0007): where the app sends what it plays, and one
+ * passage to prove it does. The keyboard here shows `player:event` and nothing
+ * else, so what lights up is unambiguously the app's own playing.
+ */
+function Playback({ harnessAvailable }: { harnessAvailable: boolean }) {
+  const player = usePlayer()
+  const [outputs, setOutputs] = useState<MidiPort[]>([])
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [outputError, setOutputError] = useState<string | null>(null)
+
+  const refreshOutputs = useCallback(async () => {
+    try {
+      setOutputs(await window.api.player.listOutputs())
+    } catch (err) {
+      setOutputError((err as Error).message)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const tick = () => {
+      if (!cancelled) void refreshOutputs()
+    }
+    tick()
+    const timer = setInterval(tick, POLL_INTERVAL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [refreshOutputs])
+
+  const chooseOutput = async (port: MidiPort) => {
+    setOutputError(null)
+    try {
+      await window.api.player.openOutput(port.id)
+      setOpenId(port.id)
+    } catch (err) {
+      setOutputError((err as Error).message)
+      setOpenId(null)
+    }
+    void refreshOutputs()
+  }
+
+  const releaseOutput = async () => {
+    setOutputError(null)
+    try {
+      await window.api.player.closeOutput()
+    } catch (err) {
+      setOutputError((err as Error).message)
+    }
+    setOpenId(null)
+    void refreshOutputs()
+  }
+
+  const playing = player.state.state === 'playing'
+
+  return (
+    <div className={styles.group} data-testid="playback">
+      <h2 className={styles.groupHeading}>
+        Playback
+        <span className={styles.groupNote}>
+          Where the app sends what it plays. Nothing selected means it plays to the screen only.
+        </span>
+      </h2>
+
+      {outputError !== null && (
+        <p className={styles.error} role="alert">
+          {outputError}
+        </p>
+      )}
+      {player.error !== null && (
+        <p className={styles.error} role="alert">
+          {player.error}
+          <button type="button" className={styles.retry} onClick={player.clearError}>
+            Dismiss
+          </button>
+        </p>
+      )}
+
+      {outputs.length === 0 ? (
+        <p className={styles.empty}>
+          No MIDI outputs. Plug the CK88 into the USB TO HOST port; the list refreshes on its own.
+        </p>
+      ) : (
+        <ul className={styles.list} data-testid="output-list">
+          {outputs.map((port) => (
+            <li
+              key={port.id}
+              className={styles.port}
+              data-testid="output-row"
+              data-output-id={port.id}
+            >
+              <div className={styles.portText}>
+                <div className={styles.portName}>{port.name}</div>
+                <div className={styles.portId}>{port.id}</div>
+                {port.detail !== undefined && (
+                  <div
+                    className={
+                      port.availability === 'busy'
+                        ? `${styles.portDetail} ${styles.busyDetail}`
+                        : styles.portDetail
+                    }
+                  >
+                    {port.detail}
+                  </div>
+                )}
+              </div>
+              <span className={`${styles.badge} ${styles[port.availability]}`}>
+                {AVAILABILITY_LABEL[port.availability]}
+              </span>
+              <button
+                type="button"
+                className={styles.open}
+                data-testid="output-open"
+                onClick={() => (openId === port.id ? void releaseOutput() : void chooseOutput(port))}
+              >
+                {openId === port.id ? 'Release' : 'Send here'}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className={styles.transport} data-testid="transport">
+        <button
+          type="button"
+          className={styles.play}
+          data-testid="player-play"
+          disabled={!harnessAvailable}
+          onClick={() => void player.play({ kind: 'scenario', id: DEMONSTRATION_ID })}
+        >
+          Play the C major scale
+        </button>
+        <button
+          type="button"
+          className={styles.open}
+          data-testid="player-stop"
+          disabled={!playing}
+          onClick={() => void player.stop()}
+        >
+          Stop
+        </button>
+        <span className={styles.transportState} data-testid="player-state">
+          {player.state.state === 'playing'
+            ? `Playing, ${(player.state.positionMs / 1000).toFixed(1)} of ${(player.state.durationMs / 1000).toFixed(1)} s`
+            : harnessAvailable
+              ? 'Idle'
+              : 'Nothing to demonstrate in this build'}
+        </span>
+      </div>
+
+      <div className={styles.playbackKeyboard}>
+        <Keyboard held={emptyHeldNotes} playback={player.held} />
+      </div>
+    </div>
   )
 }
 

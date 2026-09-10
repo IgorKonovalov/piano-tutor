@@ -1,0 +1,98 @@
+import { z } from 'zod'
+import { type MidiEvent, type MidiPort } from './midi'
+
+/**
+ * The `player:*` domain (ADR-0007): what the app plays, as opposed to what the
+ * player plays.
+ *
+ * Two kinds of shape live here and they are not interchangeable. **What
+ * crosses IPC is Zod** — a play request, an output selection, the state push —
+ * and is parsed once on receive. **The schedule is not**: it is built in main
+ * by `core/` from the request and never leaves the process, so it is a plain
+ * type. Giving it a schema would be validation theatre at a boundary it does
+ * not cross.
+ */
+
+/**
+ * Milliseconds from the start of playback. The event inside carries the same
+ * value in its own `t`, so a schedule is entirely relative-time; the `t` a
+ * renderer finally sees is rewritten at dispatch to the epoch-anchored instant
+ * the event actually went out.
+ */
+export interface ScheduledEvent {
+  at: number
+  event: MidiEvent
+}
+
+/** Where a schedule came from. Carried for the log and the state push. */
+export type PlaybackSource =
+  | { kind: 'timeline'; fromBar: number; toBar: number; bpm: number }
+  | { kind: 'take'; takeId: string; speed: number }
+  | { kind: 'scenario'; id: string }
+
+/**
+ * Where a bar of the source starts inside the schedule. Empty for a source
+ * that has no bars, which is every source but a score's timeline. It is on the
+ * schedule rather than computed by whoever pushes state because the schedule
+ * is the only thing that knows both the bars and the milliseconds.
+ */
+export interface ScheduleBar {
+  bar: number
+  at: number
+}
+
+export interface PlaybackSchedule {
+  source: PlaybackSource
+  durationMs: number
+  /**
+   * Ordered by `at`, and within one `at` note-offs come before note-ons so a
+   * repeated note releases before it restrikes. The invariant the whole design
+   * exists to protect holds here: every note-on has a later note-off and
+   * nothing is sounding when the last event has gone out.
+   */
+  events: readonly ScheduledEvent[]
+  bars: readonly ScheduleBar[]
+}
+
+/** What the renderer asks main to play. Validated once, on receive. */
+export const PlayRequestSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('scenario'), id: z.string().min(1) }),
+])
+export type PlayRequest = z.infer<typeof PlayRequestSchema>
+
+export const OpenOutputRequestSchema = z.object({ portId: z.string().min(1) })
+export type OpenOutputRequest = z.infer<typeof OpenOutputRequestSchema>
+
+/**
+ * Pushed on `player:state` a few times a second, never per event. The
+ * per-event traffic is `player:event`; this is the transport's own reading.
+ */
+export const PlayerStateSchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('idle') }),
+  z.object({
+    state: z.literal('playing'),
+    positionMs: z.number(),
+    durationMs: z.number(),
+    /** Null whenever the source has no bars to be in. */
+    bar: z.number().int().nullable(),
+  }),
+])
+export type PlayerState = z.infer<typeof PlayerStateSchema>
+
+export const idlePlayerState: PlayerState = { state: 'idle' }
+
+/**
+ * The `player` half of `window.api`, declared where both sides can see it: the
+ * preload binding is typed as this and the renderer's `Window` reads it.
+ */
+export interface PlayerApi {
+  listOutputs(): Promise<MidiPort[]>
+  openOutput(portId: string): Promise<void>
+  closeOutput(): Promise<void>
+  play(request: PlayRequest): Promise<void>
+  stop(): Promise<void>
+  /** Returns the cleanup that removes the listener. Always call it. */
+  onEvent(cb: (event: MidiEvent) => void): () => void
+  /** Returns the cleanup that removes the listener. Always call it. */
+  onState(cb: (state: PlayerState) => void): () => void
+}

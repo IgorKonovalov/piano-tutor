@@ -161,3 +161,43 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* The transport for the app's own playing. Deliberately below the output list:
+   choosing where the sound goes comes before making it. */
+.transport {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.play {
+  flex: none;
+  padding: var(--space-1) var(--space-4);
+  background: transparent;
+  border: 1px solid var(--color-playback);
+  border-radius: var(--radius-1);
+  color: var(--color-playback);
+  cursor: pointer;
+}
+
+.play:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-playback) 15%, transparent);
+}
+
+.play:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--color-border);
+  color: var(--color-fg-dim);
+}
+
+.transportState {
+  font-size: 12px;
+  color: var(--color-fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.playbackKeyboard {
+  margin-top: var(--space-4);
+}

@@ -1,6 +1,6 @@
 # 0004 — The app plays the piece
 
-> **Status:** approved
+> **Status:** in-progress
 > **Created:** 2026-09-10
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0007](../adrs/0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md) (proposed)
@@ -376,11 +376,11 @@ interface MidiSink {
 > Written by `dev`, one row per phase as that phase's commit lands, and the close block after the
 > last one. **The phases above are the contract; everything here is what happened.**
 
-**Lane:** _(to be filled by `dev`)_
+**Lane:** `main`, directly. No other plan is in a code lane.
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — The app plays a scale into the room | dev | not started | |
+| 1 — The app plays a scale into the room | dev | done | committed with this row |
 | 2 — A tempo, a velocity, and a range of bars | dev | not started | |
 | 3 — The Score view plays the piece | dev | not started | |
 | 4 — A take plays back out to the instrument | dev | not started | |
@@ -393,6 +393,50 @@ interface MidiSink {
 _(NFR 13: onset error p50 / p95 / max, the machine, the phase)_
 
 ### Notes
+
+**Phase 1.** One file outside the phase's list, agreed with the user before any code was written:
+`renderer/types/global.d.ts`, the renderer side of `window.api.player` whose preload half
+(`electron/preload/index.ts`) is listed. Nothing else was touched outside the list.
+
+The inverse the plan asks `electron/midi/serialise.ts` to be **already existed**: `toBytes` in
+`electron/midi/parse.ts`, written in Plan 0001 for the synthetic source. `serialise.ts` is
+therefore the outbound seam delegating to it rather than a second table of status bytes, so
+`parse(serialise(event))` is true by construction; `serialise.test.ts` asserts the round trip over
+every event kind this app can send. `parse.ts` was not touched.
+
+Three shapes differ from the plan's illustrative `## Data shapes`, all disclosed rather than
+argued:
+- `PlaybackSchedule` is a **plain type, not a Zod schema**. It is built in main from the request
+  and never crosses IPC, so a schema on it would be validation at a boundary it does not reach.
+  What does cross — `PlayRequest`, `OpenOutputRequest`, `PlayerState` — is Zod and is parsed once
+  on receive.
+- `PlaybackSchedule` gained `bars: readonly { bar, at }[]`. `PlayerState.bar` has to come from
+  somewhere, and the schedule is the only value that knows both the bars and the milliseconds;
+  putting it here keeps `Player.ts` untouched in Phase 3, whose file list does not include it.
+- `PlaybackSource['timeline']` carries no `scoreId`. In this design the renderer sends the
+  timeline itself, so main never learns an id.
+
+The normaliser closes **pedals as well as notes**: a note-off under a held sustain does not stop
+the sound on a real instrument, so "nothing is sounding when the schedule ends" is not true unless
+CC 64 and CC 66 are lifted too. `TRUNCATED_TAIL_MS = 200` gives a note the source never released a
+tail rather than releasing it at the same instant it started, which would be a click.
+
+`Player.stop()` returns early when nothing was playing. Without that, `play()`'s own leading stop
+would put a release — and, after Phase 6, an All Notes Off — in front of every single play.
+
+The tick's `try/catch` that releases before rethrowing is already in `Player.ts`; Phase 6 owns the
+remaining panic paths and all the tests for them. `RtMidiSink.release()` currently writes note-offs
+only — CC 123 and sustain-up are Phase 6's.
+
+**NFR 13's measurement surface**, which nothing in the plan named: `Player` accumulates the onset
+error of every note-on and prints `player: onset error over N note-ons — p50 … p95 … max …` to
+main's console when a schedule ends or is stopped. That console line is what Phase 7 item 4 reads
+at the instrument; nothing in the UI shows it and no test asserts it.
+
+Phase 1's done-when was checked through a throwaway Playwright spec against the built app (the
+scale lights the keyboard through two octaves up and down and leaves nothing lit; stop halfway
+leaves nothing lit; a run of playback adds no take). It was **not committed** — Phase 3 owns
+`e2e/player.spec.ts`, and those assertions belong there.
 
 ### Close triggers
 

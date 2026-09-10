@@ -1,7 +1,8 @@
 /**
  * The only place an IPC channel string is written. A new channel is a design
  * decision (ADR-0001), not a casual addition: the roster of domains is
- * `midi:*`, `take:*`, `score:*` (ADR-0005) and `coach:*`.
+ * `midi:*`, `take:*`, `score:*` (ADR-0005), `player:*` (ADR-0007) and
+ * `coach:*`.
  */
 export const IPC_CHANNELS = {
   /** invoke R->M: () -> MidiPort[] */
@@ -30,6 +31,25 @@ export const IPC_CHANNELS = {
   SCORE_READ: 'score:read',
   /** invoke R->M: { id, title } -> ScoreMeta */
   SCORE_SET_TITLE: 'score:set-title',
+
+  /** invoke R->M: () -> MidiPort[]; the output half, `out:<index>` */
+  PLAYER_LIST_OUTPUTS: 'player:list-outputs',
+  /** invoke R->M: { portId } -> void */
+  PLAYER_OPEN_OUTPUT: 'player:open-output',
+  /** invoke R->M: () -> void */
+  PLAYER_CLOSE_OUTPUT: 'player:close-output',
+  /** invoke R->M: PlayRequest -> void */
+  PLAYER_PLAY: 'player:play',
+  /** invoke R->M: () -> void */
+  PLAYER_STOP: 'player:stop',
+  /**
+   * push M->R: one MidiEvent the app is playing. Deliberately not
+   * `midi:event`: the recorder listens to the source, so nothing the player
+   * dispatches can ever land in a take (ADR-0007).
+   */
+  PLAYER_EVENT: 'player:event',
+  /** push M->R: PlayerState, a few times a second rather than per event */
+  PLAYER_STATE: 'player:state',
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

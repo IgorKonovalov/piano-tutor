@@ -64,6 +64,29 @@
   background: color-mix(in srgb, var(--color-virtual) 55%, #23262c);
 }
 
+/*
+ * The app's own playing (ADR-0007). A different hue from the player's hands,
+ * and the accent bar moves to the top edge so the two are told apart without
+ * relying on colour at all.
+ */
+.playing {
+  background: color-mix(in srgb, var(--color-playback) calc(var(--velocity) * 100%), #f2f4f7);
+  box-shadow: inset 0 3px 0 var(--color-playback);
+}
+
+.black.playing {
+  background: color-mix(in srgb, var(--color-playback) calc(var(--velocity) * 100%), #23262c);
+}
+
+.playingPedalled {
+  background: color-mix(in srgb, var(--color-playback) 35%, #f2f4f7);
+  box-shadow: inset 0 3px 0 color-mix(in srgb, var(--color-playback) 60%, transparent);
+}
+
+.black.playingPedalled {
+  background: color-mix(in srgb, var(--color-playback) 45%, #23262c);
+}
+
 .middleC {
   border-bottom: 3px solid var(--color-fg-dim);
 }

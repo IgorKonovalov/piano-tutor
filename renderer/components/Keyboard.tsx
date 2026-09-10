@@ -83,7 +83,13 @@ export function noteLabel(note: number): string {
   return `${NOTE_NAMES[note % 12]}${Math.floor(note / 12) - 1}`
 }
 
-type KeyState = 'off' | 'down' | 'pedalled'
+/**
+ * `playing` and `playingPedalled` are the app's own playing (ADR-0007), never
+ * the player's. They are a different colour *and* a different mark, because
+ * colour is never the only carrier of a state: a pressed key wears a bar along
+ * its bottom edge and a played one wears it along the top.
+ */
+type KeyState = 'off' | 'down' | 'pedalled' | 'playing' | 'playingPedalled'
 
 interface KeyProps {
   layout: KeyLayout
@@ -100,6 +106,8 @@ const Key = memo(function Key({ layout, state, velocity }: KeyProps) {
   const classes = [layout.black ? styles.black : styles.white]
   if (state === 'down') classes.push(styles.pressed)
   if (state === 'pedalled') classes.push(styles.pedalled)
+  if (state === 'playing') classes.push(styles.playing)
+  if (state === 'playingPedalled') classes.push(styles.playingPedalled)
   if (layout.note === MIDDLE_C) classes.push(styles.middleC)
 
   const tint = velocityTint(velocity)
@@ -119,34 +127,42 @@ const Key = memo(function Key({ layout, state, velocity }: KeyProps) {
 
 export interface KeyboardProps {
   held: HeldNotes
+  /**
+   * What the app itself is playing back. Drawn apart from `held` so the player
+   * can always tell their own hands from the demonstration; a key both are on
+   * reads as the player's, because that is the one they can feel.
+   */
+  playback?: HeldNotes
 }
 
-export function Keyboard({ held }: KeyboardProps) {
+export function Keyboard({ held, playback }: KeyboardProps) {
   const stateOf = (note: number): KeyState => {
     if (held.down.has(note)) return 'down'
     if (held.pedalled.has(note)) return 'pedalled'
+    if (playback?.down.has(note) === true) return 'playing'
+    if (playback?.pedalled.has(note) === true) return 'playingPedalled'
     return 'off'
   }
   const velocityOf = (note: number): number =>
-    held.down.get(note)?.velocity ?? held.pedalled.get(note)?.velocity ?? 0
+    held.down.get(note)?.velocity ??
+    held.pedalled.get(note)?.velocity ??
+    playback?.down.get(note)?.velocity ??
+    playback?.pedalled.get(note)?.velocity ??
+    0
 
   const soundingCount = held.down.size + held.pedalled.size
+  const played =
+    playback === undefined ? [] : [...playback.down.keys(), ...playback.pedalled.keys()]
 
   return (
     <div>
       <div
         className={styles.keyboard}
         role="img"
-        aria-label={
-          soundingCount === 0
-            ? 'Piano keyboard, nothing held'
-            : `Piano keyboard, holding ${[...held.down.keys(), ...held.pedalled.keys()]
-                .sort((a, b) => a - b)
-                .map(noteLabel)
-                .join(', ')}`
-        }
+        aria-label={describeKeyboard(soundingCount === 0 ? [] : [...held.down.keys(), ...held.pedalled.keys()], played)}
         data-testid="keyboard"
         data-sounding={soundingCount}
+        data-playing={played.length}
       >
         <div className={styles.whiteRow}>
           {WHITE_KEYS.map((layout) => (
@@ -177,6 +193,20 @@ export function Keyboard({ held }: KeyboardProps) {
       </div>
     </div>
   )
+}
+
+function names(notes: number[]): string {
+  return notes
+    .sort((a, b) => a - b)
+    .map(noteLabel)
+    .join(', ')
+}
+
+function describeKeyboard(held: number[], played: number[]): string {
+  const parts: string[] = []
+  if (held.length > 0) parts.push(`holding ${names(held)}`)
+  if (played.length > 0) parts.push(`playing back ${names(played)}`)
+  return parts.length === 0 ? 'Piano keyboard, nothing held' : `Piano keyboard, ${parts.join('; ')}`
 }
 
 function Pedal({ label, down, value }: { label: string; down: boolean; value?: number }) {

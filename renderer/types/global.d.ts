@@ -1,4 +1,5 @@
 import type { MidiApi } from '../../shared/midi'
+import type { PlayerApi } from '../../shared/player'
 import type { ScoreApi } from '../../shared/score'
 import type { TakeApi } from '../../shared/take'
 
@@ -13,6 +14,7 @@ declare global {
       midi: MidiApi
       take: TakeApi
       score: ScoreApi
+      player: PlayerApi
     }
   }
 }

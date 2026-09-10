@@ -1,14 +1,19 @@
 import { type BrowserWindow, app } from 'electron'
 import { createWindow, getRendererPaths, installCsp } from './window'
 import { cleanupMidiHandlers, registerMidiHandlers } from './ipc/midiHandlers'
+import { cleanupPlayerHandlers, registerPlayerHandlers } from './ipc/playerHandlers'
 import { cleanupScoreHandlers, registerScoreHandlers } from './ipc/scoreHandlers'
 import { cleanupTakeHandlers, registerTakeHandlers } from './ipc/takeHandlers'
 import { createMidiPipeline } from './midi/pipeline'
+import { NullSink } from './midi/NullSink'
+import { RtMidiSink } from './midi/RtMidiSink'
 import { RtMidiSource } from './midi/RtMidiSource'
 import { SyntheticSource } from './midi/SyntheticSource'
+import { Player } from './player/Player'
 import { scoresDirectory } from './score/library'
 import { Recorder } from './take/Recorder'
 import { takesDirectory } from './take/takeFile'
+import { IPC_CHANNELS } from '../shared/ipc-channels'
 
 /**
  * Lifecycle: whenReady -> installCsp -> registerIpcHandlers -> createWindow.
@@ -33,6 +38,26 @@ const rtMidi = new RtMidiSource(gate)
 const synthetic = new SyntheticSource(gate)
 const recorder = new Recorder()
 
+const output = new RtMidiSink()
+const silence = new NullSink()
+
+/**
+ * Pushed to the window, never to the recorder (ADR-0007). The recorder
+ * subscribes to a `MidiSource`, and the player is not one, so a take cannot
+ * contain notes the player did not play; the way that stays true is that
+ * nothing here is wired into the pipeline at all.
+ */
+const sendToWindow = (channel: string, payload: unknown): void => {
+  if (mainWindow === null || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send(channel, payload)
+}
+
+const player = new Player({
+  sink: silence,
+  onEvent: (event) => sendToWindow(IPC_CHANNELS.PLAYER_EVENT, event),
+  onState: (state) => sendToWindow(IPC_CHANNELS.PLAYER_STATE, state),
+})
+
 // userData is only resolvable once Electron is ready, so the directory is a
 // function rather than a value.
 const takesDir = () => takesDirectory(app.getPath('userData'))
@@ -55,6 +80,7 @@ void app.whenReady().then(() => {
   registerMidiHandlers({ pipeline, rtMidi, synthetic })
   registerTakeHandlers({ pipeline, takesDirectory: takesDir })
   registerScoreHandlers({ getWindow: () => mainWindow, scoresDirectory: scoresDir })
+  registerPlayerHandlers({ player, output, silence, gate })
 
   const paths = getRendererPaths(rendererUrl !== undefined)
   mainWindow = createWindow({ ...paths, rendererUrl })
@@ -71,7 +97,12 @@ app.on('before-quit', () => {
   // Flush and close the take before the process goes; a kill that skips this
   // still loses at most the last flush interval (NFR 8).
   void pipeline.close()
+  // Silence before anything else: a chord left sounding outlives this process
+  // on the instrument, which no later cleanup can undo.
+  player.stop()
+  void output.close()
   cleanupMidiHandlers()
   cleanupTakeHandlers()
   cleanupScoreHandlers()
+  cleanupPlayerHandlers()
 })
