@@ -14,6 +14,8 @@ import pickupJson from '../../fixtures/scores/pickup-two-hands.timeline.json'
 import scaleJson from '../../fixtures/scores/scale-c-major.timeline.json'
 import { DEFAULT_BPM } from '../midi/generate'
 import { type Perturbation, perturb } from '../midi/perturb'
+import { align } from './align'
+import { expectedGroups, playedGroups } from './onsetGroups'
 import { scoredNotes } from '../score/timeline'
 import { barsByTiming, practiceReport } from './report'
 
@@ -518,5 +520,112 @@ describe('an ornament is scored neither way (ADR-0009)', () => {
     expect(wrong).toHaveLength(1)
     expect(wrong[0]?.bar).toBe(declared.bar)
     expect(report.counts.extra).toBe(0)
+  })
+})
+
+describe('a long piece played only at its opening (ADR-0010)', () => {
+  /**
+   * The regime the fixture corpus does not contain, and the one every real
+   * practice session is in: a piece far longer than anything played, stopped
+   * after the opening, with real mistakes in what was played.
+   *
+   * Measured at the CK88 on 2026-09-10 against Bach BWV 847 -- 1 028 expected
+   * groups, 73 played -- where the matcher scattered matches out to group 945
+   * and reported 1 585 notes missing at a fitted tempo of 2 663 bpm.
+   *
+   * The material matters and is the reason a first attempt at this test proved
+   * nothing. Scattering only pays when a group is **small**: a distant partial
+   * match of a one-note group costs about what skipping it costs, while a
+   * three-note chord against a different one costs twice a gap and is never
+   * worth taking. So this is single-note figuration over a small pitch set --
+   * a prelude, not a chorale.
+   */
+  const BARS = 69
+  const PLAYED_BARS = 12
+  const PER_BAR = 16
+
+  function figuration(bars: number): ExpectedTimeline {
+    const FIGURE = [0, 3, 7, 12, 7, 3, 7, 12]
+    const ROOTS = [0, 5, 7, 2, 9, 4]
+    const notes = []
+    for (let bar = 0; bar < bars; bar++) {
+      const root = 48 + (ROOTS[bar % ROOTS.length] as number)
+      for (let n = 0; n < PER_BAR; n++) {
+        notes.push({
+          midi: root + (FIGURE[n % FIGURE.length] as number),
+          onset: bar * 4 + (n * 4) / PER_BAR,
+          duration: 4 / PER_BAR,
+          bar,
+          staff: 0,
+          voice: 1,
+          tied: false,
+          grace: false,
+        })
+      }
+    }
+    return {
+      scoreId: 'e'.repeat(32),
+      notes,
+      bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 4, beats: 4 })),
+    }
+  }
+
+  const timeline = figuration(BARS)
+  const take = perturb(timeline, {
+    seed: SEED,
+    perturbations: [
+      { kind: 'stopAfterBar', bar: PLAYED_BARS - 1 },
+      // Real playing, not a clean generated pass: with no mistake in it the
+      // true alignment costs nothing and no scattered path could ever beat it.
+      { kind: 'substitutePitch', bar: 5, index: 0 },
+      { kind: 'substitutePitch', bar: 8, index: 3 },
+      { kind: 'dropNote', bar: 9, index: 1 },
+    ],
+  })
+  const report = practiceReport({ timeline, events: take.events, takeId: 'opening' })
+  const playedGroupCount = playedGroups(take.events).length
+
+  it('calls the unplayed tail not attempted, not missing', () => {
+    // Before ADR-0010: fifty-one bars, because scattered matches made the
+    // matcher believe the player had reached bar 17.
+    const notAttempted = report.bars.filter((bar) => bar.state === 'notAttempted')
+    expect(notAttempted.map((bar) => bar.bar)).toEqual(
+      Array.from({ length: BARS - PLAYED_BARS }, (_, i) => PLAYED_BARS + i)
+    )
+  })
+
+  it('charges no missing note outside the stretch that was played', () => {
+    for (const bar of report.bars) {
+      if (bar.bar < PLAYED_BARS) continue
+      expect(bar.notes).toEqual([])
+    }
+    // Only the deliberately dropped note. Before ADR-0010: ninety-seven.
+    expect(report.counts.missing).toBeLessThanOrEqual(2)
+  })
+
+  it('keeps the match at the opening rather than scattering it down the score', () => {
+    const alignment = align(expectedGroups(timeline), playedGroups(take.events))
+    const matched = alignment.steps.flatMap((step) =>
+      step.kind === 'match' ? [step.expected] : []
+    )
+
+    // Every match lands within the opening the player actually played. Before
+    // ADR-0010 the furthest was group 287, well past anything struck.
+    expect(Math.max(...matched)).toBeLessThan(playedGroupCount + PER_BAR)
+    expect(alignment.reachedTo).toBeLessThanOrEqual(playedGroupCount + PER_BAR)
+  })
+
+  it('fits a tempo that is a tempo', () => {
+    // The instrument reported 2 663 bpm; this material reported 166 against a
+    // written 90. A fit spread across the whole score is not a tempo at all.
+    expect(report.fittedTempo).not.toBeNull()
+    expect((report.fittedTempo as number) / DEFAULT_BPM).toBeCloseTo(1, 1)
+  })
+
+  it('still judges the bars that were played', () => {
+    const played = report.bars.filter((bar) => bar.bar < PLAYED_BARS)
+    expect(played.filter((bar) => bar.state === 'clean').length).toBeGreaterThan(0)
+    expect(report.counts.wrongPitch).toBeGreaterThan(0)
+    expect(report.counts.correct).toBeGreaterThan(PLAYED_BARS * PER_BAR * 0.9)
   })
 })

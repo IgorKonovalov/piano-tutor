@@ -127,9 +127,11 @@ describe('the tie-break puts the player at the earliest place that fits', () => 
 
     const match = alignment.steps.find((step) => step.kind === 'match')
     expect(match).toEqual({ kind: 'match', expected: 0, played: 0, playedCount: 1, difference: 0 })
-    expect(alignment.steps.filter((step) => step.kind === 'missing').map((s) =>
-      s.kind === 'missing' ? s.expected : -1
-    )).toEqual([1, 2, 3])
+    // The other three are not missing, they are never reached: the take ends
+    // at the first group and the rest of the piece produces no steps at all
+    // (ADR-0010). Before that decision they came back as three missing notes.
+    expect(alignment.steps.filter((step) => step.kind === 'missing')).toEqual([])
+    expect(alignment.reachedTo).toBe(1)
   })
 
   it('never gives away a match that genuinely lines up', () => {

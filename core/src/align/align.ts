@@ -114,6 +114,13 @@ export interface Alignment {
   cost: number
   band: number
   /**
+   * How far into the score the take got, as an expected-group index: the row
+   * the path ended on (ADR-0010). Expected groups from here on produced no
+   * steps, because the player never reached them. `expected.length` when the
+   * piece was played to the end.
+   */
+  reachedTo: number
+  /**
    * The expected group index from which the match stopped being trustworthy,
    * or null. See `findUnalignable` for what earns it: past that point the
    * report says "we lost you here", which is honest, rather than printing a
@@ -272,8 +279,39 @@ export function align(
     }
   }
 
+  // **Where the take ended** (ADR-0010). The path must consume every played
+  // group -- a struck note is always accounted for -- but it is not obliged to
+  // consume every expected one, because reaching the end of a piece the player
+  // never reached costs nothing: it did not happen.
+  //
+  // Without this the tail is an obligation paid on every candidate path alike,
+  // and then spending a played group on any remotely similar distant match is
+  // cheaper than leaving it as an extra. Measured on a 69-bar Bach prelude
+  // played for seventeen groups, that put matches out at group 945 of 1028 and
+  // charged 1 585 notes as missing.
+  //
+  // A tie goes to the **furthest** row, which is the opposite of the rule the
+  // gaps use and is deliberate. Getting the last note of a take wrong costs
+  // exactly what never reaching it costs -- a substitution against one group,
+  // or that group left behind and the note charged as an extra -- and on that
+  // tie the player did play something there. Preferring the earlier row erases
+  // a wrong final bar into "not attempted", which is a mistake the report then
+  // never mentions.
+  //
+  // Rows past the true end are not ties: each one adds a deletion, so the cost
+  // strictly rises and this can never over-reach.
+  let endRow = 0
+  let endCost = at(0, m)
+  for (let row = 1; row <= n; row++) {
+    const candidate = at(row, m)
+    if (candidate <= endCost) {
+      endCost = candidate
+      endRow = row
+    }
+  }
+
   const steps: Step[] = []
-  let i = n
+  let i = endRow
   let j = m
   while (i > 0 || j > 0) {
     const how = i === 0 ? 'extra' : j === 0 ? 'missing' : choiceAt(i, j)
@@ -305,8 +343,9 @@ export function align(
 
   return {
     steps,
-    cost: at(n, m),
+    cost: endCost,
     band,
+    reachedTo: endRow,
     unalignableFrom: findUnalignable(steps, expected, played, band),
   }
 }
