@@ -9,9 +9,17 @@ export const MidiPortKindSchema = z.enum(['hardware', 'virtual'])
 export type MidiPortKind = z.infer<typeof MidiPortKindSchema>
 
 /**
- * `busy` is the Windows reality that matters: there is no system-wide MIDI
- * sharing, so a DAW holding the port makes it unopenable. It is discovered by
- * a probe open in `listPorts`, not guessed.
+ * `busy` is a port that exists and will not open. It is discovered by a probe
+ * open in `listPorts`, never guessed.
+ *
+ * Measured at the instrument (Plan 0001 Phase 7): a MIDI input port on the
+ * CK88 is **not** exclusive across processes. Two processes opened it at once
+ * and both received the stream, so this value has never once been reported on
+ * this machine. It stays because "no other application can hold this port" is
+ * a claim about every driver on every machine, and exactly one has been
+ * measured. What does fail is a second open of the same port inside one
+ * process, which is the likeliest origin of the belief that Windows MIDI is
+ * exclusive.
  */
 export const MidiPortAvailabilitySchema = z.enum(['available', 'busy', 'unknown'])
 export type MidiPortAvailability = z.infer<typeof MidiPortAvailabilitySchema>

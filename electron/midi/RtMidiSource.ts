@@ -7,10 +7,16 @@ import { type HarnessGate, listVirtualPorts } from './virtualPorts'
  * The CK88 over USB, through RtMidi's Windows Multimedia backend.
  *
  * Two Windows realities shape this file. There is no hot-plug callback, so the
- * caller polls `listPorts`. And there is no system-wide MIDI sharing: a port
- * another application holds cannot be opened, which is only discoverable by
- * trying, so `listPorts` probes each device with a short open and reports the
+ * caller polls `listPorts`. And whether a port will open is only discoverable
+ * by trying, so `listPorts` probes each device with a short open and reports a
  * failure as `busy` rather than letting the user find out on click.
+ *
+ * The probe is not evidence of exclusivity. Measured at the instrument (Plan
+ * 0001 Phase 7, against a single-reader control): two processes read the CK88's
+ * port simultaneously and both received the stream, so this app can run beside
+ * a DAW on the same port and the `busy` path has never fired here. Whether
+ * another driver behaves the same way is unmeasured, which is why the probe
+ * stays rather than being replaced by an assumption in either direction.
  *
  * The probe is skipped while this source holds a port open: reopening a handle
  * underneath a live input is the one thing polling could plausibly disturb.
@@ -49,12 +55,13 @@ export class RtMidiSource implements MidiSource {
 
   private describeHardwarePort(probe: Input, index: number): MidiPort {
     const name = probe.getPortName(index)
+    // No `detail` here: every branch below sets its own, and a default would
+    // only ever be a string nothing can reach.
     const port: MidiPort = {
       id: `hw:${index}`,
       name,
       kind: 'hardware',
       availability: 'unknown',
-      detail: 'In use by this app',
     }
     if (this.openPortIndex === index) return { ...port, availability: 'available', detail: 'Open' }
     if (this.openPortIndex !== null) {
@@ -63,7 +70,7 @@ export class RtMidiSource implements MidiSource {
     try {
       probe.openPort(index)
       probe.closePort()
-      return { ...port, availability: 'available', detail: undefined }
+      return { ...port, availability: 'available' }
     } catch {
       return {
         ...port,
@@ -101,7 +108,8 @@ export class RtMidiSource implements MidiSource {
       throw new MidiPortUnavailable(
         portId,
         `Windows would not open this port: ${(err as Error).message}. ` +
-          'There is no system-wide MIDI sharing, so another application may be holding it.'
+          'The instrument may have been unplugged, or another application may be holding it. ' +
+          'Not every application shares a port; closing the other one and reopening is the fix.'
       )
     }
 

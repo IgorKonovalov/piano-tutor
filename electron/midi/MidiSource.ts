@@ -6,9 +6,13 @@ import type { MidiPort } from '../../shared/midi'
  * `SyntheticSource` (a seeded scenario, ADR-0004). A DIN interface or a
  * Bluetooth adapter would be a fourth, with nothing above this line changing.
  *
- * `t` handed to the callback is `performance.now()` taken in the arrival
- * callback before any parsing, so the latency NFR 1 measures includes
- * everything the app adds and nothing it does not.
+ * `t` handed to the callback is `performance.timeOrigin + performance.now()`,
+ * taken in the arrival callback before any parsing, so the latency NFR 1
+ * measures includes everything the app adds and nothing it does not. The epoch
+ * anchor is not decoration: main and the renderer are separate processes with
+ * separate `performance.now()` origins, and subtracting two bare readings
+ * measures nothing. A fourth transport keeps the anchor or NFR 1 stops being
+ * measurable at all.
  */
 export interface MidiSource {
   listPorts(): Promise<MidiPort[]>
