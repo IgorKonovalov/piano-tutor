@@ -9,14 +9,19 @@ export const MidiPortKindSchema = z.enum(['hardware', 'virtual'])
 export type MidiPortKind = z.infer<typeof MidiPortKindSchema>
 
 /**
- * `busy` is a port that exists and will not open. It is discovered by a probe
- * open in `listPorts`, never guessed.
+ * `busy` means **the last attempt to open this port failed** — a memory, not a
+ * prediction (ADR-0006). Listing never opens a handle, so nothing here is
+ * discovered speculatively; the label appears only after the player has tried,
+ * and it clears when an open succeeds or the port leaves the enumeration.
+ *
+ * A `busy` row stays clickable on purpose. The record is history and may
+ * already be stale, and the retry is the re-check.
  *
  * Measured at the instrument (Plan 0001 Phase 7): a MIDI input port on the
- * CK88 is **not** exclusive across processes. Two processes opened it at once
- * and both received the stream, so this value has never once been reported on
- * this machine. It stays because "no other application can hold this port" is
- * a claim about every driver on every machine, and exactly one has been
+ * CK88 is **not** exclusive across processes — two processes opened it at once
+ * and both received the stream — so on this instrument the value has never
+ * been set. It stays because "no other application can hold this port" is a
+ * claim about every driver on every machine, and exactly one has been
  * measured. What does fail is a second open of the same port inside one
  * process, which is the likeliest origin of the belief that Windows MIDI is
  * exclusive.

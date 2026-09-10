@@ -122,7 +122,8 @@ const AVAILABILITY_LABEL: Record<MidiPort['availability'], string> = {
 
 function PortRow({ port, onOpen }: { port: MidiPort; onOpen: (port: MidiPort) => void }) {
   const isVirtual = port.kind === 'virtual'
-  const openable = port.availability !== 'busy'
+  // A `busy` row stays clickable (ADR-0006): the label records that the last
+  // open failed, which may already be stale, and the retry is the re-check.
   return (
     <li
       className={isVirtual ? `${styles.port} ${styles.virtual}` : styles.port}
@@ -152,11 +153,10 @@ function PortRow({ port, onOpen }: { port: MidiPort; onOpen: (port: MidiPort) =>
       <button
         type="button"
         className={styles.open}
-        disabled={!openable}
         onClick={() => onOpen(port)}
         data-testid="port-open"
       >
-        {isVirtual ? 'Play' : 'Open'}
+        {isVirtual ? 'Play' : port.availability === 'busy' ? 'Try again' : 'Open'}
       </button>
     </li>
   )

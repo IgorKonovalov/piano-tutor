@@ -15,6 +15,13 @@ import type { MidiPort } from '../../shared/midi'
  * measurable at all.
  */
 export interface MidiSource {
+  /**
+   * Enumerate without touching the device (ADR-0006): no handle is opened, so
+   * listing is free of side effects and safe to poll, which the absence of a
+   * Windows hot-plug callback makes necessary. A transport that can only
+   * report availability by trying to open reports `available` and lets `open`
+   * be the one that finds out.
+   */
   listPorts(): Promise<MidiPort[]>
   open(portId: string): Promise<void>
   close(): Promise<void>
