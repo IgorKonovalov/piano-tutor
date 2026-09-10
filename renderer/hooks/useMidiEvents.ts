@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { type HeldNotes, emptyHeldNotes, reduceHeldNotes } from '../../core/src/midi/HeldNotes'
+import { type KeyEstimate, estimateKey } from '../../core/src/theory/key'
 import type { MidiEvent } from '../../shared/midi'
 
 /**
@@ -35,8 +36,20 @@ const LOG_CAPACITY = 60
 /** NFR 1 and NFR 11 are both quoted over the last 500 events. */
 const LATENCY_WINDOW = 500
 
-/** Recomputing percentiles every frame is work nobody reads that fast. */
+/**
+ * The slow lane. Percentiles and the key estimate are both recomputed on this
+ * interval rather than every frame: nobody reads a percentile sixty times a
+ * second, and a key is a property of a phrase, not of a frame. The chord name
+ * is not on this lane -- it follows the held notes immediately, because that
+ * is the whole point of it.
+ */
 const STATS_INTERVAL_MS = 400
+
+/**
+ * How many recent note-ons the key estimate reads. The estimator decays a note's
+ * weight by its own age, so this is only a bound on the work, not the window.
+ */
+const KEY_WINDOW = 400
 
 export interface LoggedEvent {
   seq: number
@@ -71,6 +84,8 @@ export interface MidiStream {
   /** Every event since the port opened, including those the log has dropped. */
   received: number
   latency: LatencyStats
+  /** Null until enough has been played to correlate against anything. */
+  key: KeyEstimate | null
 }
 
 interface Pending {
@@ -97,6 +112,7 @@ export function useMidiEvents(): MidiStream {
     log: [],
     received: 0,
     latency: emptyLatencyStats,
+    key: null,
   })
 
   const pending = useRef<Pending[]>([])
@@ -107,6 +123,8 @@ export function useMidiEvents(): MidiStream {
   const msSamples = useRef<number[]>([])
   const frameSamples = useRef<number[]>([])
   const latency = useRef<LatencyStats>(emptyLatencyStats)
+  const noteOns = useRef<MidiEvent[]>([])
+  const key = useRef<KeyEstimate | null>(null)
   const lastStatsAt = useRef(0)
 
   useEffect(() => {
@@ -117,6 +135,8 @@ export function useMidiEvents(): MidiStream {
     msSamples.current = []
     frameSamples.current = []
     latency.current = emptyLatencyStats
+    noteOns.current = []
+    key.current = null
     lastStatsAt.current = 0
 
     const stopListening = window.api.midi.onEvent((event) => {
@@ -145,6 +165,7 @@ export function useMidiEvents(): MidiStream {
         if (event.kind === 'noteOn') {
           msSamples.current.push(paintedAt - event.t)
           frameSamples.current.push(frame.current - arrivalFrame)
+          noteOns.current.push(event)
         }
       }
       held.current = next
@@ -156,9 +177,13 @@ export function useMidiEvents(): MidiStream {
         msSamples.current = msSamples.current.slice(-LATENCY_WINDOW)
         frameSamples.current = frameSamples.current.slice(-LATENCY_WINDOW)
       }
+      if (noteOns.current.length > KEY_WINDOW) {
+        noteOns.current = noteOns.current.slice(-KEY_WINDOW)
+      }
 
       if (frameTime - lastStatsAt.current >= STATS_INTERVAL_MS) {
         lastStatsAt.current = frameTime
+        key.current = estimateKey(noteOns.current)
         const ms = [...msSamples.current].sort((a, b) => a - b)
         const frames = [...frameSamples.current].sort((a, b) => a - b)
         latency.current = {
@@ -178,6 +203,7 @@ export function useMidiEvents(): MidiStream {
           log: log.current,
           received: received.current,
           latency: latency.current,
+          key: key.current,
         })
       })
     }

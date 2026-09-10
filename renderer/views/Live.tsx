@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { MidiPort } from '../../shared/midi'
+import { soundingPitches } from '../../core/src/midi/HeldNotes'
 import { EventLog } from '../components/EventLog'
 import { Keyboard } from '../components/Keyboard'
+import { Labels } from '../components/Labels'
 import { LatencyOverlay } from '../components/LatencyOverlay'
 import { useMidiEvents } from '../hooks/useMidiEvents'
 import styles from './Live.module.css'
@@ -54,6 +56,11 @@ export function Live({ port, onStop }: LiveProps) {
           {openError}
         </p>
       )}
+
+      <div className={styles.section}>
+        <h2 className={styles.sectionHeading}>Playing</h2>
+        <Labels sounding={soundingPitches(stream.held)} musicalKey={stream.key} />
+      </div>
 
       <div className={styles.section}>
         <h2 className={styles.sectionHeading}>Keyboard</h2>

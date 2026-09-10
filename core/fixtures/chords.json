@@ -1,0 +1,131 @@
+{
+  "comment": [
+    "Ground truth for chord naming. Hand-written, not generated: this table is what a",
+    "player would call the notes, and the code is what has to agree with it. Middle C is 60.",
+    "`key` sets the spelling context when the chord belongs in a flat key; without it the",
+    "spelling defaults to sharps. `anyOf` is for sets that genuinely have more than one",
+    "correct name - a diminished seventh is the same four notes whichever of its roots you",
+    "call it from."
+  ],
+  "cases": [
+    { "notes": [60, 64, 67], "name": "C", "why": "major triad, root position" },
+    { "notes": [64, 67, 72], "name": "C/E", "why": "major triad, first inversion" },
+    { "notes": [67, 72, 76], "name": "C/G", "why": "major triad, second inversion" },
+    { "notes": [57, 60, 64], "name": "Am", "why": "minor triad, root position" },
+    { "notes": [60, 64, 69], "name": "Am/C", "why": "minor triad, first inversion" },
+    { "notes": [64, 69, 72], "name": "Am/E", "why": "minor triad, second inversion" },
+    { "notes": [59, 62, 65], "name": "Bdim", "why": "diminished triad" },
+    { "notes": [60, 64, 68], "name": "Caug", "why": "augmented triad" },
+    { "notes": [53, 57, 60], "name": "F", "why": "major triad on F" },
+    { "notes": [60, 65, 69], "name": "F/C", "why": "F major over its fifth" },
+    { "notes": [55, 59, 62], "name": "G", "why": "major triad on G" },
+    { "notes": [62, 66, 69], "name": "D", "why": "major triad on D" },
+    { "notes": [62, 65, 69], "name": "Dm", "why": "minor triad on D" },
+    { "notes": [64, 67, 71], "name": "Em", "why": "minor triad on E" },
+
+    { "notes": [62, 65, 69, 72], "name": "Dm7", "why": "minor seventh, root position" },
+    { "notes": [55, 59, 62, 65], "name": "G7", "why": "dominant seventh" },
+    { "notes": [60, 64, 67, 71], "name": "Cmaj7", "why": "major seventh" },
+    { "notes": [57, 60, 64, 67], "name": "Am7", "why": "minor seventh on A" },
+    { "notes": [59, 62, 65, 69], "name": "Bm7b5", "why": "half-diminished seventh" },
+    {
+      "notes": [60, 63, 66, 69],
+      "anyOf": ["Cdim7", "D#dim7", "F#dim7", "Adim7"],
+      "why": "diminished seventh: four notes, four equally correct roots"
+    },
+    { "notes": [60, 64, 67, 69], "name": "C6", "why": "sixth, not Am7 over C" },
+    { "notes": [60, 63, 67, 69], "name": "Cm6", "why": "minor sixth" },
+    { "notes": [48, 52, 55, 58], "name": "C7", "why": "dominant seventh, low register" },
+    {
+      "notes": [58, 62, 65, 69],
+      "key": "Bb major",
+      "name": "Bbmaj7",
+      "why": "major seventh spelled from a flat key"
+    },
+    {
+      "notes": [55, 58, 62, 65],
+      "key": "F major",
+      "name": "Gm7",
+      "why": "the ii of F major"
+    },
+    {
+      "notes": [48, 52, 55, 58],
+      "key": "F major",
+      "name": "C7",
+      "why": "the V of F major"
+    },
+
+    { "notes": [60, 65, 67], "name": "Csus4", "why": "suspended fourth" },
+    { "notes": [60, 62, 67], "name": "Csus2", "why": "suspended second" },
+    { "notes": [60, 67], "name": "C5", "why": "a bare fifth is not a triad" },
+
+    { "notes": [47, 62, 67, 71], "name": "G/B", "why": "G major with its third in the bass" },
+    { "notes": [52, 55, 60], "name": "C/E", "why": "close first inversion, left hand" },
+    {
+      "notes": [50, 60, 65, 69],
+      "name": "Dm7",
+      "why": "seventh voiced with the root alone in the bass"
+    },
+    {
+      "notes": [43, 59, 62, 65],
+      "name": "G7",
+      "why": "dominant seventh, root two octaves below the guide tones"
+    },
+
+    {
+      "notes": [36, 48, 52, 55, 60, 64],
+      "name": "C",
+      "why": "two hands, C major spread over three octaves"
+    },
+    {
+      "notes": [40, 52, 55, 59, 64, 67],
+      "name": "Em",
+      "why": "two hands, E minor spread"
+    },
+    {
+      "notes": [45, 57, 60, 64],
+      "name": "Am",
+      "why": "left hand octave under a right-hand triad"
+    },
+    {
+      "notes": [41, 53, 57, 60, 65],
+      "key": "F major",
+      "name": "F",
+      "why": "doubled root, five voices, still one chord"
+    },
+    {
+      "notes": [38, 50, 57, 62, 65],
+      "name": "Dm",
+      "why": "open two-hand D minor with a doubled fifth"
+    },
+    {
+      "notes": [43, 55, 59, 62, 67],
+      "name": "G",
+      "why": "open two-hand G major with a doubled root"
+    },
+    {
+      "notes": [37, 49, 56, 61, 65],
+      "key": "Db major",
+      "name": "Db",
+      "why": "a flat key spells the third F, never E#"
+    },
+    {
+      "notes": [56, 60, 63, 66],
+      "key": "Eb major",
+      "name": "Ab7",
+      "why": "a chromatic seventh spelled from the key signature: Gb, never F#"
+    },
+
+    { "notes": [61, 65, 68], "name": "C#", "why": "major triad on a black key" },
+    { "notes": [63, 66, 70], "name": "D#m", "why": "sharps by default with no key" },
+    {
+      "notes": [63, 67, 70],
+      "key": "Eb major",
+      "name": "Eb",
+      "why": "the same three keys, spelled from Eb major"
+    },
+    { "notes": [66, 70, 73], "name": "F#", "why": "major triad on F sharp" },
+    { "notes": [69, 73, 76, 80], "name": "Amaj7", "why": "major seventh, upper register" },
+    { "notes": [33, 37, 40, 43], "name": "A7", "why": "dominant seventh, bass register" }
+  ]
+}

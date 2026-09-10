@@ -1,0 +1,85 @@
+.labels {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+.panel {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+  min-height: 92px;
+}
+
+.caption {
+  margin: 0 0 var(--space-1);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-fg-dim);
+}
+
+.value {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.smallValue {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.silent {
+  color: var(--color-fg-dim);
+  font-weight: 400;
+}
+
+/*
+ * A key estimate below the confidence threshold is shown, not hidden, but it
+ * is visibly tentative: greying it out is what stops the label flickering
+ * between two keys while a phrase is still three notes long.
+ */
+.tentative {
+  color: var(--color-fg-dim);
+}
+
+.notes {
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-fg-dim);
+}
+
+.alternatives {
+  margin-top: var(--space-1);
+  font-size: 12px;
+  color: var(--color-fg-dim);
+}
+
+.confidence {
+  margin-top: var(--space-2);
+  height: 3px;
+  background: var(--color-bg-sunken);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.confidenceFill {
+  height: 100%;
+  background: var(--color-accent);
+}
+
+.confidenceFill.low {
+  background: var(--color-fg-dim);
+}
+
+@media (max-width: 900px) {
+  .labels {
+    grid-template-columns: 1fr;
+  }
+}

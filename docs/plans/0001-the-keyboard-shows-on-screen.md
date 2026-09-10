@@ -443,8 +443,8 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 | phase | owner | state | commit |
 |---|---|---|---|
 | 1 — The shell opens and lists the ports | dev | done | 37ae827 |
-| 2 — The keys light up, and the app can play itself | dev | done | committed with this row |
-| 3 — The notes get names | dev | not started | |
+| 2 — The keys light up, and the app can play itself | dev | done | ad95841 |
+| 3 — The notes get names | dev | done | committed with this row |
 | 4 — The staff draws what is held | dev | not started | |
 | 5 — Every session is a take | dev | not started | |
 | 6 — The whole gate runs with nothing plugged in | dev | not started | |
@@ -457,6 +457,8 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
   on the development machine (Windows 10, Electron 44). Read from the dev-only overlay with the
   window in the foreground. **These milliseconds never crossed USB and are not NFR 1**; NFR 1 is
   Phase 7.
+- **NFR 11 (Phase 3, labels mounted), synthetic:** frame delta p50 1, p95 1, max 1; milliseconds
+  p50 5.0, p95 19.8, max 31.8 over 500 note-ons from `virtual:dense-2000`, development machine.
 - **NFR 11 (Phase 4, staff mounted), synthetic:** frame delta p95 _, max _; milliseconds p50 _,
   p95 _, max _.
 - **NFR 4 (Phase 6), synthetic:** `app.whenReady` to first painted key _ ms.
@@ -504,6 +506,23 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
   built app counts 2 200.
 - Not acted on: RtMidi's `open`, `close` and `onMessage` have no automated test. They need a
   device; `SyntheticSource` covers the same seam and the parser, and Phase 7 covers the rest.
+- Three of the forty-six fixture chords were wrong when first written, in the fixture rather than
+  in the code: Eb major is 63-67-70, not 63-66-70 (that is Eb minor), and one entry named an Eb
+  chord over a set that contained no Eb. Corrected in the fixture.
+- Two rankings and one format are this project's, not tonal's, and each is a judgement a review
+  should look at. Tonal offers `Em#5` before `CM/E` for a first-inversion C, and `Dm6/B` before
+  `Bm7b5`; `chords.ts` sorts candidates by a table of how ordinary each chord type is plus a fixed
+  penalty for an inversion. Tonal also writes `CM` for a major triad and `IM` for its numeral, and
+  every numeral in upper case; the display strips the `M` and lower-cases a minor or diminished
+  numeral.
+- The key estimate is recomputed every 400 ms rather than every frame, on the same slow lane as
+  the latency percentiles. The chord name is not: it follows the held notes immediately.
+- `Labels` is memoised on the contents of the held set rather than the array's identity, because
+  the view repaints every frame and chord detection is the most expensive thing on it.
+- The key confidence threshold is 0.55. It is a chosen number, not a measured one: it is high
+  enough that the three generated scenarios clear it and low enough that a four-note chord does
+  not read as unknown. Nothing calibrates it against human playing yet, which is the
+  generator-drift risk the plan names.
 
 ## Followups (after this lands)
 
