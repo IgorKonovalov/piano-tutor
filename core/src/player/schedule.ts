@@ -4,12 +4,19 @@ import {
   type MidiEvent,
   PEDAL_DOWN_THRESHOLD,
 } from '../../../shared/midi'
-import type {
-  PlaybackSchedule,
-  PlaybackSource,
-  ScheduleBar,
-  ScheduledEvent,
+import {
+  DEFAULT_BPM,
+  GRACE_NOTE_MS,
+  PLAYBACK_VELOCITY,
+  type PlaybackSchedule,
+  type PlaybackSource,
+  RELEASE_GAP_FRACTION,
+  RELEASE_GAP_MS,
+  type ScheduleBar,
+  type ScheduledEvent,
+  clampBpm,
 } from '../../../shared/player'
+import type { ExpectedTimeline } from '../../../shared/score'
 
 /**
  * A schedule is the whole of playback that can be got wrong without a device
@@ -34,6 +41,13 @@ import type {
  * the schedule stays a pure function of its input.
  */
 export const TRUNCATED_TAIL_MS = 200
+
+/**
+ * Everything the app plays goes out on channel 1. The timeline carries a
+ * `staff`, so playing one hand would be a filter rather than a feature, and
+ * nothing in this plan asks for it.
+ */
+export const PLAYBACK_CHANNEL = 0
 
 /**
  * Order inside one millisecond. A note-off ahead of a note-on is what lets a
@@ -104,6 +118,16 @@ function sortScheduled(events: readonly ScheduledEvent[]): ScheduledEvent[] {
   return [...events].sort((a, b) => a.at - b.at || rank(a.event) - rank(b.event))
 }
 
+export interface NormaliseOptions {
+  bars?: readonly ScheduleBar[]
+  /**
+   * The written length of what is being played, when that is longer than its
+   * last event -- a bar range whose final note is released a release-gap early
+   * still lasts to the barline, and the transport's reading should say so.
+   */
+  durationMs?: number
+}
+
 /**
  * Sort, then close whatever the source left open. The closing tail is the
  * reason this exists: it is where a crashed take's ringing chord is stopped,
@@ -112,12 +136,13 @@ function sortScheduled(events: readonly ScheduledEvent[]): ScheduledEvent[] {
 export function normaliseSchedule(
   events: readonly ScheduledEvent[],
   source: PlaybackSource,
-  bars: readonly ScheduleBar[] = []
+  options: NormaliseOptions = {}
 ): PlaybackSchedule {
+  const bars = options.bars ?? []
   const ordered = sortScheduled(events)
   const draft: PlaybackSchedule = {
     source,
-    durationMs: ordered[ordered.length - 1]?.at ?? 0,
+    durationMs: Math.max(ordered[ordered.length - 1]?.at ?? 0, options.durationMs ?? 0),
     events: ordered,
     bars,
   }
@@ -125,7 +150,8 @@ export function normaliseSchedule(
   const outstanding = outstandingAtEnd(draft)
   if (outstanding.notes.length === 0 && outstanding.pedals.length === 0) return draft
 
-  const releaseAt = draft.durationMs + TRUNCATED_TAIL_MS
+  const lastAt = ordered[ordered.length - 1]?.at ?? 0
+  const releaseAt = lastAt + TRUNCATED_TAIL_MS
   const tail: ScheduledEvent[] = []
   // Notes first, then the pedals that were holding them: the same order the
   // sink's own panic uses, so the two paths cannot disagree about what silence
@@ -145,7 +171,12 @@ export function normaliseSchedule(
     })
   }
 
-  return { source, durationMs: releaseAt, events: [...ordered, ...tail], bars }
+  return {
+    source,
+    durationMs: Math.max(releaseAt, options.durationMs ?? 0),
+    events: [...ordered, ...tail],
+    bars,
+  }
 }
 
 /**
@@ -157,7 +188,9 @@ export function normaliseSchedule(
  */
 export function scheduleFromEvents(
   events: readonly MidiEvent[],
-  source: PlaybackSource
+  source: PlaybackSource,
+  /** Above 1 plays faster; every recorded interval scales by 1/speed. */
+  speed = 1
 ): PlaybackSchedule {
   if (events.length === 0) return { source, durationMs: 0, events: [], bars: [] }
 
@@ -167,10 +200,84 @@ export function scheduleFromEvents(
   }
 
   const scheduled = events.map((event) => {
-    const at = Math.max(0, event.t - origin)
+    const at = Math.max(0, event.t - origin) / speed
     return { at, event: { ...event, t: at } }
   })
   return normaliseSchedule(scheduled, source)
+}
+
+export interface TimelineScheduleOptions {
+  /** Quarter notes per minute. Clamped; the timeline states none (ADR-0005). */
+  bpm?: number
+  velocity?: number
+  /** Inclusive, in OSMD's own bar numbering. Defaults to the whole piece. */
+  fromBar?: number
+  toBar?: number
+}
+
+/**
+ * A score into something that can be played: the one place quarter notes
+ * become milliseconds.
+ *
+ * Every number it invents is one the score does not carry -- a tempo, a
+ * velocity, a length for an ornament, a gap before a repeated note -- and each
+ * is a named constant in `shared/player.ts` rather than a literal here, so
+ * that "the score said so" and "we chose this" stay distinguishable.
+ *
+ * A bar range is clipped by the **bar's** onset, not by its first note: a bar
+ * that opens with a rest opens with a rest. A note tied across the end of the
+ * range plays out rather than being cut in half, and the schedule's duration
+ * covers it.
+ */
+export function scheduleFromTimeline(
+  timeline: ExpectedTimeline,
+  options: TimelineScheduleOptions = {}
+): PlaybackSchedule {
+  const bpm = clampBpm(options.bpm ?? DEFAULT_BPM)
+  const velocity = options.velocity ?? PLAYBACK_VELOCITY
+  const msPerQuarter = 60000 / bpm
+
+  const first = options.fromBar ?? timeline.bars[0]?.index ?? 0
+  const last = options.toBar ?? timeline.bars[timeline.bars.length - 1]?.index ?? first
+  const selected = timeline.bars.filter((bar) => bar.index >= first && bar.index <= last)
+
+  const source: PlaybackSource = { kind: 'timeline', fromBar: first, toBar: last, bpm }
+  if (selected.length === 0) return { source, durationMs: 0, events: [], bars: [] }
+
+  const originQuarters = selected[0]?.onset ?? 0
+  const endBar = selected[selected.length - 1]
+  const endQuarters = endBar === undefined ? originQuarters : endBar.onset + endBar.beats
+
+  const events: ScheduledEvent[] = []
+  for (const note of timeline.notes) {
+    if (note.bar < first || note.bar > last) continue
+
+    const at = (note.onset - originQuarters) * msPerQuarter
+    // A tie is already summed by the timeline, so it is one strike of one key.
+    const sounding =
+      note.grace || note.duration === 0 ? GRACE_NOTE_MS : note.duration * msPerQuarter
+    const gap = Math.min(RELEASE_GAP_MS, RELEASE_GAP_FRACTION * sounding)
+    const offAt = at + sounding - gap
+
+    events.push({
+      at,
+      event: { kind: 'noteOn', t: at, ch: PLAYBACK_CHANNEL, note: note.midi, velocity },
+    })
+    events.push({
+      at: offAt,
+      event: { kind: 'noteOff', t: offAt, ch: PLAYBACK_CHANNEL, note: note.midi, velocity: 0 },
+    })
+  }
+
+  const bars: ScheduleBar[] = selected.map((bar) => ({
+    bar: bar.index,
+    at: (bar.onset - originQuarters) * msPerQuarter,
+  }))
+
+  return normaliseSchedule(events, source, {
+    bars,
+    durationMs: (endQuarters - originQuarters) * msPerQuarter,
+  })
 }
 
 /** The bar sounding at a position, or null when the source has no bars. */

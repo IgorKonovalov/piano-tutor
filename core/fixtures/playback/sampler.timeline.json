@@ -1,0 +1,242 @@
+{
+  "scoreId": "0000000000000000000000000000f1a7",
+  "notes": [
+    {
+      "midi": 67,
+      "onset": 0,
+      "duration": 1,
+      "bar": 0,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 48,
+      "onset": 1,
+      "duration": 4,
+      "bar": 1,
+      "staff": 1,
+      "voice": 5,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 60,
+      "onset": 1,
+      "duration": 2,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 64,
+      "onset": 1,
+      "duration": 2,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 67,
+      "onset": 1,
+      "duration": 2,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 62,
+      "onset": 3,
+      "duration": 1,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 64,
+      "onset": 4,
+      "duration": 1,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 53,
+      "onset": 5,
+      "duration": 4,
+      "bar": 2,
+      "staff": 1,
+      "voice": 5,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 59,
+      "onset": 5,
+      "duration": 0,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": true
+    },
+    {
+      "midi": 72,
+      "onset": 5,
+      "duration": 1,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 74,
+      "onset": 6,
+      "duration": 1,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 77,
+      "onset": 7,
+      "duration": 1,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 79,
+      "onset": 8,
+      "duration": 2,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": true,
+      "grace": false
+    },
+    {
+      "midi": 50,
+      "onset": 10,
+      "duration": 3,
+      "bar": 3,
+      "staff": 1,
+      "voice": 5,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 76,
+      "onset": 10,
+      "duration": 1,
+      "bar": 3,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 74,
+      "onset": 11,
+      "duration": 1,
+      "bar": 3,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 72,
+      "onset": 12,
+      "duration": 1,
+      "bar": 3,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 48,
+      "onset": 13,
+      "duration": 4,
+      "bar": 4,
+      "staff": 1,
+      "voice": 5,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 64,
+      "onset": 13,
+      "duration": 4,
+      "bar": 4,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 67,
+      "onset": 13,
+      "duration": 4,
+      "bar": 4,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 72,
+      "onset": 13,
+      "duration": 4,
+      "bar": 4,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    }
+  ],
+  "bars": [
+    {
+      "index": 0,
+      "onset": 0,
+      "beats": 1
+    },
+    {
+      "index": 1,
+      "onset": 1,
+      "beats": 4
+    },
+    {
+      "index": 2,
+      "onset": 5,
+      "beats": 4
+    },
+    {
+      "index": 3,
+      "onset": 9,
+      "beats": 4
+    },
+    {
+      "index": 4,
+      "onset": 13,
+      "beats": 4
+    }
+  ]
+}

@@ -380,8 +380,8 @@ interface MidiSink {
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — The app plays a scale into the room | dev | done | committed with this row |
-| 2 — A tempo, a velocity, and a range of bars | dev | not started | |
+| 1 — The app plays a scale into the room | dev | done | `88e9b59` |
+| 2 — A tempo, a velocity, and a range of bars | dev | done | committed with this row |
 | 3 — The Score view plays the piece | dev | not started | |
 | 4 — A take plays back out to the instrument | dev | not started | |
 | 5 — You can hear it with nothing plugged in | dev | not started | |
@@ -437,6 +437,42 @@ Phase 1's done-when was checked through a throwaway Playwright spec against the 
 scale lights the keyboard through two octaves up and down and leaves nothing lit; stop halfway
 leaves nothing lit; a run of playback adds no take). It was **not committed** — Phase 3 owns
 `e2e/player.spec.ts`, and those assertions belong there.
+
+**Phase 2.** The fixture is `core/fixtures/playback/sampler.timeline.json`: five bars behind a
+one-beat anacrusis, carrying a chord struck together, an ornament with no written length, a note
+tied across a barline, and a bar that opens with a rest. It is **hand-written rather than extracted
+from a MusicXML**, because what it is a fixture of is the tempo conversion, not the extractor; it
+is outside `core/fixtures/scores/` so it is never mistaken for one of ADR-0005's committed
+timelines, and a test asserts it passes `barTableProblems` and `noteBarProblems` so it stays a
+timeline the app could have produced.
+
+**Two of the phase's done-when figures are wrong as written, both because of the release gap the
+same phase specifies.** Neither was worked around; both are asserted in the form that is true:
+
+- "a two-bar 4/4 fixture at 120 bpm produces a schedule whose final note-off is at 4000 ms" — the
+  final note-off is at **3970**. The gap comes off the last note like every other. What is 4000 is
+  the schedule's `durationMs`, and the test asserts both numbers.
+- "the same fixture at 60 bpm produces exactly twice every `at`" — true of every note-**on** and
+  false of every note-off, because the gap is 30 ms of wall clock rather than a fraction of a beat.
+  Halving the tempo doubles the written length and takes the same 30 ms off it. Asserted as: every
+  onset doubles exactly, and a four-quarter note sounds 2000 ms at 120 bpm and 4000 at 60, each
+  released the same 30 ms early.
+
+`normaliseSchedule`'s third argument became an options object (`bars`, `durationMs`) so a bar range
+can carry a written length longer than its last event. `scheduleFromEvents` gained a `speed`
+multiplier here rather than in Phase 4, whose file list does not include `schedule.ts`.
+
+A note tied across the end of a bar range **plays out rather than being cut in half**, and the
+schedule's duration covers it. The range's origin is the first bar's `onset`, not its first note,
+so a bar that opens with a rest opens with a rest.
+
+Everything the conversion invents that the score does not state — 80 bpm default (30 to 240),
+velocity 72, a 60 ms ornament, the 30 ms / 20% release gap, channel 1 — is a named constant in
+`shared/player.ts` or `schedule.ts` rather than a literal at the point of use.
+
+The end-to-end suite was **not run for this phase**, with the user's agreement: it touches only
+`core/` and a constants file, nothing the suite exercises, and it was green at Phase 1. It is owed
+in full at the last phase.
 
 ### Close triggers
 

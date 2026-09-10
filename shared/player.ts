@@ -14,6 +14,35 @@ import { type MidiEvent, type MidiPort } from './midi'
  */
 
 /**
+ * The three things a score does not state and playback has to supply
+ * (ADR-0005: the timeline is tempo-free and carries no dynamics). They are
+ * constants here rather than choices made somewhere in the code, because a
+ * score quietly acquiring a tempo it never had is the failure mode.
+ */
+export const DEFAULT_BPM = 80
+export const MIN_BPM = 30
+export const MAX_BPM = 240
+
+/** One velocity for every note. The timeline has no dynamics to read. */
+export const PLAYBACK_VELOCITY = 72
+
+/**
+ * A note is released a little before its written end, so a repeated note
+ * retriggers instead of merging into its neighbour. Whichever of the two is
+ * smaller: at 80 bpm a quarter note is 750 ms and the gap is the full 30 ms,
+ * at 160 bpm a semiquaver is 94 ms and the gap is 19 ms.
+ */
+export const RELEASE_GAP_MS = 30
+export const RELEASE_GAP_FRACTION = 0.2
+
+/** What an ornament gets, having no written duration of its own (ADR-0009). */
+export const GRACE_NOTE_MS = 60
+
+export function clampBpm(bpm: number): number {
+  return Math.min(MAX_BPM, Math.max(MIN_BPM, bpm))
+}
+
+/**
  * Milliseconds from the start of playback. The event inside carries the same
  * value in its own `t`, so a schedule is entirely relative-time; the `t` a
  * renderer finally sees is rewritten at dispatch to the epoch-anchored instant

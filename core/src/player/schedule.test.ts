@@ -1,13 +1,49 @@
 import { describe, expect, it } from 'vitest'
+import samplerJson from '../../fixtures/playback/sampler.timeline.json'
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
-import type { PlaybackSource } from '../../../shared/player'
+import {
+  DEFAULT_BPM,
+  GRACE_NOTE_MS,
+  MAX_BPM,
+  MIN_BPM,
+  PLAYBACK_VELOCITY,
+  type PlaybackSchedule,
+  type PlaybackSource,
+  RELEASE_GAP_MS,
+} from '../../../shared/player'
+import { ExpectedTimelineSchema } from '../../../shared/score'
 import { findScenarioById } from '../midi/generate'
+import { barTableProblems, noteBarProblems } from '../score/timeline'
 import {
   TRUNCATED_TAIL_MS,
   normaliseSchedule,
   outstandingAtEnd,
   scheduleFromEvents,
+  scheduleFromTimeline,
 } from './schedule'
+
+/**
+ * Five bars of 4/4 behind a one-beat anacrusis, carrying the four shapes a
+ * tempo conversion can get wrong: a chord struck together, an ornament with no
+ * written length, a note tied across a barline, and a bar that opens with a
+ * rest.
+ */
+const sampler = ExpectedTimelineSchema.parse(samplerJson)
+
+function struck(schedule: PlaybackSchedule) {
+  return schedule.events.filter((e) => e.event.kind === 'noteOn')
+}
+
+function released(schedule: PlaybackSchedule) {
+  return schedule.events.filter((e) => e.event.kind === 'noteOff')
+}
+
+/** How long one pitch is held, from its strike to its release. */
+function soundingFor(schedule: PlaybackSchedule, note: number): number {
+  const on = struck(schedule).find((e) => (e.event as { note: number }).note === note)
+  const off = released(schedule).find((e) => (e.event as { note: number }).note === note)
+  return (off?.at ?? NaN) - (on?.at ?? NaN)
+}
 
 const scenario: PlaybackSource = { kind: 'scenario', id: 'test' }
 
@@ -166,14 +202,223 @@ describe('bars', () => {
     const schedule = normaliseSchedule(
       [{ at: 0, event: on(0, 60) }],
       { kind: 'timeline', fromBar: 1, toBar: 2, bpm: 80 },
-      [
-        { bar: 1, at: 0 },
-        { bar: 2, at: 750 },
-      ]
+      {
+        bars: [
+          { bar: 1, at: 0 },
+          { bar: 2, at: 750 },
+        ],
+      }
     )
     expect(schedule.bars).toEqual([
       { bar: 1, at: 0 },
       { bar: 2, at: 750 },
     ])
+  })
+})
+
+describe('the fixture is a timeline the app could have extracted', () => {
+  it('has a well-formed bar table and notes that sit in their bars', () => {
+    expect(barTableProblems(sampler)).toEqual([])
+    expect(noteBarProblems(sampler)).toEqual([])
+  })
+})
+
+describe('quarter notes become milliseconds', () => {
+  it('lasts four seconds over two bars of 4/4 at 120 bpm', () => {
+    // Bars 3 and 4 are eight quarters, and a quarter at 120 bpm is 500 ms.
+    const schedule = scheduleFromTimeline(sampler, { bpm: 120, fromBar: 3, toBar: 4 })
+    expect(schedule.durationMs).toBe(4000)
+
+    // The last note-off sits a release gap inside the barline, by the rule
+    // that keeps a repeated note from merging into its neighbour: the final
+    // chord is written to 4000 ms and is let go at 3970.
+    const last = schedule.events[schedule.events.length - 1]
+    expect(last?.at).toBe(4000 - RELEASE_GAP_MS)
+  })
+
+  it('doubles every onset when the tempo halves', () => {
+    const fast = scheduleFromTimeline(sampler, { bpm: 120 })
+    const slow = scheduleFromTimeline(sampler, { bpm: 60 })
+
+    expect(slow.events).toHaveLength(fast.events.length)
+    expect(slow.durationMs).toBe(fast.durationMs * 2)
+    for (const [index, event] of struck(slow).entries()) {
+      // Not "about twice": 60000/60 and 60000/120 are exact, and a rounding
+      // step anywhere in the conversion would show up here first.
+      expect(event.at).toBe((struck(fast)[index]?.at ?? NaN) * 2)
+    }
+  })
+
+  it('takes the same absolute gap off a note however slow the tempo is', () => {
+    // The note-offs are the one thing that does not simply double, and it is
+    // deliberate: the gap is 30 ms of wall clock rather than a fraction of a
+    // beat. C3 in bar 1 is written for four quarters, so it sounds 2000 ms at
+    // 120 bpm and 4000 at 60, each released the same 30 ms early.
+    const fast = scheduleFromTimeline(sampler, { bpm: 120, fromBar: 1, toBar: 1 })
+    const slow = scheduleFromTimeline(sampler, { bpm: 60, fromBar: 1, toBar: 1 })
+    expect(soundingFor(fast, 48)).toBe(2000 - RELEASE_GAP_MS)
+    expect(soundingFor(slow, 48)).toBe(4000 - RELEASE_GAP_MS)
+  })
+
+  it('takes the tempo the player set, and nothing from the score', () => {
+    const written = scheduleFromTimeline(sampler)
+    expect(written.source).toMatchObject({ kind: 'timeline', bpm: DEFAULT_BPM })
+    // 17 quarters at 80 bpm.
+    expect(written.durationMs).toBeCloseTo((17 * 60000) / DEFAULT_BPM, 6)
+  })
+
+  it('clamps a tempo outside the range the transport offers', () => {
+    expect(scheduleFromTimeline(sampler, { bpm: 5 }).source).toMatchObject({ bpm: MIN_BPM })
+    expect(scheduleFromTimeline(sampler, { bpm: 5000 }).source).toMatchObject({ bpm: MAX_BPM })
+  })
+
+  it('strikes every note at one velocity, the score having no dynamics', () => {
+    const velocities = new Set(
+      struck(scheduleFromTimeline(sampler)).map((e) => (e.event as { velocity: number }).velocity)
+    )
+    expect([...velocities]).toEqual([PLAYBACK_VELOCITY])
+  })
+})
+
+describe('the shapes a score makes', () => {
+  it('strikes a chord as one instant', () => {
+    const schedule = scheduleFromTimeline(sampler, { bpm: 120, fromBar: 1, toBar: 1 })
+    // Bar 1 opens with C3 under a C-E-G chord: four notes, one onset.
+    const together = struck(schedule).filter((e) => e.at === 0)
+    expect(together.map((e) => (e.event as { note: number }).note).sort((a, b) => a - b)).toEqual([
+      48, 60, 64, 67,
+    ])
+  })
+
+  it('strikes a tied note once and holds it across the barline', () => {
+    const schedule = scheduleFromTimeline(sampler, { bpm: 120, fromBar: 2, toBar: 3 })
+    const tied = sampler.notes.find((note) => note.tied)
+    expect(tied).toMatchObject({ midi: 79, onset: 8, duration: 2, bar: 2 })
+
+    const ons = struck(schedule).filter((e) => (e.event as { note: number }).note === 79)
+    const offs = released(schedule).filter((e) => (e.event as { note: number }).note === 79)
+    expect(ons).toHaveLength(1)
+    expect(offs).toHaveLength(1)
+
+    // Struck three quarters into the range and held for two, which carries it
+    // one quarter past the barline eight quarters into the range.
+    expect(ons[0]?.at).toBe(1500)
+    expect(offs[0]?.at).toBe(1500 + 1000 - RELEASE_GAP_MS)
+    expect(offs[0]?.at).toBeGreaterThan(schedule.bars[1]?.at ?? Infinity)
+  })
+
+  it('gives an ornament a length the score does not state', () => {
+    const schedule = scheduleFromTimeline(sampler, { bpm: 120, fromBar: 2, toBar: 2 })
+    const grace = struck(schedule).find((e) => (e.event as { note: number }).note === 59)
+    const release = released(schedule).find((e) => (e.event as { note: number }).note === 59)
+    expect(grace?.at).toBe(0)
+    expect((release?.at ?? 0) - (grace?.at ?? 0)).toBe(
+      GRACE_NOTE_MS - Math.min(RELEASE_GAP_MS, 0.2 * GRACE_NOTE_MS)
+    )
+  })
+
+  it('releases a note before the same key is struck again', () => {
+    const schedule = scheduleFromTimeline(sampler, { bpm: MAX_BPM })
+    for (const note of new Set(sampler.notes.map((n) => n.midi))) {
+      const times = schedule.events
+        .filter((e) => 'note' in e.event && e.event.note === note)
+        .map((e) => ({ at: e.at, kind: e.event.kind }))
+      let sounding = false
+      for (const event of times) {
+        if (event.kind === 'noteOn') {
+          expect(sounding, `note ${note} was struck twice without a release`).toBe(false)
+          sounding = true
+        }
+        if (event.kind === 'noteOff') sounding = false
+      }
+    }
+  })
+})
+
+describe('a range of bars', () => {
+  it('plays only the bars asked for, from at zero', () => {
+    const schedule = scheduleFromTimeline(sampler, { bpm: 120, fromBar: 2, toBar: 3 })
+
+    const expected = sampler.notes.filter((note) => note.bar === 2 || note.bar === 3)
+    expect(struck(schedule)).toHaveLength(expected.length)
+
+    const notes = new Set(struck(schedule).map((e) => (e.event as { note: number }).note))
+    expect([...notes].sort((a, b) => a - b)).toEqual(
+      [...new Set(expected.map((n) => n.midi))].sort((a, b) => a - b)
+    )
+
+    expect(schedule.events[0]?.at).toBe(0)
+    expect(schedule.source).toMatchObject({ kind: 'timeline', fromBar: 2, toBar: 3 })
+  })
+
+  it('opens at the barline, not at the first note, when a bar begins with a rest', () => {
+    // Bar 3 rests through its first beat while bar 2's tie is still sounding.
+    const schedule = scheduleFromTimeline(sampler, { bpm: 120, fromBar: 3, toBar: 4 })
+    expect(sampler.notes.filter((n) => n.bar === 3).map((n) => n.onset)).not.toContain(9)
+    expect(struck(schedule)[0]?.at).toBe(500)
+    expect(schedule.bars[0]).toEqual({ bar: 3, at: 0 })
+  })
+
+  it('marks where each bar of the range starts', () => {
+    const schedule = scheduleFromTimeline(sampler, { bpm: 120, fromBar: 1, toBar: 4 })
+    expect(schedule.bars).toEqual([
+      { bar: 1, at: 0 },
+      { bar: 2, at: 2000 },
+      { bar: 3, at: 4000 },
+      { bar: 4, at: 6000 },
+    ])
+  })
+
+  it('plays the whole piece, anacrusis included, when no range is asked for', () => {
+    const schedule = scheduleFromTimeline(sampler, { bpm: 120 })
+    expect(schedule.bars[0]).toEqual({ bar: 0, at: 0 })
+    expect(struck(schedule)).toHaveLength(sampler.notes.length)
+    expect(schedule.source).toMatchObject({ fromBar: 0, toBar: 4 })
+  })
+
+  it('is empty for a range with no bars in it', () => {
+    const schedule = scheduleFromTimeline(sampler, { fromBar: 40, toBar: 50 })
+    expect(schedule.events).toEqual([])
+    expect(schedule.durationMs).toBe(0)
+  })
+
+  it('lets a tie ring past the end of the range rather than cutting it in half', () => {
+    const schedule = scheduleFromTimeline(sampler, { bpm: 120, fromBar: 1, toBar: 2 })
+    const offs = released(schedule).filter((e) => (e.event as { note: number }).note === 79)
+    // Bars 1 and 2 are eight quarters; the tie is struck at seven and held for
+    // two, so it finishes after the written end and the duration covers it.
+    expect(offs[0]?.at).toBeGreaterThan(4000)
+    expect(schedule.durationMs).toBeGreaterThanOrEqual(offs[0]?.at ?? 0)
+  })
+})
+
+describe('every schedule the suite builds ends silent', () => {
+  const ranges: [number, number][] = [
+    [0, 4],
+    [0, 0],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+    [4, 4],
+  ]
+
+  for (const bpm of [MIN_BPM, 60, DEFAULT_BPM, 120, MAX_BPM]) {
+    for (const [fromBar, toBar] of ranges) {
+      it(`bars ${fromBar} to ${toBar} at ${bpm} bpm`, () => {
+        const schedule = scheduleFromTimeline(sampler, { bpm, fromBar, toBar })
+        expect(outstandingAtEnd(schedule)).toEqual({ notes: [], pedals: [] })
+        expect(schedule.events.map((e) => e.at)).toEqual(
+          [...schedule.events.map((e) => e.at)].sort((a, b) => a - b)
+        )
+      })
+    }
+  }
+})
+
+describe('a take can be played faster or slower than it was recorded', () => {
+  it('scales every interval by one over the speed', () => {
+    const events = [on(0, 60), off(400, 60), on(800, 62), off(1200, 62)]
+    const half = scheduleFromEvents(events, { kind: 'take', takeId: 't', speed: 0.5 }, 0.5)
+    expect(half.events.map((e) => e.at)).toEqual([0, 800, 1600, 2400])
   })
 })
