@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "noEmit": true
+  },
+  "include": ["renderer/**/*", "shared/**/*", "core/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "release",
+    "electron/**/*",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}

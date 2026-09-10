@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["electron/preload/**/*", "shared/**/*"],
+  "exclude": ["node_modules", "dist", "release", "**/*.test.ts"]
+}

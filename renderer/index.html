@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Half of the double CSP; the enforcing half is the response header set in
+      electron/window.ts, which is tighter packaged. There is no `connect-src`
+      here or there: the renderer makes no network request (NFR 3). The dev
+      origin sits in `default-src` so Vite's HMR socket survives without the
+      app ever shipping a directive that admits one.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' http://localhost:5173 ws://localhost:5173; script-src 'self' 'unsafe-inline' http://localhost:5173; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>piano-tutor</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 # 0001 — The keyboard shows on screen
 
-> **Status:** draft
+> **Status:** in-progress
 > **Created:** 2026-09-09
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (proposed),
@@ -438,11 +438,11 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 > contract; everything here is what happened.** Observations, never conclusions. A deviation from
 > the plan or an unmet done-when is always disclosed; silence on the rest means it passed.
 
-**Lane:** _(main checkout or worktree path and branch)_
+**Lane:** main
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — The shell opens and lists the ports | dev | not started | |
+| 1 — The shell opens and lists the ports | dev | done | committed with this row |
 | 2 — The keys light up, and the app can play itself | dev | not started | |
 | 3 — The notes get names | dev | not started | |
 | 4 — The staff draws what is held | dev | not started | |
@@ -464,7 +464,20 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 
 ### Notes
 
-_(deviations, unmet done-whens, followups noticed and not acted on; one line each)_
+- Phase 1 also created `e2e/app.spec.ts` (listed under Phase 6): Phase 1's done-when names a
+  Playwright golden path, and the config alone cannot supply one. Phase 6 extends it.
+- Phase 1 also created `renderer/types/global.d.ts` and `renderer/views/Ports.module.css`, neither
+  in its file list; the first is where `window.api` is typed, the second is the per-component
+  stylesheet the house style requires.
+- `MidiApi` (the `window.api.midi` surface) is declared in `shared/midi.ts` rather than exported
+  from the preload bundle, so the renderer types the bridge without importing a module that
+  imports `electron`.
+- `RtMidiSource.listPorts` probes each hardware port with a short open to report `busy`, and skips
+  the probe while this source holds a port open. Nothing exercised that path yet: this machine
+  reported zero hardware ports for every run in this phase.
+- Followup not acted on: the preload bundle is 727 kB because Zod is bundled into it. It parses
+  one push channel's payload per event from Phase 2, so it stays for now; if NFR 4 is missed at
+  Phase 6, this is the first place to look.
 
 ## Followups (after this lands)
 

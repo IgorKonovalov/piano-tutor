@@ -5,7 +5,8 @@ play it, lets you practise a piece with per-bar feedback, generates exercises, a
 asks an LLM coach what to work on. Everything but the coach works offline. The piano makes the
 sound; the app never does.
 
-**Status:** scoped, not yet built. The first plan is drafted and waiting for a "go".
+**Status:** in build. [Plan 0001](docs/plans/0001-the-keyboard-shows-on-screen.md) is landing the
+walking skeleton: the shell, the MIDI pipeline and the live display.
 
 ## Where to start reading
 
@@ -38,7 +39,42 @@ sound; the app never does.
 
 ## Running and building
 
-Not yet. Plan 0001 Phase 1 adds the npm project and writes this section.
+Node 22 and npm 10. Windows.
+
+```
+npm ci            # install exactly the lockfile
+npm run dev       # Vite + esbuild watchers + Electron, hot reload in the renderer
+npm run build     # the three bundles into dist/
+npm run package   # a portable zip through electron-builder
+```
+
+Checks, in the order the pre-push hook runs them:
+
+```
+npm run typecheck # tsc over all four tsconfigs
+npm run lint      # eslint, including the process-boundary rules
+npm test          # vitest
+npm run test:e2e  # playwright drives the built Electron app (opens a window)
+node scripts/check-pins.mjs      # every dependency pinned exact (NFR 9)
+node scripts/check-doc-links.mjs # every relative markdown link resolves
+```
+
+Hot reload covers the renderer only. After a change under `electron/`, restart Electron; the
+esbuild watchers rebuild the bundle but Electron does not reload it.
+
+### Running with no instrument attached
+
+The app can play itself. An unpackaged build (and any build started with `PT_HARNESS=1`) lists a
+**Harness** group of virtual ports beside the hardware ones -- `virtual:c-major-scale`,
+`virtual:ii-V-I-in-F`, `virtual:a-minor-arpeggios`, `virtual:dense-2000`. Opening one runs a
+seeded generated passage through the identical parse, record and paint path a real instrument
+uses, which is what makes every check above runnable with nothing plugged in
+([ADR-0004](docs/adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md)). A
+packaged build without that variable lists hardware only.
+
+A green run of those checks means the pipeline is intact. It does not mean the piano works: only
+[Plan 0001](docs/plans/0001-the-keyboard-shows-on-screen.md) Phase 7, at the instrument, says
+that.
 
 ## Working in this repository
 
