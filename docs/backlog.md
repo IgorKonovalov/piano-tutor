@@ -21,7 +21,7 @@ here when it does; a backlog that also duplicates the roadmap is worse than no b
 
 Raised in the pedagogy interview of **2026-09-10**. The goal the user stated: play both simple
 classics and jazz/blues, and have the app teach the way the evidence says the skills are built.
-Most of it lands in roadmap items 6 and 7. Two rows have since graduated into plans and are
+Most of it lands in roadmap items 7 and 8. Two rows have since graduated into plans and are
 gone from this file: the deliberate-practice loop is Plan [0005](plans/0005-the-practice-loop.md),
 and the metronome is Plan [0006](plans/0006-the-metronome-and-the-score-follows.md).
 
@@ -76,7 +76,7 @@ supply — they run out of books. A seeded generator does not.
   silence — comparing tempo drift across the four stages. It is a mask over Plan
   [0006](plans/0006-the-metronome-and-the-score-follows.md)'s `BeatGrid` and needs no further
   decision; what it waits on is somewhere to record drift across the four stages, which is roadmap
-  item 6's store. `tempo.ts` already fits the drift.
+  item 7's store. `tempo.ts` already fits the drift.
 - **Rhythm-only pass.** Play the piece's rhythm on one note. Decouples the two hard things, and it
   scores against the existing timeline with pitch ignored — a flag on `align`.
 - **The tempo ladder.** Raise the target by a fixed step only after a clean pass at the current

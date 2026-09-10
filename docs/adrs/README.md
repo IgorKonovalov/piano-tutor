@@ -7,7 +7,7 @@ supersedes the old one and update the status here.
 Rule of thumb: if you cannot name an option you are *not* taking, you do not need an ADR, you
 need a code comment.
 
-**Next free number: 0013.**
+**Next free number: 0014.**
 
 An index row is a pointer, not an abstract: the link, the title as the ADR's `H1` writes it, and
 the status.
@@ -26,10 +26,7 @@ the status.
 | [0010](0010-alignment-ends-where-the-player-stopped-an-unplayed-tail-is-free.md) | Alignment ends where the player stopped: an unplayed tail is free | proposed |
 | [0011](0011-an-attempt-is-a-take-the-loop-repeats-through-the-recorder.md) | An attempt is a take: the practice loop repeats through the recorder, not through the aligner | proposed |
 | [0012](0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md) | The metronome is a grid both processes schedule from, and the timing reference whenever it runs | proposed |
-
-**0010 is reserved, not missing.** It is claimed by a change in flight in another session —
-alignment ending where the player stopped, raised at the piano during Plan 0002 Phase 7 — and its
-row lands with that commit. Do not reuse the number.
+| [0013](0013-what-you-played-is-drawn-over-the-engraving-never-into-it.md) | What you played is drawn over the engraving, never into it | proposed |
 
 ## Conventions
 

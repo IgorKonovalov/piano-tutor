@@ -12,6 +12,8 @@
 > is the discipline every phase is checked by;
 > [0007](../adrs/0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md)
 > (proposed) is what demonstrates a drill in Phase 5;
+> [0010](../adrs/0010-alignment-ends-where-the-player-stopped-an-unplayed-tail-is-free.md)
+> (proposed) is why an attempt that stopped early must not be allowed to pass;
 > [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (accepted)
 > governs the processes
 > **NFRs claimed:** 3, 9, 11 in [nfr.md](../nfr.md)
@@ -196,14 +198,19 @@ flowchart TB
   rule lives in it; the hook holds no branching of its own. An attempt counts as clean when every
   bar in the drill's range verdicts `clean` — `timing` does not pass, `unalignable` and
   `notAttempted` never pass, and a bar outside the range cannot affect it because the slice has no
-  such bars. The streak resets to zero on any non-clean attempt rather than decrementing. The
+  such bars. **`notAttempted` is load-bearing here, not defensive.** ADR-0010 makes an unplayed
+  tail free, so a player who plays the drill's first bar cleanly and stops produces an attempt with
+  no wrong notes in it; only the `notAttempted` tail distinguishes that from a pass, and without
+  the check the loop would advance on half a bar. The streak resets to zero on any non-clean attempt rather than decrementing. The
   player can skip a drill and can end the session; both are transitions in the machine, not
   escapes from it. The closing re-test aligns against the **parent** timeline, which is the whole
   reason it exists.
 - **Done when:** Given a drill list of two, the machine advances only on the second consecutive
   clean attempt and a clean-then-wrong-then-clean sequence leaves it on the first drill with a
   streak of one. A `timing` verdict does not advance. Skipping the first drill moves to the
-  second with the first recorded as skipped, not passed. When the last drill passes, the session
+  second with the first recorded as skipped, not passed. An attempt that plays the drill's first
+  bar cleanly and then stops does **not** count as clean and does not advance the streak, which is
+  the ADR-0010 interaction and is asserted directly. When the last drill passes, the session
   enters the in-context re-test and that re-test is scored against the full score's timeline, not
   a slice. End to end: a drill port that plays the range wrongly, then cleanly, then cleanly
   drives the panel from "again" to the next drill.
