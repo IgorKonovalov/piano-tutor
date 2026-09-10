@@ -445,8 +445,8 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 | 1 — The shell opens and lists the ports | dev | done | 37ae827 |
 | 2 — The keys light up, and the app can play itself | dev | done | ad95841 |
 | 3 — The notes get names | dev | done | dd1f69f |
-| 4 — The staff draws what is held | dev | done | committed with this row |
-| 5 — Every session is a take | dev | not started | |
+| 4 — The staff draws what is held | dev | done | 8d4b9d9 |
+| 5 — Every session is a take | dev | done | committed with this row |
 | 6 — The whole gate runs with nothing plugged in | dev | not started | |
 | 7 — At the instrument | human | not started | |
 
@@ -538,6 +538,28 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 - `LiveStaff.test.tsx` stubs `HTMLCanvasElement.getContext`: jsdom implements no canvas and
   VexFlow measures text through one. Without the stub the file logged 29 warnings and took 47 s;
   with it, 4 s.
+- Phase 5 added two files outside its list and edited two more, all so that "replay is not a
+  second code path" is true rather than asserted. `electron/midi/pipeline.ts` is the one place a
+  source becomes events on screen and lines in a take file, and `electron/ipc/serial.ts` is the
+  open/close queue that used to live inside `midiHandlers.ts`; `midiHandlers.ts` and `main.ts`
+  were rewritten onto them. Three callers now open a source -- the ports view, the harness and a
+  replay -- through the same fifteen lines.
+- `electron/midi/timedSource.ts` is also new: `SyntheticSource` and `ReplaySource` differ only in
+  where their bytes come from, and a second copy of the flush loop would be a second place for an
+  event to go missing. `SyntheticSource` re-exports `Clock` and `systemClock` from it.
+- The recorder's flush is synchronous (`appendFileSync`) but never runs on the arrival path: an
+  event goes into an array and returns, and the flush happens on the interval or on a
+  `setImmediate` after a batch of 64. Synchronous is the point -- when it returns the bytes are
+  the operating system's, which is what makes NFR 8 a fact about the file.
+- NFR 8 is covered two ways: a test that tears the final line of a real take and reads it back
+  (everything up to the last flush survives, the torn line is dropped, `skippedLines` is 1), and a
+  test that spawns a real child process, kills it with SIGKILL mid-write and reads the file it
+  left behind.
+- Verified in the running production build rather than only in tests: a `virtual:ii-V-I-in-F`
+  session recorded 32 events, the file held 32, and replaying it delivered 32 to the live view.
+  The takes row read 0:06, 13 notes, 32 events, `virtual:ii-V-I-in-F`, tagged Generated.
+- Under the Vite dev server the same check reads one event higher, for the StrictMode reason
+  already noted at Phase 2. It is a development-only artifact and does not appear in a build.
 
 ## Followups (after this lands)
 

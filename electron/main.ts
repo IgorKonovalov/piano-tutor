@@ -1,8 +1,12 @@
 import { type BrowserWindow, app } from 'electron'
 import { createWindow, getRendererPaths, installCsp } from './window'
 import { cleanupMidiHandlers, registerMidiHandlers } from './ipc/midiHandlers'
+import { cleanupTakeHandlers, registerTakeHandlers } from './ipc/takeHandlers'
+import { createMidiPipeline } from './midi/pipeline'
 import { RtMidiSource } from './midi/RtMidiSource'
 import { SyntheticSource } from './midi/SyntheticSource'
+import { Recorder } from './take/Recorder'
+import { takesDirectory } from './take/takeFile'
 
 /**
  * Lifecycle: whenReady -> installCsp -> registerIpcHandlers -> createWindow.
@@ -25,11 +29,24 @@ const gate = {
 }
 const rtMidi = new RtMidiSource(gate)
 const synthetic = new SyntheticSource(gate)
+const recorder = new Recorder()
+
+// userData is only resolvable once Electron is ready, so the directory is a
+// function rather than a value.
+const takesDir = () => takesDirectory(app.getPath('userData'))
+
+const pipeline = createMidiPipeline({
+  getWindow: () => mainWindow,
+  recorder,
+  appVersion: app.getVersion(),
+  takesDirectory: takesDir,
+})
 
 void app.whenReady().then(() => {
   const isDev = !app.isPackaged
   installCsp(isDev)
-  registerMidiHandlers({ rtMidi, synthetic, getWindow: () => mainWindow })
+  registerMidiHandlers({ pipeline, rtMidi, synthetic })
+  registerTakeHandlers({ pipeline, takesDirectory: takesDir })
 
   const paths = getRendererPaths()
   mainWindow = createWindow({
@@ -46,5 +63,9 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  void cleanupMidiHandlers()
+  // Flush and close the take before the process goes; a kill that skips this
+  // still loses at most the last flush interval (NFR 8).
+  void pipeline.close()
+  cleanupMidiHandlers()
+  cleanupTakeHandlers()
 })

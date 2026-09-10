@@ -1,6 +1,8 @@
 import { contextBridge } from 'electron'
 import type { MidiApi } from '../../shared/midi'
+import type { TakeApi } from '../../shared/take'
 import { midi } from './api/midi'
+import { take } from './api/take'
 
 /**
  * The only bridge across `contextIsolation`. One `window.api`, assembled from
@@ -8,8 +10,9 @@ import { midi } from './api/midi'
  * renderer's `Window` declaration reads: a capability added on one side and
  * not the other fails to compile rather than to run.
  */
-const api: { midi: MidiApi } = {
+const api: { midi: MidiApi; take: TakeApi } = {
   midi,
+  take,
 }
 
 contextBridge.exposeInMainWorld('api', api)

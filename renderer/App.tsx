@@ -1,25 +1,64 @@
 import { useState } from 'react'
-import type { MidiPort } from '../shared/midi'
-import { Live } from './views/Live'
+import { Live, type LiveSource, liveSourceKey } from './views/Live'
 import { Ports } from './views/Ports'
+import { Takes } from './views/Takes'
+import styles from './App.module.css'
 
 /**
- * Two views for now: pick a port, then watch it. The port travels as the whole
- * `MidiPort`, not just its id, so the live view can say what it is looking at
- * -- including that it is the harness -- without asking main again.
+ * Three views. Ports and Takes are both ways of choosing something to watch;
+ * Live is where it is watched, and it does not care which of the two sent it.
  */
-type View = { name: 'ports' } | { name: 'live'; port: MidiPort }
+type View = { name: 'ports' } | { name: 'takes' } | { name: 'live'; source: LiveSource }
 
 export function App() {
   const [view, setView] = useState<View>({ name: 'ports' })
+  const [lastChooser, setLastChooser] = useState<'ports' | 'takes'>('ports')
+
+  const watch = (source: LiveSource, from: 'ports' | 'takes') => {
+    setLastChooser(from)
+    setView({ name: 'live', source })
+  }
 
   return (
-    <main>
-      {view.name === 'ports' ? (
-        <Ports onOpen={(port) => setView({ name: 'live', port })} />
-      ) : (
-        <Live key={view.port.id} port={view.port} onStop={() => setView({ name: 'ports' })} />
-      )}
-    </main>
+    <div className={styles.app}>
+      <nav className={styles.nav} aria-label="Views">
+        <button
+          type="button"
+          className={view.name === 'ports' ? `${styles.tab} ${styles.current}` : styles.tab}
+          aria-current={view.name === 'ports'}
+          onClick={() => setView({ name: 'ports' })}
+          data-testid="nav-ports"
+        >
+          Ports
+        </button>
+        <button
+          type="button"
+          className={view.name === 'takes' ? `${styles.tab} ${styles.current}` : styles.tab}
+          aria-current={view.name === 'takes'}
+          onClick={() => setView({ name: 'takes' })}
+          data-testid="nav-takes"
+        >
+          Takes
+        </button>
+      </nav>
+
+      <main className={styles.content}>
+        {view.name === 'ports' && (
+          <Ports onOpen={(port) => watch({ kind: 'port', port }, 'ports')} />
+        )}
+        {view.name === 'takes' && (
+          <Takes onReplay={(take, speed) => watch({ kind: 'replay', take, speed }, 'takes')} />
+        )}
+        {view.name === 'live' && (
+          <Live
+            key={liveSourceKey(view.source)}
+            source={view.source}
+            onStop={() =>
+              setView(lastChooser === 'ports' ? { name: 'ports' } : { name: 'takes' })
+            }
+          />
+        )}
+      </main>
+    </div>
   )
 }

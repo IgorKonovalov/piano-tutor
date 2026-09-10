@@ -1,4 +1,5 @@
 import type { MidiApi } from '../../shared/midi'
+import type { TakeApi } from '../../shared/take'
 
 declare global {
   interface Window {
@@ -9,6 +10,7 @@ declare global {
      */
     api: {
       midi: MidiApi
+      take: TakeApi
     }
   }
 }

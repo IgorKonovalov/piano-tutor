@@ -1,0 +1,125 @@
+.view {
+  padding: var(--space-5);
+  max-width: 980px;
+}
+
+.heading {
+  margin: 0 0 var(--space-2);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.lede {
+  margin: 0 0 var(--space-5);
+  color: var(--color-fg-dim);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+}
+
+.take {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-raised);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.take:last-child {
+  border-bottom: none;
+}
+
+/* A generated take is not a performance, and reads as a different kind of row. */
+.synthetic {
+  border-left: 3px solid var(--color-virtual);
+}
+
+.when {
+  min-width: 190px;
+  font-weight: 500;
+}
+
+.stats {
+  flex: 1;
+  display: flex;
+  gap: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-fg-dim);
+}
+
+.port {
+  min-width: 200px;
+  font-size: 12px;
+  color: var(--color-fg-dim);
+}
+
+.portId {
+  font-family: var(--font-mono);
+}
+
+.syntheticTag {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border: 1px solid var(--color-virtual);
+  border-radius: var(--radius-1);
+  color: var(--color-virtual);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.speeds {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.speed {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.speed:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.empty {
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-2);
+  color: var(--color-fg-dim);
+  background: var(--color-bg-sunken);
+}
+
+.error {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-2);
+  color: var(--color-error);
+  background: var(--color-bg-sunken);
+  margin-bottom: var(--space-4);
+}
+
+.retry {
+  margin-left: var(--space-3);
+  padding: 2px var(--space-3);
+  background: transparent;
+  border: 1px solid currentcolor;
+  border-radius: var(--radius-1);
+  cursor: pointer;
+}
