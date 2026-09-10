@@ -3,7 +3,7 @@
 The one-minute "what is in flight" view. Read this first each session instead of re-deriving
 state from `git log`. Completed plans move to `done/`.
 
-**Next free number: 0008** (ADRs are a separate sequence; next free there is **0014**.)
+**Next free number: 0009** (ADRs are a separate sequence; next free there is **0015**.)
 
 ## Active roster
 
@@ -18,6 +18,7 @@ to pick the plan up. The plan file carries everything else.
 | [0005](0005-the-practice-loop.md) | The practice loop | draft | dev, human | ADR-0011 is its whole design: each drill attempt is its own take, and a drill is a bar-range slice of the score's own timeline, so the aligner is untouched. Roadmap item 4, and the highest teaching value the existing seams already reach. Tempo-free by decision — "slower" is the demonstration's speed, never a threshold. Only its Phase 5 needs Plan 0004. |
 | [0007](0007-what-you-played-drawn-on-the-score.md) | What you played, drawn on the score | draft | dev, human | ADR-0013 is its whole design: the played pitch is drawn as our own SVG ghost notehead over OSMD's engraving, never merged into it. Raised by the user at the piano on 2026-09-10 — a red bar and a letter name make the player do the join. Depends on nothing but Plan 0002, so it can be picked up at any time; its riskiest fact (`sourceNote` identity) is resolved in its first phase. |
 | [0006](0006-the-metronome-and-the-score-follows.md) | The metronome, and the score follows | draft | dev, human | ADR-0012 is its whole design: the click is a grid both processes schedule from, not a tick per beat, and it becomes the timing reference whenever it runs. Widens ADR-0008's bound to let the app open an audio device while it is only listening. Needs Plan 0004's sink, clock, voice and stop path; builds the follow cursor Plan 0002's prose promised and never shipped. |
+| [0008](0008-the-timing-model.md) | The timing model | draft | dev, human | ADR-0014 is its whole design. Found at the CK88 in Plan 0002 Phase 7: one tempo fitted across a take cannot describe a take with a restart or a rallentando in it, and the residuals ramp from +1741 to -1191 ms. **Plan 0002 cannot close until this lands** - its Phase 7 item 6 is unanswerable while both a good and a bad take read out of time throughout. No-click path only; ADR-0012 owns the metronome path. |
 
 ## Recently closed
 
@@ -44,28 +45,35 @@ useful alone: the loop ships against the tempo-free aligner, and the metronome t
 click, click-relative scoring and — once there is a store — the ladder.
 
 1. **A piece is practised** — drafted as Plan [0002](0002-a-piece-is-practised.md), `dev` phases
-   landed and reviewed, open on its `human` phase.
-2. **The app plays the piece** — drafted as Plan [0004](0004-the-app-plays-the-piece.md), approved
+   landed and reviewed, open on its `human` phase — and now blocked on item 2 below, because its
+   Phase 7 item 6 cannot be answered while a good take and a bad one both read out of time.
+2. **The timing model** — drafted as Plan [0008](0008-the-timing-model.md), out of Plan 0002's
+   Phase 7 at the CK88 on 2026-09-10. One tempo fitted across a whole take cannot describe a take
+   with a restart or a rallentando in it; the residuals ramp from +1741 to -1191 ms and the player
+   cannot get back to right timing after going wrong. **It sits here, ahead of everything else,
+   because Plan 0002's close depends on it** and because every plan below judges timing on the
+   path it repairs. No-click path only: ADR-0012 owns the metronome's.
+3. **The app plays the piece** — drafted as Plan [0004](0004-the-app-plays-the-piece.md), approved
    and next up. The roadmap's "MIDI out to demonstrate a passage" grown into a plan after the
    2026-09-10 interview.
-3. **The coach speaks** — drafted as Plan [0003](0003-the-coach-speaks.md), approved. Independent
+4. **The coach speaks** — drafted as Plan [0003](0003-the-coach-speaks.md), approved. Independent
    of Plan 0004; either can be picked up once that one lands.
-4. **The practice loop** — drafted as Plan [0005](0005-the-practice-loop.md). The
+5. **The practice loop** — drafted as Plan [0005](0005-the-practice-loop.md). The
    deliberate-practice cycle closed automatically: `barsByTiming` already ranks the take's worst
    bars, so take the worst few, build a drill from each (the bar plus a bar of run-up, slower,
    looped), and re-test the passage in context afterwards. No new material and no new store, as
    the roadmap always said; it did earn an ADR, because how a repeated attempt is recorded turned
    out to be a real fork with two alternatives worth remembering.
-5. **What you played, drawn on the score** — drafted as Plan
+6. **What you played, drawn on the score** — drafted as Plan
    [0007](0007-what-you-played-drawn-on-the-score.md), out of the user's verdict at the piano on
    2026-09-10: colour plus prose localises an error to somewhere in a twelve-note bar and names a
    pitch as a letter, and the player does the join. It deepens Plan 0002's bar overlay from boxes
    to glyphs and depends on nothing else, so it can run beside either approved plan.
-6. **The metronome, and the score follows** — drafted as Plan
+7. **The metronome, and the score follows** — drafted as Plan
    [0006](0006-the-metronome-and-the-score-follows.md), out of Plan 0002's followup after the user
    asked for a metronome on 2026-09-10. It also pays that plan's debt: the follow cursor its prose
    promised and no phase built.
-7. **Drills, and a store that schedules them** — the generator in `core/` (scales, arpeggios,
+8. **Drills, and a store that schedules them** — the generator in `core/` (scales, arpeggios,
    chord progressions, a sight-reading drill) riding Plan 0002's path, plus the sight-reading and
    rhythm mechanics in [`../backlog.md`](../backlog.md). Material is **hybrid by decision**:
    generated for drills, imported MusicXML for real pieces. The local SQLite file arrives here and
@@ -73,13 +81,13 @@ click, click-relative scoring and — once there is a store — the ladder.
    picks what they practise. The seeded generator of ADR-0004 is already half of this. It is now
    also what three separate followups wait on — the tempo ladder, the drill queue surviving a
    restart, and the thinning click's drift comparison.
-8. **Jazz and blues** — the fork the note-exact model cannot cross. A **second expectation shape
+9. **Jazz and blues** — the fork the note-exact model cannot cross. A **second expectation shape
    beside `ExpectedTimeline`**: per bar a chord symbol, its guide tones and an admissible
    pitch-class set, scored on membership, function and the timing of the change, because a blues
    chorus is note-different every time and still right. Lead-sheet mode, twelve-key transposition,
    the twelve-bar form; `detectChords` and `romanNumeral` are the half that exists. Wants item 7's
    grid work under it — swing is a different grid, not an error.
-9. **The first release** — electron-builder zip, the native binary included, install size
+10. **The first release** — electron-builder zip, the native binary included, install size
    recorded (NFR 10), a READ-ME-FIRST for a second machine. **Verify every harness affordance is
    absent from the packaged build** — ADR-0004's virtual ports, Plan 0003's fixture coach
    provider, and Plan 0005's `virtual:drill:*` ports; that check belongs in this plan's done-when,
