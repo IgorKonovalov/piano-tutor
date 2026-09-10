@@ -27,3 +27,6 @@ takes/
 # Real repertoire is fetched, never committed: the four hand-written fixtures
 # under core/fixtures/scores/ are the only score files this repo redistributes.
 scores-local/
+
+# Screenshots from a manual smoke run; reproducible, never committed.
+smoke/

@@ -1,6 +1,14 @@
+/*
+ * `grid-template-rows: minmax(0, 1fr)` is what gives the two columns a
+ * definite height. An implicit row is `auto`: it grows to its tallest item, so
+ * `height: 100%` here sized the grid and the row overflowed it anyway, and the
+ * bar detail at the bottom of the right column ended up below the window.
+ * Both columns then scroll themselves rather than scrolling the page.
+ */
 .view {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: var(--space-5);
   height: 100%;
   padding: var(--space-5);
@@ -11,6 +19,8 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .heading {
@@ -79,11 +89,19 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * `min-height: 0` is load-bearing: a grid item defaults to `auto`, which lets
+ * the score panel below grow past the viewport and push the bar detail -- the
+ * thing a player most wants to read after a take -- off the bottom of the
+ * screen. Found by looking at the app, not by reading the CSS.
+ */
 .sheet {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .toolbar {
@@ -126,8 +144,8 @@
 }
 
 .scroll {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 0;
+  min-height: 140px;
   overflow: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2);

@@ -35,7 +35,16 @@
   padding-bottom: calc(var(--space-2) + 1px);
 }
 
+/*
+ * `min-height: 0` is what makes this a definite height rather than a
+ * content-sized one. Without it a flex item's automatic minimum lets the
+ * content grow the box, `height: 100%` inside resolves against nothing, and a
+ * view that means to fill the window instead pushes its own footer off the
+ * bottom of the screen. Invisible for the views that simply scroll; the Score
+ * view is the first one that fills.
+ */
 .content {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
 }

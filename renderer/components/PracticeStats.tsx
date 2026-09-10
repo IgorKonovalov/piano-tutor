@@ -13,6 +13,15 @@ import styles from './PracticeStats.module.css'
 /** More than this and the list stops being a place to start and becomes a wall. */
 const WORST_BARS_SHOWN = 3
 
+/**
+ * A bar closer than this to the fitted line was not noticeably out of time --
+ * it is inside ordinary human unevenness, and inside the generator's own
+ * jitter, which is bounded at twelve milliseconds. Listing five-millisecond
+ * deviations under "furthest from your own tempo" tells the player their even
+ * playing was uneven.
+ */
+const WORTH_MENTIONING_MS = 15
+
 export interface PracticeStatsProps {
   report: PracticeReport
   /** Take load plus alignment on this machine, for the dev overlay (NFR 12). */
@@ -24,7 +33,7 @@ export function PracticeStats({ report, elapsedMs }: PracticeStatsProps) {
   const attempted = report.bars.filter((bar) => bar.state !== 'notAttempted')
   const clean = attempted.filter((bar) => bar.state === 'clean').length
   const worst = barsByTiming(report)
-    .filter((bar) => Math.abs(bar.timingDeviation) >= 1)
+    .filter((bar) => Math.abs(bar.timingDeviation) >= WORTH_MENTIONING_MS)
     .slice(0, WORST_BARS_SHOWN)
 
   return (

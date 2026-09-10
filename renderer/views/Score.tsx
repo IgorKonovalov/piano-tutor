@@ -34,9 +34,17 @@ import styles from './Score.module.css'
 const MARK_LABEL: Record<BarState, string> = {
   clean: 'as written',
   timing: 'out of time',
-  wrong: 'wrong notes',
+  wrong: 'wrong',
   notAttempted: 'not reached',
   unalignable: 'lost',
+}
+
+/** "1 wrong note", not "1 wrong notes". */
+function markLabel(state: BarState, problems: number): string {
+  if (problems === 0) return MARK_LABEL[state]
+  return `${problems} ${state === 'wrong' ? 'wrong' : MARK_LABEL[state]} ${
+    problems === 1 ? 'note' : 'notes'
+  }`
 }
 
 export function Score() {
@@ -199,11 +207,7 @@ export function Score() {
     }
     return report.bars.map((bar) => {
       const problems = bar.notes.filter((note) => note.kind !== 'correct').length
-      return {
-        bar: bar.bar,
-        state: bar.state,
-        label: problems > 0 ? `${problems} ${MARK_LABEL[bar.state]}` : MARK_LABEL[bar.state],
-      }
+      return { bar: bar.bar, state: bar.state, label: markLabel(bar.state, problems) }
     })
   }, [report, selectedBar])
 

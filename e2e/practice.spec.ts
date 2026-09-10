@@ -86,8 +86,9 @@ test('one wrong note colours one bar, and the detail says which note', async () 
   await expect(page.locator('[data-testid="bar-mark"][data-state="clean"]')).toHaveCount(3)
   await expect(page.locator('[data-testid="bar-mark"][data-state="notAttempted"]')).toHaveCount(0)
 
-  // Colour is never the only carrier: the mark itself says what it means.
-  await expect(wrong).toContainText('wrong notes')
+  // Colour is never the only carrier: the mark itself says what it means, and
+  // it counts correctly -- one wrong note is not "1 wrong notes".
+  await expect(wrong).toHaveText('1 wrong note')
 
   // The bar detail names the pitch written and the pitch played. The
   // perturbation substitutes the lowest note of bar 3, C3, a semitone up.

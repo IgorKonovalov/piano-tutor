@@ -525,6 +525,18 @@ type PracticeReport = {
   the OSMD instance, so extraction happens there and rides out on `onLoaded`;
   `renderer/views/Score.module.css` styles the panel added to `Score.tsx`, which is in the list;
   `renderer/score/timelineFromOsmd.test.ts` is new, see the row below.
+- After the phases, at the user's request: `scripts/fetch-scores.mjs` (the file Phase 1's widened
+  list named and this log recorded as not written) and `core/fixtures/scores/pickup-two-hands.mxl`,
+  a zip of the hand-written fixture. `.mxl` had been accepted since Phase 1 with nothing
+  exercising it; it now has an end-to-end case, and only an end-to-end one, because JSZip cannot
+  read a jsdom `Blob` and reports a valid `.mxl` as a corrupt zip.
+- Three defects found by looking at the running app, not by a test, and fixed in `575920d`'s
+  follow-up: a bar mark read "1 wrong notes"; the "furthest from your own tempo" list named bars
+  five milliseconds out, which is inside the generator's own jitter; and the bar detail was pushed
+  below the window. The last was two layout faults -- `renderer/App.module.css`'s `.content` had
+  no `min-height: 0`, so `height: 100%` inside it resolved against nothing, and the Score view's
+  grid row was implicit and therefore `auto`, so it overflowed the container it was sized to.
+  Both are Plan 0001-era CSS that no earlier view exercised.
 - Phase 7 is `human` and was not attempted. What it needs from the user: the CK88 plugged in, a
   real MusicXML file they want to practise, and the seven checklist answers written into this log.
   Item 3 (the false start) and item 5 (a rolled chord against the 50 ms window) are the two the
