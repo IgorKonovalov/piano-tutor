@@ -447,7 +447,7 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 | 3 — The notes get names | dev | done | dd1f69f |
 | 4 — The staff draws what is held | dev | done | 8d4b9d9 |
 | 5 — Every session is a take | dev | done | 11b6d77 |
-| 6 — The whole gate runs with nothing plugged in | dev | done | committed with this row |
+| 6 — The whole gate runs with nothing plugged in | dev | done | b4a67c3 |
 | 7 — At the instrument | human | not started | |
 
 ### Measurements
