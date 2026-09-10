@@ -69,6 +69,8 @@ docs/
                  #   asserted by tests; milliseconds are measured by hand and logged.
   adrs/          # NNNN-<slug>.md, append-only. README.md is the index + next free number.
   plans/         # NNNN-<slug>.md, phased. README.md: roster + next free number. done/ for closed.
+  backlog.md     # Thought about, not drafted: teaching mechanics, ideas with no plan yet. A plan's
+                 #   own Followups hold its debts; the plans roster holds what is in flight.
   specs/         # Living behavioural contracts, added only when one earns it (none yet).
 .claude/
   settings.json  # Registers the PreToolUse hook below.
