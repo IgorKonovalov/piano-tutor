@@ -16,12 +16,18 @@ import {
   playedGroups,
   withoutOrnaments,
 } from './onsetGroups'
-import { type TempoFit, deviationMs, fitTempo } from './tempo'
+import {
+  type BarredPair,
+  type LocalTempo,
+  type TempoFit,
+  fitTempo,
+  localTempoCurve,
+} from './tempo'
 
 /**
  * The take, rolled up into something a player can read: one verdict per bar,
  * naming the notes that were wrong, missing or extra, and how far that bar sat
- * from the one fitted tempo.
+ * from the tempo the bars around it were keeping.
  *
  * Everything here is a pure function of a timeline and a list of events. No
  * clock is read, no file is touched, and the same take against the same score
@@ -29,8 +35,8 @@ import { type TempoFit, deviationMs, fitTempo } from './tempo'
  */
 
 /**
- * How far a bar's notes may sit from the fitted line before the bar is called
- * out for timing. Forty-five milliseconds is a little under a demisemiquaver
+ * How far a bar may sit from its local reference before the bar is called out
+ * for timing. Forty-five milliseconds is a little under a demisemiquaver
  * at a walking tempo and comfortably inside what a listener hears as "not
  * together"; below it sits ordinary human unevenness and the generator's own
  * jitter, which is bounded at twelve.
@@ -56,6 +62,8 @@ export interface PracticeAnalysis {
   expected: ExpectedGroup[]
   played: PlayedGroup[]
   fit: TempoFit | null
+  /** One reference per bar that had the evidence for one (ADR-0014). */
+  localTempi: Map<number, LocalTempo>
 }
 
 export function analyse(input: PracticeReportInput): PracticeAnalysis {
@@ -65,12 +73,17 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
   const fit = fitTempo(confidentPairs(alignment, expected, played))
 
   const notes = new Map<number, NoteVerdict[]>()
-  const deviations = new Map<number, number[]>()
+  /**
+   * When the player arrived at each group the score can name, in bar order.
+   * Timing is judged from these afterwards rather than inside this loop: a
+   * bar's reference comes from its neighbours, so no bar can be judged until
+   * every bar has been read.
+   */
+  const timed: BarredPair[] = []
   const counts = { correct: 0, wrongPitch: 0, missing: 0, extra: 0 }
 
   for (const bar of input.timeline.bars) {
     notes.set(bar.index, [])
-    deviations.set(bar.index, [])
   }
 
   const push = (bar: number, verdict: NoteVerdict): void => {
@@ -134,14 +147,13 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
         push(expectedGroup.bar, { kind: 'extra', played: pitch })
       }
 
-      if (fit !== null && absent.length < expectedGroup.pitches.length) {
-        deviations.get(expectedGroup.bar)?.push(
-          deviationMs(fit, {
-            onset: expectedGroup.onset,
-            // The beat, not the ornament that anticipates it.
-            t: arrivalTime(expectedGroup, played, step),
-          })
-        )
+      if (absent.length < expectedGroup.pitches.length) {
+        timed.push({
+          bar: expectedGroup.bar,
+          onset: expectedGroup.onset,
+          // The beat, not the ornament that anticipates it.
+          t: arrivalTime(expectedGroup, played, step),
+        })
       }
     } else if (step.kind === 'missing') {
       const expectedGroup = expected[step.expected]
@@ -166,13 +178,14 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
    */
   const abandonedFrom = firstAbandonedBar(expected, lastMatchedExpected)
 
+  const localTempi = localTempoCurve(
+    timed,
+    input.timeline.bars.map((bar) => bar.index)
+  )
+
   const bars: BarVerdict[] = input.timeline.bars.map((bar) => {
     const barNotes = notes.get(bar.index) ?? []
-    const barDeviations = deviations.get(bar.index) ?? []
-    const timingDeviation =
-      barDeviations.length === 0
-        ? 0
-        : barDeviations.reduce((total, value) => total + value, 0) / barDeviations.length
+    const timingDeviation = barDeviation(timed, localTempi.get(bar.index))
 
     return {
       bar: bar.index,
@@ -218,7 +231,58 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
     expected,
     played,
     fit,
+    localTempi,
   }
+}
+
+/**
+ * How far this bar sat from where the pace around it should have put it, in
+ * milliseconds, averaged over the bar and signed: negative is early.
+ *
+ * The bar is read through **its own fitted line** rather than through its
+ * individual arrivals, and that line is compared with the local reference from
+ * the bar's own starting point. Two things follow, both deliberate. The figure
+ * stops depending on the exact millisecond of the bar's first note-on -- one
+ * arrival, carrying every hand's ordinary unevenness, which would otherwise
+ * displace the whole bar's verdict. And what is measured is the bar's **pace**
+ * against its neighbours': "you took this bar faster than the music around
+ * it", which is a sentence a player can act on.
+ *
+ * The cost is that unevenness *inside* a bar, where the notes drift but the
+ * bar keeps its overall pace, is not what this reports. That is a second
+ * question and this plan does not ask it.
+ *
+ * Zero when there is no local reference, or when the bar carries fewer than
+ * two matched groups: a bar holding a single chord cannot be uneven.
+ */
+function barDeviation(timed: readonly BarredPair[], local: LocalTempo | undefined): number {
+  if (local === undefined) return 0
+  const own = timed.filter((pair) => pair.bar === local.bar)
+  if (own.length < 2) return 0
+  const pace = fitTempo(own)?.msPerQuarter ?? straightPace(own)
+  if (pace === null) return 0
+
+  const from = (own[0] as BarredPair).onset
+  const spread =
+    own.slice(1).reduce((total, pair) => total + (pair.onset - from), 0) / (own.length - 1)
+  return (pace - local.msPerQuarter) * spread
+}
+
+/**
+ * The pace of a bar `fitTempo` will not fit: two groups is fewer than
+ * `MIN_TEMPO_SAMPLES`, and refusing there would leave short bars with no
+ * timing verdict at all. Two points make a line, and the bar's own line is all
+ * that is wanted here -- the caution `fitTempo` exercises is about calling a
+ * handful of pairs a *tempo*, which is not the claim being made.
+ */
+function straightPace(own: readonly BarredPair[]): number | null {
+  const first = own[0]
+  const last = own[own.length - 1]
+  if (first === undefined || last === undefined) return null
+  const quarters = last.onset - first.onset
+  if (quarters <= 0) return null
+  const pace = (last.t - first.t) / quarters
+  return pace > 0 ? pace : null
 }
 
 export function practiceReport(input: PracticeReportInput): PracticeReport {

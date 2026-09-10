@@ -17,7 +17,7 @@ import { type Perturbation, perturb } from '../midi/perturb'
 import { align } from './align'
 import { expectedGroups, playedGroups } from './onsetGroups'
 import { scoredNotes } from '../score/timeline'
-import { barsByTiming, practiceReport } from './report'
+import { TIMING_THRESHOLD_MS, barsByTiming, practiceReport } from './report'
 
 /**
  * The aligner against the oracle of Phase 3.
@@ -58,6 +58,36 @@ function run(name: keyof typeof TIMELINES | string, options: RunOptions = {}) {
     practiceReport({ timeline, events: take.events, takeId: `take-${name}` })
   )
   return { timeline, take, report }
+}
+
+/** The take alone, for a test that wants to bend the events before judging them. */
+function runTake(name: keyof typeof TIMELINES | string, options: RunOptions = {}) {
+  const timeline = TIMELINES[name]
+  if (timeline === undefined) throw new Error(`no timeline named ${name}`)
+  return {
+    timeline,
+    take: perturb(timeline, {
+      seed: SEED,
+      jitter: options.jitter,
+      ornaments: options.ornaments,
+      perturbations: options.perturbations,
+    }),
+  }
+}
+
+/** Everything from the first note of `bar` onward, `ms` later: the player stopped. */
+function pauseBefore(
+  events: readonly MidiEvent[],
+  timeline: ExpectedTimeline,
+  bar: number,
+  ms: number
+): MidiEvent[] {
+  const onset = timeline.bars.find((entry) => entry.index === bar)?.onset ?? 0
+  const at = onset * (60_000 / DEFAULT_BPM)
+  // Half a beat of slack either side of the boundary, so the generator's
+  // jitter cannot decide which side of the pause a note falls on.
+  const from = at - 30_000 / DEFAULT_BPM
+  return events.map((event) => (event.t >= from ? { ...event, t: event.t + ms } : event))
 }
 
 function verdicts(report: PracticeReport, kind: string): { bar: number; verdict: unknown }[] {
@@ -627,5 +657,122 @@ describe('a long piece played only at its opening (ADR-0010)', () => {
     expect(played.filter((bar) => bar.state === 'clean').length).toBeGreaterThan(0)
     expect(report.counts.wrongPitch).toBeGreaterThan(0)
     expect(report.counts.correct).toBeGreaterThan(PLAYED_BARS * PER_BAR * 0.9)
+  })
+})
+
+/**
+ * The local timing model (ADR-0014). What is under test here is a single
+ * property, stated four ways: **a take played evenly reports no timing error,
+ * however the take is structured** (NFR 14). A restart, a rallentando, a take
+ * at half speed and a take with a long pause in it are all even playing with
+ * something else going on, and none of them is a timing mistake.
+ *
+ * The bar that must still be flagged is the one that was genuinely rushed. A
+ * local reference forgives more than a global one by design, and that bar is
+ * the property most at risk from it.
+ */
+describe('timing is judged against the bars around it', () => {
+  function timingBars(report: PracticeReport): number[] {
+    return report.bars.filter((bar) => bar.state === 'timing').map((bar) => bar.bar)
+  }
+
+  it('reports no timing error for a rallentando: slowing down is not a mistake', () => {
+    const perturbation: Perturbation = {
+      kind: 'rallentando',
+      fromBar: 1,
+      toBar: 3,
+      factor: 0.7,
+    }
+    const { take, report } = run('scale-c-major', { perturbations: [perturbation] })
+
+    // The oracle declares a tempo change and no note-level verdict at all.
+    expect(take.verdicts).toEqual([{ kind: 'tempoChange', bar: 1, toBar: 3, percent: -30 }])
+    expect(timingBars(report)).toEqual([])
+    expect(states(report)).toEqual(report.bars.map(() => 'clean'))
+    expect(report.counts.wrongPitch).toBe(0)
+    expect(report.counts.missing).toBe(0)
+    expect(report.counts.extra).toBe(0)
+  })
+
+  it('forgives a violent rallentando as readily as a gentle one', () => {
+    // Half the tempo across three bars. A global line would read the ends of
+    // this take as seconds of error; a local one follows the player down.
+    const { report } = run('scale-c-major', {
+      perturbations: [{ kind: 'rallentando', fromBar: 1, toBar: 3, factor: 0.5 }],
+    })
+    expect(timingBars(report)).toEqual([])
+  })
+
+  it('reports no timing error for a restart, and flags no bar before it', () => {
+    // The propagation property, and the most important assertion in this plan.
+    // A global fit turned the whole take orange for this take, bars *before*
+    // the false start included, and left the player no way back to right
+    // timing (ADR-0014).
+    const perturbation: Perturbation = { kind: 'restartAtBar', bar: 2 }
+    const { take, report } = run('scale-c-major', { perturbations: [perturbation] })
+
+    const declared = take.verdicts[0]
+    if (declared?.kind !== 'restart') throw new Error('the oracle changed shape')
+
+    expect(timingBars(report)).toEqual([])
+    for (const bar of report.bars.filter((entry) => entry.bar < declared.bar)) {
+      expect(bar.state, `bar ${bar.bar} before the restart`).toBe('clean')
+      expect(Math.abs(bar.timingDeviation)).toBeLessThan(TIMING_THRESHOLD_MS)
+    }
+    // The notes themselves were right: what the restart leaves behind is a
+    // pile of extras, which is Phase 3's business and not timing's.
+    expect(report.counts.wrongPitch).toBe(0)
+    expect(report.counts.missing).toBe(0)
+  })
+
+  it('reports no timing error for a restart in the middle of the piece either', () => {
+    const { report } = run('scale-c-major', {
+      perturbations: [{ kind: 'restartAtBar', bar: 1 }],
+    })
+    expect(timingBars(report)).toEqual([])
+    expect(report.bars[0]?.state).toBe('clean')
+  })
+
+  it('reports no timing error for a long pause between two bars', () => {
+    // Not a perturbation: the player reached bar 2, stopped for three seconds
+    // -- a page turn, a breath, a look at the fingering -- and carried on.
+    // Every note is where it was relative to its neighbours, so nothing about
+    // the playing was uneven and nothing is reported.
+    const { timeline, take } = runTake('scale-c-major')
+    const paused = pauseBefore(take.events, timeline, 2, 3_000)
+    const report = practiceReport({ timeline, events: paused, takeId: 'paused' })
+
+    expect(timingBars(report)).toEqual([])
+    expect(report.counts.wrongPitch).toBe(0)
+    expect(report.counts.extra).toBe(0)
+
+    // The pause really is in there: the take runs three seconds longer.
+    const ran = (events: readonly MidiEvent[]) => Math.max(...events.map((event) => event.t))
+    expect(ran(paused) - ran(take.events)).toBe(3_000)
+  })
+
+  it('still flags the bar that was genuinely rushed, and ranks it worst', () => {
+    const perturbation: Perturbation = { kind: 'rushBar', bar: 2, fraction: 0.55 }
+    const { take, report } = run('scale-c-major', { perturbations: [perturbation] })
+
+    const declared = take.verdicts[0]
+    if (declared?.kind !== 'timing') throw new Error('the oracle changed shape')
+
+    const rushed = report.bars.find((bar) => bar.bar === declared.bar)
+    expect(rushed?.state).toBe('timing')
+    expect(rushed?.timingDeviation).toBeLessThan(-TIMING_THRESHOLD_MS)
+    expect(barsByTiming(report)[0]?.bar).toBe(declared.bar)
+
+    // And it is the only one: a local reference is what stops one bar's
+    // disturbance from reaching its neighbours.
+    expect(timingBars(report)).toEqual([declared.bar])
+  })
+
+  it('leaves a bar with no evidence either side without a verdict rather than a guess', () => {
+    // The first and last bars of a take have neighbours on one side only
+    // (ADR-0014), so they carry no timing figure at all.
+    const { report } = run('scale-c-major')
+    expect(report.bars[0]?.timingDeviation).toBe(0)
+    expect(report.bars[report.bars.length - 1]?.timingDeviation).toBe(0)
   })
 })

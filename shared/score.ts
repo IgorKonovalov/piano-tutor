@@ -178,8 +178,19 @@ export const BarVerdictSchema = z.object({
   state: BarStateSchema,
   notes: z.array(NoteVerdictSchema),
   /**
-   * Mean signed distance of this bar's notes from the one fitted tempo, in
-   * milliseconds. Negative is early. Zero when the bar has nothing to time.
+   * How far this bar sat from the tempo **the bars around it** were keeping,
+   * in milliseconds, averaged over the bar. Negative is early.
+   *
+   * The reference is local, not one line through the take (ADR-0014): a
+   * player who goes back over a bar, or slows into a cadence, is not making a
+   * timing mistake, and a global line reported both as error over the whole
+   * performance -- backwards as well as forwards. Same name, same units, and
+   * a different sentence: this is distance from the local pace, so anything
+   * that describes it in words has to say so.
+   *
+   * Zero when the bar has nothing to time: fewer than two matched groups in
+   * it, or too little evidence either side of it to have a reference at all,
+   * which is always true of the first and last bars of a take.
    */
   timingDeviation: z.number(),
 })

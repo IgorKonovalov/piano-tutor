@@ -349,8 +349,8 @@ interface PracticeReportAdditions {
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — The generator restarts, and slows down | dev | done | committed with this row |
-| 2 — A bar is judged against its neighbours | dev | | |
+| 1 — The generator restarts, and slows down | dev | done | 60050f7 |
+| 2 — A bar is judged against its neighbours | dev | done | committed with this row |
 | 3 — A restart is named, not counted as mistakes | dev | | |
 | 4 — The tempo you kept, and the shape you gave it | dev | | |
 | 5 — How fussy the app should be | dev | | |
@@ -373,6 +373,31 @@ interface PracticeReportAdditions {
 - **Phase 1, both new ports are on `scale-c-major`.** It is the only fixture with a note on every
   quarter across four bars; the others put a single chord in each bar and have nothing to be uneven
   about. Port ids: `virtual:score:scale-c-major-restart`, `virtual:score:scale-c-major-rallentando`.
+- **Phase 2, the local pace is a balanced median of gaps, not a least-squares line.** The phase
+  block says "fits over the matched pairs whose bars lie within a window"; what is fitted is the
+  **median of the per-quarter gaps either side, taking the same number of gaps from each side**.
+  Least squares was written first and measured, and it failed two of the phase's own done-whens:
+  a restart's five-fold jump inside the window dragged the line and reported the bars beside it at
+  a second of error each, and an unequal window over a rallentando returned the average of a
+  stretch that was faster at one end than the other, so the middle bars read 40 to 190 ms out. A
+  median ignores the jump; balancing the two sides makes it the pace beside the bar rather than an
+  average across a change. Both are recorded in `tempo.ts` with the reasoning.
+- **Phase 2, the window is one bar either side, and both sides are required.** Measured on the
+  scale fixture against a rallentando falling to 70 %: a window of one bar reads the middle bar
+  3 ms out, a window of two reads it 72 ms out. A bar with neighbours on one side only — always
+  the first and last bars of a take — reports no verdict rather than a guess, which is ADR-0014's
+  own note about the ends of a take and, measured, the difference between the rallentando take
+  reporting zero bars in `timing` and reporting two.
+- **Phase 2, a bar is read through its own fitted line.** `timingDeviation` compares the bar's
+  fitted pace with the local one from the bar's own starting point, rather than averaging the
+  distance of each individual arrival. Measured over ten seeds: the second form put a clean take's
+  worst bar at 22 ms and the rallentando's at 55 ms, past the 45 ms threshold, because it inherits
+  the jitter of the single note-on it anchors on and the convexity of a bar played inside a
+  ritardando. The first form leaves a clean take at 24 ms and every rallentando at 39 ms. The cost
+  is stated in the code: unevenness *inside* one bar, where the notes drift but the bar keeps its
+  pace, is not what this reports.
+- **Phase 2, NFR 14's "long pause" is between two bars.** A pause in the middle of a bar makes
+  that bar genuinely uneven and is reported; the row and its test say so.
 - **Phase 1, the ratio assertions are to two decimal places.** `playNotes` rounds to whole
   milliseconds, so a ratio over one ~667 ms gap carries about a part in a thousand of rounding.
 
