@@ -214,12 +214,36 @@ export const RestartVerdictSchema = z.object({
 })
 export type RestartVerdict = z.infer<typeof RestartVerdictSchema>
 
+/**
+ * What the tempo did over a span: **information, never a verdict**. No bar's
+ * state changes because one of these exists (ADR-0014). A player who slows
+ * into a cadence has done something worth telling them about and nothing worth
+ * marking them down for.
+ */
+export const TempoObservationSchema = z.object({
+  fromBar: z.number().int().nonnegative(),
+  toBar: z.number().int().nonnegative(),
+  /** Negative is slower. -22 reads "slowed 22%". */
+  percent: z.number(),
+})
+export type TempoObservation = z.infer<typeof TempoObservationSchema>
+
 export const PracticeReportSchema = z.object({
   scoreId: z.string(),
   takeId: z.string(),
   /** One entry per bar in the timeline, in order. */
   bars: z.array(BarVerdictSchema),
-  /** Quarter notes per minute, fitted after the match. Null if unfittable. */
+  /**
+   * Quarter notes per minute: the tempo the player actually **held**, taken
+   * over the stretches where they were steady rather than fitted across the
+   * whole take (ADR-0014). Same name and same units as before and a refined
+   * meaning -- a false start or a ritardando no longer drags it, where one
+   * line through everything read a take played at about 64 as 53. Anything
+   * that describes this in words, the coach's summary included, should say
+   * "the tempo you kept" rather than "your average tempo".
+   *
+   * Null when there is nothing to measure.
+   */
   fittedTempo: z.number().nullable(),
   counts: z.object({
     correct: z.number().int().nonnegative(),
@@ -233,6 +257,8 @@ export const PracticeReportSchema = z.object({
    * correct notes played twice, which is care rather than error (ADR-0014).
    */
   restarts: z.array(RestartVerdictSchema),
+  /** What the tempo did, where it did something. Bounded, and never a verdict. */
+  tempoObservations: z.array(TempoObservationSchema),
   /** The first bar the matcher lost, or null when the take aligned throughout. */
   unalignableFromBar: z.number().int().nonnegative().nullable(),
 })

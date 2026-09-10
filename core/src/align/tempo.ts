@@ -256,3 +256,204 @@ export function localTempoCurve(
   }
   return curve
 }
+
+/** How fast one bar went, and how far its notes reach past its first one. */
+export interface BarPace {
+  /** Milliseconds per quarter across this bar's own matched groups. */
+  msPerQuarter: number
+  /**
+   * Mean distance, in quarter notes, of the bar's groups after the first from
+   * that first one. It is what turns a difference in pace into a distance in
+   * milliseconds, and it belongs to the bar rather than to the metre: a bar
+   * whose notes are all near its start reaches less far than an even one.
+   */
+  spread: number
+}
+
+/**
+ * Each bar's own pace, from the pairs inside it.
+ *
+ * A bar with fewer than two matched groups is absent: one chord says nothing
+ * about pace. `fitTempo` is used where it will fit and a straight line through
+ * the bar's first and last group where it will not -- two or three groups is
+ * fewer than `MIN_TEMPO_SAMPLES`, and the caution that constant exercises is
+ * about calling a handful of pairs a *tempo*, which is not the claim here.
+ */
+export function barPaces(pairs: readonly BarredPair[]): Map<number, BarPace> {
+  const byBar = new Map<number, BarredPair[]>()
+  for (const pair of pairs) {
+    const own = byBar.get(pair.bar)
+    if (own === undefined) byBar.set(pair.bar, [pair])
+    else own.push(pair)
+  }
+
+  const paces = new Map<number, BarPace>()
+  for (const [bar, own] of byBar) {
+    if (own.length < 2) continue
+    const msPerQuarter = fitTempo(own)?.msPerQuarter ?? straightPace(own)
+    if (msPerQuarter === null) continue
+    const from = (own[0] as BarredPair).onset
+    const spread =
+      own.slice(1).reduce((total, pair) => total + (pair.onset - from), 0) / (own.length - 1)
+    paces.set(bar, { msPerQuarter, spread })
+  }
+  return paces
+}
+
+function straightPace(own: readonly BarredPair[]): number | null {
+  const first = own[0]
+  const last = own[own.length - 1]
+  if (first === undefined || last === undefined) return null
+  const quarters = last.onset - first.onset
+  if (quarters <= 0) return null
+  const pace = (last.t - first.t) / quarters
+  return pace > 0 ? pace : null
+}
+
+/**
+ * A gap this many times the pace the player was mostly keeping, or this many
+ * times shorter, was not the tempo: it is the seam of a restart, a page turn,
+ * or a bar taken at half speed while the fingering was worked out. Half again
+ * is a wide margin on purpose -- rubato has to survive it, and what has to be
+ * thrown out is the five-fold jump a false start leaves.
+ */
+export const STEADY_FACTOR = 1.5
+
+/**
+ * The tempo the player actually **held**: the pace over the stretches where
+ * they were steady, in quarter notes per minute.
+ *
+ * One line fitted across a whole take is an average of a performance and
+ * whatever interrupted it, and ADR-0014's measurement is what that costs -- a
+ * take played at about 64 read as 53 because the player went back over a bar.
+ * So the gaps that were plainly not the tempo are thrown out first, against a
+ * median of all of them, and what is reported is the aggregate pace over what
+ * is left. A median decides what to keep, because a mean of the gaps is what
+ * the restart dragged in the first place.
+ *
+ * Null when there is nothing to measure: fewer than two matched groups, or no
+ * pair of them at different score positions.
+ */
+export function steadyTempo(pairs: readonly BarredPair[]): number | null {
+  const gaps: { quarters: number; ms: number; pace: number }[] = []
+  for (let i = 1; i < pairs.length; i++) {
+    const from = pairs[i - 1] as BarredPair
+    const to = pairs[i] as BarredPair
+    const pace = paceBetween(from, to)
+    if (pace === null) continue
+    gaps.push({ quarters: to.onset - from.onset, ms: to.t - from.t, pace })
+  }
+
+  const typical = median(gaps.map((gap) => gap.pace))
+  if (typical === null) return null
+
+  let quarters = 0
+  let ms = 0
+  for (const gap of gaps) {
+    if (gap.pace > typical * STEADY_FACTOR || gap.pace * STEADY_FACTOR < typical) continue
+    quarters += gap.quarters
+    ms += gap.ms
+  }
+  if (quarters <= 0 || ms <= 0) return null
+  return 60_000 / (ms / quarters)
+}
+
+/**
+ * What the tempo did over a span: information, never a verdict.
+ *
+ * A player who slows into a cadence has not made a mistake, and ADR-0014 is
+ * about not calling it one. But it is worth telling them, because it is the
+ * kind of thing a teacher says and the kind of thing a player does without
+ * knowing. No bar's state changes because one of these exists.
+ */
+export interface TempoObservation {
+  fromBar: number
+  toBar: number
+  /** Negative is slower. -22 reads "slowed 22%". */
+  percent: number
+}
+
+/**
+ * How much one bar's pace must differ from the one before it to count as the
+ * tempo having moved rather than as a hand being human. Two per cent is over
+ * four times the spread a steady take shows across the fixtures, and well
+ * under what any listener would call a change.
+ */
+export const TEMPO_STEP_TOLERANCE = 0.02
+
+/**
+ * How far the tempo must have travelled across a run before it is worth a
+ * sentence, and how many bars the run must cover. Eight per cent over three
+ * bars of pace is about the smallest ritardando a listener would name; below
+ * it the app would be telling a player that their steady playing was not.
+ */
+export const MIN_TEMPO_CHANGE_PERCENT = 8
+export const MIN_OBSERVATION_PACES = 3
+
+/** More than this and the observations stop being information and become a wall. */
+export const MAX_TEMPO_OBSERVATIONS = 2
+
+/**
+ * The largest few monotonic runs in the bar-pace curve, worst first.
+ *
+ * A run of `n` bar paces describes a change over the **last `n - 1`** of them:
+ * the first bar is the tempo it changed *from*, not part of the change. That
+ * is why "slowed 30% over bars 1 to 3" comes out of a run that begins at bar 0.
+ */
+export function tempoObservations(paces: ReadonlyMap<number, BarPace>): TempoObservation[] {
+  const bars = [...paces.keys()].sort((a, b) => a - b)
+
+  /**
+   * One entry per step from one bar to the next, in order: which way the tempo
+   * moved, or 0 for a step too small to be anything but a hand being human.
+   * A step over a bar the take skipped is not a step at all -- a pace two bars
+   * later is a different stretch of music -- and ends whatever run it was in.
+   */
+  const directions: number[] = []
+  for (let i = 1; i < bars.length; i++) {
+    const from = paces.get(bars[i - 1] as number)
+    const to = paces.get(bars[i] as number)
+    const contiguous = (bars[i] as number) === (bars[i - 1] as number) + 1
+    if (from === undefined || to === undefined || !contiguous) {
+      directions.push(0)
+      continue
+    }
+    const step = to.msPerQuarter / from.msPerQuarter - 1
+    directions.push(Math.abs(step) < TEMPO_STEP_TOLERANCE ? 0 : Math.sign(step))
+  }
+
+  const found: TempoObservation[] = []
+  let at = 0
+  while (at < directions.length) {
+    const direction = directions[at] as number
+    if (direction === 0) {
+      at++
+      continue
+    }
+    let end = at
+    while (end + 1 < directions.length && directions[end + 1] === direction) end++
+
+    // A run of `k` steps spans `k + 1` paces, and the first of those is the
+    // tempo it changed *from* rather than part of the change: that is why
+    // "slowed 30% over bars 1 to 3" comes out of a run beginning at bar 0.
+    const steps = end - at + 1
+    const fromPace = paces.get(bars[at] as number)
+    const toPace = paces.get(bars[end + 1] as number)
+    if (steps + 1 >= MIN_OBSERVATION_PACES && fromPace !== undefined && toPace !== undefined) {
+      // Pace is milliseconds per quarter, so the tempo moves the other way.
+      const percent = Math.round((fromPace.msPerQuarter / toPace.msPerQuarter - 1) * 100)
+      if (Math.abs(percent) >= MIN_TEMPO_CHANGE_PERCENT) {
+        found.push({
+          fromBar: (bars[at] as number) + 1,
+          toBar: bars[end + 1] as number,
+          percent,
+        })
+      }
+    }
+    at = end + 1
+  }
+
+  return found
+    .sort((a, b) => Math.abs(b.percent) - Math.abs(a.percent))
+    .slice(0, MAX_TEMPO_OBSERVATIONS)
+}

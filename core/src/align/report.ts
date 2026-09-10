@@ -18,11 +18,15 @@ import {
 } from './onsetGroups'
 import { findRestarts } from './restarts'
 import {
+  type BarPace,
   type BarredPair,
   type LocalTempo,
   type TempoFit,
+  barPaces,
   fitTempo,
   localTempoCurve,
+  steadyTempo,
+  tempoObservations,
 } from './tempo'
 
 /**
@@ -189,10 +193,11 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
     timed,
     input.timeline.bars.map((bar) => bar.index)
   )
+  const paces = barPaces(timed)
 
   const bars: BarVerdict[] = input.timeline.bars.map((bar) => {
     const barNotes = notes.get(bar.index) ?? []
-    const timingDeviation = barDeviation(timed, localTempi.get(bar.index))
+    const timingDeviation = barDeviation(paces.get(bar.index), localTempi.get(bar.index))
 
     return {
       bar: bar.index,
@@ -230,9 +235,10 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
       scoreId: input.scoreId ?? input.timeline.scoreId,
       takeId: input.takeId,
       bars,
-      fittedTempo: fit === null ? null : fit.qpm,
+      fittedTempo: steadyTempo(timed),
       counts,
       restarts,
+      tempoObservations: tempoObservations(paces),
       unalignableFromBar,
     },
     alignment,
@@ -247,8 +253,8 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
  * How far this bar sat from where the pace around it should have put it, in
  * milliseconds, averaged over the bar and signed: negative is early.
  *
- * The bar is read through **its own fitted line** rather than through its
- * individual arrivals, and that line is compared with the local reference from
+ * The bar is read through **its own fitted pace** rather than through its
+ * individual arrivals, and that pace is compared with the local reference from
  * the bar's own starting point. Two things follow, both deliberate. The figure
  * stops depending on the exact millisecond of the bar's first note-on -- one
  * arrival, carrying every hand's ordinary unevenness, which would otherwise
@@ -260,38 +266,14 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
  * bar keeps its overall pace, is not what this reports. That is a second
  * question and this plan does not ask it.
  *
- * Zero when there is no local reference, or when the bar carries fewer than
- * two matched groups: a bar holding a single chord cannot be uneven.
+ * Zero when there is no local reference, or when the bar has no pace of its
+ * own: a bar holding a single chord cannot be uneven.
  */
-function barDeviation(timed: readonly BarredPair[], local: LocalTempo | undefined): number {
-  if (local === undefined) return 0
-  const own = timed.filter((pair) => pair.bar === local.bar)
-  if (own.length < 2) return 0
-  const pace = fitTempo(own)?.msPerQuarter ?? straightPace(own)
-  if (pace === null) return 0
-
-  const from = (own[0] as BarredPair).onset
-  const spread =
-    own.slice(1).reduce((total, pair) => total + (pair.onset - from), 0) / (own.length - 1)
-  return (pace - local.msPerQuarter) * spread
+function barDeviation(pace: BarPace | undefined, local: LocalTempo | undefined): number {
+  if (local === undefined || pace === undefined) return 0
+  return (pace.msPerQuarter - local.msPerQuarter) * pace.spread
 }
 
-/**
- * The pace of a bar `fitTempo` will not fit: two groups is fewer than
- * `MIN_TEMPO_SAMPLES`, and refusing there would leave short bars with no
- * timing verdict at all. Two points make a line, and the bar's own line is all
- * that is wanted here -- the caution `fitTempo` exercises is about calling a
- * handful of pairs a *tempo*, which is not the claim being made.
- */
-function straightPace(own: readonly BarredPair[]): number | null {
-  const first = own[0]
-  const last = own[own.length - 1]
-  if (first === undefined || last === undefined) return null
-  const quarters = last.onset - first.onset
-  if (quarters <= 0) return null
-  const pace = (last.t - first.t) / quarters
-  return pace > 0 ? pace : null
-}
 
 export function practiceReport(input: PracticeReportInput): PracticeReport {
   return analyse(input).report

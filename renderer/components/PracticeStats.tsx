@@ -12,14 +12,19 @@ import styles from './PracticeStats.module.css'
  * A restart reads as a **sentence**, not as a mark on the score. The player
  * did nothing wrong there, so there is no colour that would be honest, and
  * saying it in words is what keeps colour from being the only carrier of
- * anything here.
+ * anything here. What the tempo did over a span reads the same way and for
+ * the same reason (ADR-0014).
+ *
+ * "Tempo you kept" rather than "your tempo": the figure is the pace over the
+ * stretches where the player was steady, not an average of a performance and
+ * whatever interrupted it.
  */
 
 /** More than this and the list stops being a place to start and becomes a wall. */
 const WORST_BARS_SHOWN = 3
 
 /**
- * A bar closer than this to the fitted line was not noticeably out of time --
+ * A bar closer than this to its local reference was not noticeably out of time --
  * it is inside ordinary human unevenness, and inside the generator's own
  * jitter, which is bounded at twelve milliseconds. Listing five-millisecond
  * deviations under "furthest from your own tempo" tells the player their even
@@ -63,7 +68,7 @@ export function PracticeStats({ report, elapsedMs }: PracticeStatsProps) {
           testId="stat-bars"
         />
         <Figure
-          label="Your tempo"
+          label="Tempo you kept"
           value={report.fittedTempo === null ? '--' : `${Math.round(report.fittedTempo)} bpm`}
           tone="plain"
           testId="stat-tempo"
@@ -83,6 +88,24 @@ export function PracticeStats({ report, elapsedMs }: PracticeStatsProps) {
         </p>
       )}
 
+      {report.tempoObservations.length > 0 && (
+        <p className={styles.tempoShape} data-testid="stat-tempo-shape">
+          {report.tempoObservations.map((observation, index) => (
+            <span
+              key={`${observation.fromBar}-${observation.toBar}`}
+              data-from={observation.fromBar}
+              data-to={observation.toBar}
+              data-percent={observation.percent}
+            >
+              {index > 0 && ' '}
+              You {observation.percent < 0 ? 'slowed' : 'pressed on'}{' '}
+              {Math.abs(observation.percent)}% over bars {observation.fromBar} to{' '}
+              {observation.toBar}.
+            </span>
+          ))}
+        </p>
+      )}
+
       {report.unalignableFromBar !== null && (
         <p className={styles.lost} role="alert" data-testid="stat-unalignable">
           What was played stopped matching the score at bar {report.unalignableFromBar}. Nothing
@@ -92,10 +115,10 @@ export function PracticeStats({ report, elapsedMs }: PracticeStatsProps) {
 
       <p className={styles.worst} data-testid="stat-worst">
         {worst.length === 0 ? (
-          'Nothing stood out as out of time.'
+          'Nothing stood out as uneven against the music around it.'
         ) : (
           <>
-            Furthest from your own tempo:{' '}
+            Furthest from the tempo around them:{' '}
             {worst.map((bar, index) => (
               <span key={bar.bar} className={styles.worstBar} data-bar={bar.bar}>
                 {index > 0 && ', '}

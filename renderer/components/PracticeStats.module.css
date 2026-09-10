@@ -64,8 +64,10 @@
   font-family: var(--font-mono);
 }
 
-/* Not a warning: going back over a bar is careful practice, so this reads as
-   a plain observation and borrows none of the error colours. */
+/* Neither of these is a warning: going back over a bar is careful practice and
+   a rallentando is a decision, so both read as plain observations and borrow
+   none of the error colours. */
+.tempoShape,
 .restarts {
   margin: 0;
   font-size: 12px;

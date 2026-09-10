@@ -351,8 +351,8 @@ interface PracticeReportAdditions {
 |---|---|---|---|
 | 1 — The generator restarts, and slows down | dev | done | 60050f7 |
 | 2 — A bar is judged against its neighbours | dev | done | 6ba8f05 |
-| 3 — A restart is named, not counted as mistakes | dev | done | committed with this row |
-| 4 — The tempo you kept, and the shape you gave it | dev | | |
+| 3 — A restart is named, not counted as mistakes | dev | done | 1296c40 |
+| 4 — The tempo you kept, and the shape you gave it | dev | done | committed with this row |
 | 5 — How fussy the app should be | dev | | |
 | 6 — At the piano, with the takes that started this | human | | |
 
@@ -410,6 +410,19 @@ interface PracticeReportAdditions {
   emitted synchronously inside `open()` before the renderer is listening. Main records it, and the
   take on disk carries all 19 — the report the test asserts on is built from the take. Not fixed
   here: `renderer/views/Score.tsx` is outside this phase's file list. Followup below.
+- **Phase 4, the steady-state tempo is not a median of the local tempi.** The phase block says
+  "taken from the local tempi, over the bars where the player was steady — a median rather than a
+  mean". The local tempo curve does not exist for the first and last bars of a take (Phase 2), and
+  it does not exist at all for a piece that puts one chord in each bar, so a median over it left
+  `fittedTempo` null for `pickup-two-hands` — a field two existing tests read and Plan 0003's coach
+  summary reads. What ships instead keeps the intent exactly: a median of the take's per-quarter
+  gaps decides which gaps *were* the tempo, and the figure is the aggregate pace over the ones that
+  survive. Measured: a restart moves it by 0.08 %, where the global fit moved it by 17 % on the
+  take ADR-0014 was written from.
+- **Phase 4, an observation's `fromBar` is one past where its run begins.** A run of bar paces
+  describes a change over the last n-1 of them: the first bar is the tempo it changed *from*. That
+  is what makes `rallentando({ fromBar: 1, toBar: 3 })` report bars 1 to 3 rather than 0 to 3.
+  Measured over seven seeds: -28 to -30 % against the -30 the perturbation declares.
 - **Phase 1, the ratio assertions are to two decimal places.** `playNotes` rounds to whole
   milliseconds, so a ratio over one ~667 ms gap carries about a part in a thousand of rounding.
 

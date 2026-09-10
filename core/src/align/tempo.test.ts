@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  MAX_TEMPO_OBSERVATIONS,
   MIN_LOCAL_GAPS,
   MIN_TEMPO_SAMPLES,
   type BarredPair,
   type TempoPair,
   deviationMs,
   fitTempo,
+  barPaces,
   localTempo,
   localTempoCurve,
+  steadyTempo,
+  tempoObservations,
 } from './tempo'
 
 /** A piece played perfectly evenly at `qpm`, starting `originMs` in. */
@@ -204,5 +208,102 @@ describe('localTempoCurve', () => {
     const curve = localTempoCurve(played(20, () => 500), [0, 1, 2, 3, 4])
     expect([...curve.keys()]).toEqual([1, 2, 3])
     expect(curve.get(2)?.qpm).toBeCloseTo(120, 6)
+  })
+})
+
+describe('steadyTempo', () => {
+  it('is the tempo of an even take, exactly', () => {
+    expect(steadyTempo(played(20, () => 500))).toBeCloseTo(120, 6)
+    expect(steadyTempo(played(20, () => 1_000))).toBeCloseTo(60, 6)
+  })
+
+  it('is not dragged by the seam a restart leaves behind', () => {
+    // The measurement behind ADR-0014: a take played at about 64 read as 53,
+    // because one line was fitted through a performance and a false start.
+    const even = played(20, () => 500)
+    const jumped = played(20, (gap) => (gap === 11 ? 5_000 : 500))
+    const found = steadyTempo(jumped)
+    if (found === null) throw new Error('there is a tempo in there')
+    expect(found / (steadyTempo(even) as number)).toBeCloseTo(1, 2)
+  })
+
+  it('is not dragged by a passage taken at half speed while it was worked out', () => {
+    const patchy = played(24, (gap) => (gap >= 12 && gap < 16 ? 1_200 : 500))
+    expect(steadyTempo(patchy)).toBeCloseTo(120, 1)
+  })
+
+  it('refuses rather than guessing when there is nothing to measure', () => {
+    expect(steadyTempo([])).toBeNull()
+    expect(steadyTempo(played(1, () => 500))).toBeNull()
+    // Every pair at the same score position: no pace to find.
+    expect(steadyTempo([0, 0, 0].map((onset, i) => ({ bar: 0, onset, t: i * 100 })))).toBeNull()
+  })
+})
+
+describe('barPaces', () => {
+  it('gives each bar the pace it was played at, and skips a bar it cannot', () => {
+    const uneven = played(12, (gap) => (gap >= 4 && gap < 7 ? 250 : 500))
+    expect(barPaces(uneven).get(1)?.msPerQuarter).toBeCloseTo(250, 6)
+    expect(barPaces(uneven).get(0)?.msPerQuarter).toBeCloseTo(500, 6)
+    // One group in a bar says nothing about pace.
+    expect(barPaces(played(3, () => 500, 1)).size).toBe(0)
+  })
+
+  it('says how far the bar reaches past its own first note', () => {
+    // Four notes a quarter apart: their mean distance from the first is two.
+    expect(barPaces(played(12, () => 500)).get(1)?.spread).toBeCloseTo(2, 6)
+  })
+})
+
+describe('tempoObservations', () => {
+  it('says nothing at all about an even take', () => {
+    expect(tempoObservations(barPaces(played(24, () => 500)))).toEqual([])
+  })
+
+  it('names the span a player slowed over, and by how much', () => {
+    // Bar 0 at 500, then 550, 600, 650: the tempo it changed *from* is bar 0,
+    // so the change is over bars 1 to 3.
+    const slowing = played(16, (gap) => 500 + Math.floor(gap / 4) * 50)
+    expect(tempoObservations(barPaces(slowing))).toEqual([
+      { fromBar: 1, toBar: 3, percent: Math.round((500 / 650 - 1) * 100) },
+    ])
+  })
+
+  it('reads a positive percentage when the player pressed on', () => {
+    const pressing = played(16, (gap) => 650 - Math.floor(gap / 4) * 50)
+    const found = tempoObservations(barPaces(pressing))
+    expect(found).toHaveLength(1)
+    expect(found[0]?.percent).toBeGreaterThan(0)
+    expect(found[0]).toMatchObject({ fromBar: 1, toBar: 3 })
+  })
+
+  it('ignores a change too small or too short to be worth a sentence', () => {
+    // One per cent a bar, over four bars: a hand, not a decision.
+    expect(tempoObservations(barPaces(played(16, (gap) => 500 * 1.01 ** Math.floor(gap / 4))))).toEqual(
+      []
+    )
+    // A single step, however large: that is one bar out of time, which is a
+    // bar verdict and not a description of the tempo.
+    expect(tempoObservations(barPaces(played(16, (gap) => (gap < 4 ? 500 : 800))))).toEqual([])
+  })
+
+  it('keeps only the largest few, so a wandering take is not a wall of sentences', () => {
+    // Down, up, down, up across sixteen bars: more runs than are worth saying.
+    const wandering = played(64, (gap) => {
+      const bar = Math.floor(gap / 4)
+      const leg = Math.floor(bar / 4)
+      const step = bar % 4
+      return leg % 2 === 0 ? 500 + step * 80 : 820 - step * 80
+    })
+    const found = tempoObservations(barPaces(wandering))
+    expect(found.length).toBeLessThanOrEqual(MAX_TEMPO_OBSERVATIONS)
+    expect(found.length).toBeGreaterThan(0)
+    // Largest first.
+    found.forEach((observation, index) => {
+      if (index === 0) return
+      expect(Math.abs(observation.percent)).toBeLessThanOrEqual(
+        Math.abs(found[index - 1]?.percent ?? 0)
+      )
+    })
   })
 })

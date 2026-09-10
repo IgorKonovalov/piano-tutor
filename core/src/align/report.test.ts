@@ -829,3 +829,79 @@ describe('a restart is named, not counted as mistakes', () => {
     expect(size(restarted) / size(plain)).toBeLessThan(1.1)
   })
 })
+
+describe('the tempo you kept, and the shape you gave it', () => {
+  /** How far the observation's percentage may sit from the one the take was built with. */
+  const PERCENT_TOLERANCE = 5
+
+  it.each(Object.keys(TIMELINES))(
+    'reports the tempo %s was generated at, within a per cent',
+    (name) => {
+      const { take, report } = run(name)
+      expect(report.fittedTempo).not.toBeNull()
+      expect((report.fittedTempo as number) / take.fittedTempo).toBeCloseTo(1, 2)
+    }
+  )
+
+  it('is not moved by a restart, which is the property the figure exists for', () => {
+    // ADR-0014's measurement: a take played at about 64 read as 53, because
+    // one line was fitted through a performance and a false start together.
+    const plain = run('scale-c-major').report
+    const restarted = run('scale-c-major', {
+      perturbations: [{ kind: 'restartAtBar', bar: 2 }],
+    }).report
+
+    expect(restarted.fittedTempo).not.toBeNull()
+    expect((restarted.fittedTempo as number) / (plain.fittedTempo as number)).toBeCloseTo(1, 2)
+  })
+
+  it('describes a rallentando in a sentence instead of marking it wrong', () => {
+    const perturbation: Perturbation = {
+      kind: 'rallentando',
+      fromBar: 1,
+      toBar: 3,
+      factor: 0.7,
+    }
+    const { take, report } = run('scale-c-major', { perturbations: [perturbation] })
+
+    const declared = take.verdicts[0]
+    if (declared?.kind !== 'tempoChange') throw new Error('the oracle changed shape')
+
+    expect(report.tempoObservations).toHaveLength(1)
+    const observation = report.tempoObservations[0]
+    expect(observation?.fromBar).toBe(declared.bar)
+    expect(observation?.toBar).toBe(declared.toBar)
+    expect(observation?.percent).toBeLessThan(0)
+    expect(Math.abs((observation?.percent ?? 0) - declared.percent)).toBeLessThanOrEqual(
+      PERCENT_TOLERANCE
+    )
+  })
+
+  it('an even take is described as nothing at all', () => {
+    expect(run('scale-c-major').report.tempoObservations).toEqual([])
+    expect(run('pickup-two-hands').report.tempoObservations).toEqual([])
+  })
+
+  it('changes no bar\u2019s state because an observation exists', () => {
+    // An observation is information, never a verdict (ADR-0014). The same take
+    // with and without the tempo moving reads the same, bar for bar.
+    const even = run('scale-c-major').report
+    const slowing = run('scale-c-major', {
+      perturbations: [{ kind: 'rallentando', fromBar: 1, toBar: 3, factor: 0.7 }],
+    }).report
+
+    expect(slowing.tempoObservations).toHaveLength(1)
+    expect(states(slowing)).toEqual(states(even))
+    expect(slowing.counts).toEqual(even.counts)
+  })
+
+  it('says nothing about the tempo when one bar was rushed', () => {
+    // One bar out of time is a bar verdict. Calling it a change of tempo would
+    // be describing a mistake as a decision.
+    const { report } = run('scale-c-major', {
+      perturbations: [{ kind: 'rushBar', bar: 2, fraction: 0.55 }],
+    })
+    expect(report.tempoObservations).toEqual([])
+    expect(report.bars.find((bar) => bar.bar === 2)?.state).toBe('timing')
+  })
+})
