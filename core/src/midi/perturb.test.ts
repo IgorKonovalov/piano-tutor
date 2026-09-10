@@ -287,3 +287,172 @@ describe('perturbations together', () => {
     expect(perturb(scale, options).events).toEqual(perturb(scale, options).events)
   })
 })
+
+
+/** The note-on times a jitter-free take of these onsets must have. */
+function timesFor(onsets: readonly number[]): number[] {
+  const msPerQuarter = 60_000 / DEFAULT_BPM
+  return onsets.map((onset) => Math.round(onset * msPerQuarter))
+}
+
+describe('restartAtBar', () => {
+  const BAR = 2
+
+  /** The order a restart at `BAR` puts the written notes in. */
+  function replayed(): { midi: number; onset: number }[] {
+    const written = timelineNotes(scale)
+    const bar = scale.bars.find((entry) => entry.index === BAR)
+    if (bar === undefined) throw new Error('the fixture has a bar 2')
+    return [
+      ...written.filter((note) => note.bar <= BAR),
+      ...written.filter((note) => note.bar === BAR).map((n) => ({ ...n, onset: n.onset + bar.beats })),
+      ...written.filter((note) => note.bar > BAR).map((n) => ({ ...n, onset: n.onset + bar.beats })),
+    ]
+  }
+
+  it('plays every note of the bar twice and nothing else twice, and says so', () => {
+    const clean = playTimeline(scale, { seed: SEED, jitter: false })
+    const take = perturb(scale, {
+      seed: SEED,
+      jitter: false,
+      perturbations: [{ kind: 'restartAtBar', bar: BAR }],
+    })
+
+    const inBar = timelineNotes(scale).filter((note) => note.bar === BAR)
+    expect(inBar.length).toBeGreaterThan(0)
+    expect(take.verdicts).toEqual([{ kind: 'restart', bar: BAR, notes: inBar.length }])
+
+    // The whole struck sequence, pitch for pitch: the piece as far as the
+    // bar, the bar again, then the rest. Nothing is dropped and nothing
+    // unwritten is added -- a restart is correct notes, played twice.
+    expect(pitches(take.events)).toEqual(replayed().map((note) => note.midi))
+    expect(pitches(take.events)).toHaveLength(pitches(clean).length + inBar.length)
+  })
+
+  it('puts the second copy a whole bar later and pushes everything after it back', () => {
+    const take = perturb(scale, {
+      seed: SEED,
+      jitter: false,
+      perturbations: [{ kind: 'restartAtBar', bar: BAR }],
+    })
+
+    // Times are asserted against the onsets a restart implies rather than
+    // against the clean take plus an offset: rounding to whole milliseconds
+    // happens once, here, instead of twice with a tolerance to cover it.
+    const struck = noteOns(take.events).map((event) => event.t)
+    expect(struck).toEqual(timesFor(replayed().map((note) => note.onset)))
+
+    // The second copy of each pitch is strictly later than the first.
+    const first = timelineNotes(scale).filter((note) => note.bar <= BAR).length
+    const inBar = timelineNotes(scale).filter((note) => note.bar === BAR)
+    const firstOfBar = timelineNotes(scale).findIndex((note) => note.bar === BAR)
+    inBar.forEach((_, index) => {
+      expect(struck[first + index] as number).toBeGreaterThan(struck[firstOfBar + index] as number)
+    })
+  })
+
+  it('leaves the bars before it exactly where a clean take put them', () => {
+    const clean = noteOns(playTimeline(scale, { seed: SEED, jitter: false })).map((e) => e.t)
+    const take = perturb(scale, {
+      seed: SEED,
+      jitter: false,
+      perturbations: [{ kind: 'restartAtBar', bar: BAR }],
+    })
+    const struck = noteOns(take.events).map((event) => event.t)
+    const upTo = timelineNotes(scale).filter((note) => note.bar <= BAR).length
+    expect(struck.slice(0, upTo)).toEqual(clean.slice(0, upTo))
+  })
+
+  it('is byte-identical across two runs at one seed', () => {
+    const options = { seed: SEED, perturbations: [{ kind: 'restartAtBar' as const, bar: 1 }] }
+    expect(perturb(scale, options).events).toEqual(perturb(scale, options).events)
+  })
+
+  it('refuses a bar that is not in the timeline rather than doing nothing', () => {
+    expect(() => perturb(scale, { perturbations: [{ kind: 'restartAtBar', bar: 99 }] })).toThrow(
+      /no bar 99/
+    )
+  })
+})
+
+describe('rallentando', () => {
+  /** `factor` is the tempo at the end, so a gap stretches by its reciprocal. */
+  const FACTOR = 0.7
+
+  function ratios(factor: number): number[] {
+    const clean = gaps(playTimeline(scale, { seed: SEED, jitter: false }))
+    const take = perturb(scale, {
+      seed: SEED,
+      jitter: false,
+      perturbations: [{ kind: 'rallentando', fromBar: 1, toBar: 3, factor }],
+    })
+    const after = gaps(take.events)
+    expect(after).toHaveLength(clean.length)
+    return after.map((gap, index) => gap / (clean[index] as number))
+  }
+
+  it('leaves every gap before the span as written and stretches the last one by 1 / factor', () => {
+    const written = timelineNotes(scale)
+    const found = ratios(FACTOR)
+
+    // Bar 0 runs to onset 4, so the gaps arriving inside it are the ones the
+    // span has not reached. They are the written gaps, to the millisecond.
+    found.forEach((ratio, index) => {
+      if ((written[index + 1]?.bar ?? 0) < 1) expect(ratio).toBeCloseTo(1, 6)
+    })
+
+    // Two decimal places because a take is whole milliseconds: `playNotes`
+    // rounds, so a 667 ms gap carries about a part in a thousand of rounding
+    // and no ratio over one gap can be exact.
+    expect(found[found.length - 1]).toBeCloseTo(1 / FACTOR, 2)
+  })
+
+  it('gets there by degrees rather than in one step', () => {
+    const inside = ratios(FACTOR).filter((ratio) => ratio > 1.001)
+    expect(inside.length).toBeGreaterThan(2)
+    inside.forEach((ratio, index) => {
+      if (index === 0) return
+      expect(ratio).toBeGreaterThan(inside[index - 1] as number)
+    })
+  })
+
+  it('declares a tempo change and no note-level verdict at all', () => {
+    const take = perturb(scale, {
+      seed: SEED,
+      perturbations: [{ kind: 'rallentando', fromBar: 1, toBar: 3, factor: FACTOR }],
+    })
+    expect(take.verdicts).toEqual([{ kind: 'tempoChange', bar: 1, toBar: 3, percent: -30 }])
+    expect(pitches(take.events)).toEqual(pitches(playTimeline(scale, { seed: SEED })))
+  })
+
+  it('presses on as readily as it slows down', () => {
+    const found = ratios(1.25)
+    expect(found[found.length - 1]).toBeCloseTo(1 / 1.25, 2)
+    const take = perturb(scale, {
+      seed: SEED,
+      perturbations: [{ kind: 'rallentando', fromBar: 1, toBar: 3, factor: 1.25 }],
+    })
+    expect(take.verdicts).toEqual([{ kind: 'tempoChange', bar: 1, toBar: 3, percent: 25 }])
+  })
+
+  it('is byte-identical across two runs at one seed', () => {
+    const options = {
+      seed: SEED,
+      perturbations: [{ kind: 'rallentando' as const, fromBar: 1, toBar: 3, factor: FACTOR }],
+    }
+    expect(perturb(scale, options).events).toEqual(perturb(scale, options).events)
+  })
+
+  it('refuses a span that is not in the timeline', () => {
+    expect(() =>
+      perturb(scale, {
+        perturbations: [{ kind: 'rallentando', fromBar: 1, toBar: 99, factor: 0.7 }],
+      })
+    ).toThrow(/no bar 99/)
+    expect(() =>
+      perturb(scale, {
+        perturbations: [{ kind: 'rallentando', fromBar: 3, toBar: 1, factor: 0.7 }],
+      })
+    ).toThrow(/not a span/)
+  })
+})

@@ -64,6 +64,8 @@ describe('listPorts', () => {
       'virtual:score:multi-rest-and-ties',
       'virtual:score:pickup-two-hands-wrong-note',
       'virtual:score:scale-c-major-stopped',
+      'virtual:score:scale-c-major-restart',
+      'virtual:score:scale-c-major-rallentando',
     ])
   })
 
@@ -141,5 +143,54 @@ describe('the score scenarios', () => {
     const uptoBar1 = stopped.timeline.notes.filter((note) => note.bar <= 1).length
     expect(struck).toBe(uptoBar1)
     expect(struck).toBeLessThan(stopped.timeline.notes.length)
+  })
+
+  it('goes back over the bar its label names, and strikes nothing else twice', () => {
+    const restart = SCORE_SCENARIOS.find((s) => s.id === 'virtual:score:scale-c-major-restart')
+    if (restart === undefined) throw new Error('the restart scenario is missing')
+
+    const struck = restart
+      .generate()
+      .filter((event) => event.kind === 'noteOn')
+      .map((event) => (event.kind === 'noteOn' ? event.note : -1))
+    const written = restart.timeline.notes
+    const inBar2 = written.filter((note) => note.bar === 2)
+    expect(inBar2.length).toBeGreaterThan(0)
+    expect(struck).toHaveLength(written.length + inBar2.length)
+
+    for (const note of written) {
+      const wanted = written.filter((other) => other.midi === note.midi).length
+      expect(struck.filter((midi) => midi === note.midi)).toHaveLength(
+        note.bar === 2 ? wanted + 1 : wanted
+      )
+    }
+  })
+
+  it('slows across the bars its label names, and plays every note as written', () => {
+    const slowing = SCORE_SCENARIOS.find(
+      (s) => s.id === 'virtual:score:scale-c-major-rallentando'
+    )
+    const clean = SCORE_SCENARIOS.find((s) => s.id === 'virtual:score:scale-c-major')
+    if (slowing === undefined || clean === undefined) throw new Error('a scale scenario is missing')
+
+    const onsets = (scenario: typeof clean) =>
+      scenario
+        .generate()
+        .filter((event) => event.kind === 'noteOn')
+        .map((event) => event.t)
+
+    const before = onsets(clean)
+    const after = onsets(slowing)
+    expect(after).toHaveLength(before.length)
+
+    // Not one note moved in pitch, and the take runs longer than the even one
+    // because the gaps grew: a rallentando is a correct performance.
+    expect(
+      slowing
+        .generate()
+        .filter((event) => event.kind === 'noteOn')
+        .map((event) => (event.kind === 'noteOn' ? event.note : -1))
+    ).toEqual(slowing.timeline.notes.map((note) => note.midi))
+    expect(after[after.length - 1] as number).toBeGreaterThan(before[before.length - 1] as number)
   })
 })

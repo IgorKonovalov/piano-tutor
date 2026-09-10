@@ -158,6 +158,28 @@ const SCORE_SCENARIO_LABELS: readonly ScoreScenarioLabel[] = [
     seed: 0x5ca1,
     perturbations: [{ kind: 'stopAfterBar', bar: 1 }],
   },
+  /**
+   * The two takes ADR-0014 was written from. The scale fixture is the one
+   * worth timing: a note on every quarter across four bars, where the other
+   * fixtures put a single chord in each bar and have nothing to be uneven
+   * about.
+   */
+  {
+    slug: 'scale-c-major',
+    suffix: 'restart',
+    name: 'Score: C major scale, going back over bar 2',
+    description: 'A false start: bar 2 is played, played again, and the piece carries on',
+    seed: 0x5ca1,
+    perturbations: [{ kind: 'restartAtBar', bar: 2 }],
+  },
+  {
+    slug: 'scale-c-major',
+    suffix: 'rallentando',
+    name: 'Score: C major scale, slowing to the end',
+    description: 'Every note correct, the tempo falling to 70% across bars 1 to 3',
+    seed: 0x5ca1,
+    perturbations: [{ kind: 'rallentando', fromBar: 1, toBar: 3, factor: 0.7 }],
+  },
 ]
 
 export interface ScoreScenario extends VirtualScenario {

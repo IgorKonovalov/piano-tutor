@@ -1,6 +1,6 @@
 # 0008 — The timing model
 
-> **Status:** approved
+> **Status:** in-progress
 > **Created:** 2026-09-10
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0014](../adrs/0014-timing-is-judged-against-a-local-tempo-not-one-line-through-the-take.md)
@@ -345,11 +345,11 @@ interface PracticeReportAdditions {
 > last one. **The phases above are the contract; everything here is what happened.** Observations,
 > never conclusions. A deviation from the plan or an unmet done-when is always disclosed.
 
-**Lane:** _(dev records `main` or the worktree with the first phase commit)_
+**Lane:** `main`, alone in flight.
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — The generator restarts, and slows down | dev | | |
+| 1 — The generator restarts, and slows down | dev | done | committed with this row |
 | 2 — A bar is judged against its neighbours | dev | | |
 | 3 — A restart is named, not counted as mistakes | dev | | |
 | 4 — The tempo you kept, and the shape you gave it | dev | | |
@@ -359,6 +359,22 @@ interface PracticeReportAdditions {
 ### Measurements
 
 ### Notes
+
+- **Phase 1, `rallentando`'s `factor`.** The phase block reads "the final gap is `factor` times
+  the written one"; Phase 4's done-when reads `factor: 0.7` against a percentage of 30, which only
+  holds if `factor` is the tempo at the end rather than the gap. Asked at the start of the session;
+  the answer was **tempo**. So `rallentando({ factor: 0.7 })` ends at 70 % of the written tempo and
+  the last gap is `1 / 0.7` times the written one. Phase 1's done-when is met with that reciprocal,
+  which is the one deviation from a phase block's wording in this phase.
+- **Phase 1, the gap ramp is discrete.** The stretch runs in equal steps over the onsets actually
+  struck rather than continuously over the quarter-note axis, so the last gap inside the span is
+  exactly `1 / factor` and the test needs no tolerance for it. A continuous ramp would give that
+  gap the ramp's *mean* over the interval, a number no reader could predict.
+- **Phase 1, both new ports are on `scale-c-major`.** It is the only fixture with a note on every
+  quarter across four bars; the others put a single chord in each bar and have nothing to be uneven
+  about. Port ids: `virtual:score:scale-c-major-restart`, `virtual:score:scale-c-major-rallentando`.
+- **Phase 1, the ratio assertions are to two decimal places.** `playNotes` rounds to whole
+  milliseconds, so a ratio over one ~667 ms gap carries about a part in a thousand of rounding.
 
 ### Close triggers
 
