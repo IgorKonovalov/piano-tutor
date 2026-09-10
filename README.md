@@ -108,6 +108,17 @@ Bars are indexed the way the file was parsed, starting at zero, which is not alw
 printed on the page -- an anacrusis is bar 0. The bar field above the score marks one, and
 clicking a bar marks it too.
 
+Ten well-known pieces can be fetched to practise against, into a gitignored `scores-local/`:
+
+```
+node scripts/fetch-scores.mjs --list   # what the subset is
+node scripts/fetch-scores.mjs          # fetch anything missing
+```
+
+They are **never committed**. The source repository states no licence and the arrangements are
+community uploads; the compositions chosen are public domain, but redistributing somebody's
+arrangement is not this repository's to do. Import them with *Add a score...* like any other file.
+
 **A MIDI file is a second-class score**
 ([ADR-0003](docs/adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md)).
 It carries no notation, so there is nothing to engrave: the view shows a bar grid instead of a

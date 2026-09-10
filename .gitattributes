@@ -6,8 +6,10 @@
 .githooks/* text eol=lf
 *.sh text eol=lf
 
-# Binary fixtures never get touched.
+# Binary fixtures never get touched. A .mxl is a zip: line-ending translation
+# would corrupt it, and the content-addressed score id with it.
 *.mid binary
+*.mxl binary
 *.png binary
 *.ico binary
 *.woff2 binary

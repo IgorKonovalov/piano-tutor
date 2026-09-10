@@ -89,3 +89,37 @@ writeFileSync('core/fixtures/scores/scale-c-major.mid', Buffer.from(midi.toArray
 ```
 
 `.gitattributes` marks `*.mid` binary, so it is committed byte for byte.
+
+## The compressed fixture
+
+`core/fixtures/scores/pickup-two-hands.mxl` is `pickup-two-hands.musicxml`, zipped: the same
+music, different bytes, and therefore a different score id. It exists because `.mxl` was accepted
+by the app for a whole plan without one line of evidence that it worked.
+
+**It can only be tested end to end.** A `.mxl` is a zip that OSMD unpacks with JSZip, and JSZip
+cannot read a jsdom `Blob` -- it reports a valid file as a corrupt zip. So the headless comparison
+that covers every other fixture is blind to this one, and
+`e2e/score.spec.ts` is the only place the compressed path runs. Do not "fix" that by adding a
+jsdom case; it will fail on a good file.
+
+Rebuild it deterministically (a fixed timestamp, so the bytes and the id do not move):
+
+```python
+import zipfile
+CONTAINER = '<?xml version="1.0" encoding="UTF-8"?><container><rootfiles>'   '<rootfile full-path="score.xml" media-type="application/vnd.recordare.musicxml+xml"/>'   '</rootfiles></container>'
+score = open('core/fixtures/scores/pickup-two-hands.musicxml', 'rb').read()
+with zipfile.ZipFile('core/fixtures/scores/pickup-two-hands.mxl', 'w', zipfile.ZIP_DEFLATED) as z:
+    for name, data in (('META-INF/container.xml', CONTAINER.encode()), ('score.xml', score)):
+        info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+        info.compress_type = zipfile.ZIP_DEFLATED
+        z.writestr(info, data)
+```
+
+`.gitattributes` marks `*.mxl` binary, so line-ending translation cannot corrupt the zip.
+
+## Real repertoire
+
+`scripts/fetch-scores.mjs` downloads ten public-domain pieces into `scores-local/`, which is
+gitignored. Nothing it fetches is ever committed, and it is not a gate: it reaches the network, so
+it never runs at pre-push or at a plan close. The reasoning is in the script's own header and in
+Plan 0002's **Real-score corpora** section.

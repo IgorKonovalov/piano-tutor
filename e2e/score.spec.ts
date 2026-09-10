@@ -306,3 +306,46 @@ test('a MIDI file imports as a score with a bar list instead of an engraving', a
 
   expect(launched.networkRequests).toEqual([])
 })
+
+test('a compressed .mxl reads as the same music as the .musicxml inside it', async () => {
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView()
+
+  /**
+   * The only automated check the compressed path has, and it can only live
+   * here. A `.mxl` is a zip that OSMD unpacks with JSZip, and JSZip cannot read
+   * a jsdom `Blob` -- so the jsdom test that covers the adapter for every other
+   * fixture is blind to this one, and reports a valid file as a corrupt zip.
+   * Chromium's `Blob` is fine, which is what makes the end-to-end run the only
+   * place the claim "we read .mxl" can be tested at all.
+   *
+   * `pickup-two-hands.mxl` is the committed `pickup-two-hands.musicxml`, zipped:
+   * same music, different bytes, therefore a different score id. So the two must
+   * produce timelines that differ in exactly one field.
+   */
+  await importAndDraw('pickup-two-hands.musicxml')
+  const plain = JSON.parse(
+    (await page.getByTestId('timeline-json').textContent()) as string
+  ) as { scoreId: string; notes: unknown[]; bars: unknown[] }
+
+  const zippedId = await importAndDraw('pickup-two-hands.mxl')
+  await expect(page.getByTestId('osmd-host').locator('svg')).toBeVisible()
+  await expect(page.getByTestId('bar-count')).toHaveAttribute('data-bars', '4')
+
+  const zipped = JSON.parse(
+    (await page.getByTestId('timeline-json').textContent()) as string
+  ) as { scoreId: string; notes: unknown[]; bars: unknown[] }
+
+  expect(zipped.notes).toEqual(plain.notes)
+  expect(zipped.bars).toEqual(plain.bars)
+  expect(zipped.scoreId).toBe(zippedId)
+  expect(zipped.scoreId).not.toBe(plain.scoreId)
+
+  // It is its own library entry, and it says what it came from.
+  const row = page.locator(`[data-testid="score-row"][data-score-id="${zippedId}"]`)
+  await expect(row).toHaveCount(1)
+  await expect(row).toContainText('pickup-two-hands.mxl')
+
+  expect(launched.networkRequests).toEqual([])
+})
