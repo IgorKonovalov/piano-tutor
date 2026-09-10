@@ -1,7 +1,14 @@
 import { expect, test } from '@playwright/test'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type LaunchedApp, launchApp, repoRoot, waitForPortsView } from './harness'
+import {
+  type LaunchedApp,
+  launchApp,
+  openScenario,
+  repoRoot,
+  waitForEvents,
+  waitForPortsView,
+} from './harness'
 
 /**
  * The score library and the engraved score, driven with nothing plugged in.
@@ -246,6 +253,33 @@ test('the committed timelines still match what the app extracts', async () => {
     stale,
     'the app now extracts a different timeline for these scores; read the diff before regenerating'
   ).toEqual([])
+
+  expect(launched.networkRequests).toEqual([])
+})
+
+test('a written piece plays itself into a take, through the ports view', async () => {
+  launched = await launchApp()
+  const { page } = launched
+  await waitForPortsView(page)
+
+  // The whole loop with nothing plugged in (ADR-0004): the app plays a score
+  // it holds a timeline for, through the same parse, record and paint path a
+  // player's CK88 feeds, and a take exists at the end of it to be aligned.
+  await openScenario(page, 'virtual:score:pickup-two-hands')
+  const received = await waitForEvents(page, 38)
+  await page.getByRole('button', { name: 'Close port' }).click()
+
+  await page.getByTestId('nav-takes').click()
+  const row = page.getByTestId('take-row').first()
+  await expect(row).toContainText('virtual:score:pickup-two-hands')
+  await expect(row).toContainText('Generated')
+
+  const takeId = await row.getAttribute('data-take-id')
+  const onDisk = await page.evaluate(
+    async (id) => (await window.api.take.load(id as string)).events.length,
+    takeId
+  )
+  expect(onDisk).toBe(received)
 
   expect(launched.networkRequests).toEqual([])
 })

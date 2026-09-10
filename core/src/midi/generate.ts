@@ -1,4 +1,6 @@
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
+import type { ExpectedTimeline } from '../../../shared/score'
+import { scoredNotes } from '../score/timeline'
 import { makeRng } from './rng'
 
 /**
@@ -173,4 +175,100 @@ export const SCENARIOS: readonly Scenario[] = [
 
 export function findScenarioById(id: string): Scenario | undefined {
   return SCENARIOS.find((scenario) => scenario.id === id)
+}
+
+/**
+ * Playing a written piece rather than a passage: the same seeded, pure
+ * generation, taking its notes from an `ExpectedTimeline` instead of from a
+ * hand-written figure. This is what lets a score be practised by the app
+ * itself, so alignment has something to align with nothing plugged in.
+ */
+
+/** A note as it is about to be played: absolute, in quarter notes. */
+export interface PlayedNote {
+  midi: number
+  onset: number
+  duration: number
+  /** Carried through only so a test can say which bar an event came from. */
+  bar: number
+}
+
+export interface PlayOptions {
+  /** Quarter notes per minute the passage is played at. */
+  bpm?: number
+  seed?: number
+  /**
+   * Human-ish imperfection, on by default. Off makes every inter-onset gap an
+   * exact multiple of the beat, which is what a ratio assertion needs.
+   */
+  jitter?: boolean
+  /**
+   * Multiplies every time. 0.8 plays the whole piece a quarter faster; the
+   * tempo an aligner fits is then `bpm / factor`. It is a property of the
+   * performance, not of the notes, so it lives here and not in a perturbation
+   * to the note list.
+   */
+  tempoScale?: number
+}
+
+export const DEFAULT_BPM = 90
+export const DEFAULT_PLAY_SEED = 0x5c04e
+
+/**
+ * The bound on how far a played onset strays from the written one. It is well
+ * under the 50 ms window onset grouping uses, so a chord still groups, and far
+ * under any threshold that could call a bar late: a clean take has to score
+ * clean or every test built on one is measuring the jitter instead.
+ */
+export const ONSET_JITTER_MS = 12
+export const VELOCITY_JITTER = 10
+export const BASE_VELOCITY = 76
+
+/** Keys come up before the next note, so a held chord is not a legato blur. */
+const RELEASE_GAP_MS = 40
+const MIN_HELD_MS = 40
+
+function byOnset(a: PlayedNote, b: PlayedNote): number {
+  return a.onset - b.onset || a.midi - b.midi
+}
+
+/**
+ * Deterministic from the seed, including the jitter: the notes are sorted
+ * before anything is drawn from the generator, so the same input produces the
+ * same milliseconds every time on every machine.
+ */
+export function playNotes(notes: readonly PlayedNote[], options: PlayOptions = {}): MidiEvent[] {
+  const bpm = options.bpm ?? DEFAULT_BPM
+  const scale = options.tempoScale ?? 1
+  const msPerQuarter = (60_000 / bpm) * scale
+  const rng = makeRng(options.seed ?? DEFAULT_PLAY_SEED)
+  const wobbly = options.jitter !== false
+
+  const events: MidiEvent[] = []
+  for (const note of [...notes].sort(byOnset)) {
+    const drift = wobbly ? (rng.next() * 2 - 1) * ONSET_JITTER_MS : 0
+    const t = Math.max(0, Math.round(note.onset * msPerQuarter + drift))
+    const velocity = wobbly
+      ? humanVelocity(BASE_VELOCITY, VELOCITY_JITTER, rng.next())
+      : BASE_VELOCITY
+    const held = Math.max(MIN_HELD_MS, Math.round(note.duration * msPerQuarter) - RELEASE_GAP_MS)
+    events.push(noteOn(t, note.midi, velocity))
+    events.push(noteOff(t + held, note.midi))
+  }
+  return byTime(events)
+}
+
+/** Every note the score expects to be struck; grace notes are not scored. */
+export function timelineNotes(timeline: ExpectedTimeline): PlayedNote[] {
+  return scoredNotes(timeline).map((note) => ({
+    midi: note.midi,
+    onset: note.onset,
+    duration: note.duration,
+    bar: note.bar,
+  }))
+}
+
+/** The piece, played correctly. `perturb.ts` is how it is played wrongly. */
+export function playTimeline(timeline: ExpectedTimeline, options: PlayOptions = {}): MidiEvent[] {
+  return playNotes(timelineNotes(timeline), options)
 }

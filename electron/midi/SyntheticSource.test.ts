@@ -62,7 +62,8 @@ describe('opening a scenario', () => {
   })
 
   it('lists exactly the virtual ports the gate allows', async () => {
-    expect(await new SyntheticSource(gate).listPorts()).toHaveLength(4)
+    // Four hand-written passages and six written pieces (plan 0002 phase 3).
+    expect(await new SyntheticSource(gate).listPorts()).toHaveLength(10)
     expect(await new SyntheticSource({ isPackaged: true, env: {} }).listPorts()).toEqual([])
   })
 })

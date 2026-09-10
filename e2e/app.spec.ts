@@ -41,12 +41,19 @@ test('the ports view lists the harness with nothing attached', async () => {
 
   await expect(page.getByTestId('port-group-hardware')).toBeVisible()
   const virtualRows = page.getByTestId('port-group-virtual').getByTestId('port-row')
-  await expect(virtualRows).toHaveCount(4)
+  // Four hand-written passages, plus the six written pieces of plan 0002
+  // phase 3. The count is exact on purpose: a port that quietly stops being
+  // enumerated is the failure this is watching for.
+  await expect(virtualRows).toHaveCount(10)
   for (const id of [
     'virtual:c-major-scale',
     'virtual:ii-V-I-in-F',
     'virtual:a-minor-arpeggios',
     'virtual:dense-2000',
+    'virtual:score:scale-c-major',
+    'virtual:score:pickup-two-hands',
+    'virtual:score:pickup-two-hands-wrong-note',
+    'virtual:score:scale-c-major-stopped',
   ]) {
     await expect(page.locator(`[data-port-id="${id}"]`)).toBeVisible()
   }
@@ -155,6 +162,8 @@ test('shutting the harness gate leaves the suite with no port to open', async ()
     'virtual:ii-V-I-in-F',
     'virtual:a-minor-arpeggios',
     'virtual:dense-2000',
+    'virtual:score:scale-c-major',
+    'virtual:score:pickup-two-hands-wrong-note',
   ]) {
     await expect(page.locator(`[data-port-id="${id}"]`)).toHaveCount(0)
   }

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { SCENARIOS, findScenarioById } from './generate'
+import {
+  BASE_VELOCITY,
+  DEFAULT_BPM,
+  ONSET_JITTER_MS,
+  type PlayedNote,
+  SCENARIOS,
+  findScenarioById,
+  playNotes,
+} from './generate'
 import { makeRng } from './rng'
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
 
@@ -148,5 +156,86 @@ describe('virtual:dense-2000', () => {
     }
     const burstSeconds = [...perSecond.values()].filter((count) => count >= 200)
     expect(burstSeconds).toHaveLength(4)
+  })
+})
+
+
+describe('playNotes', () => {
+  // Two bars of two quarters, so a gap is one beat and a bar is two.
+  const NOTES: PlayedNote[] = [
+    { midi: 60, onset: 0, duration: 1, bar: 0 },
+    { midi: 64, onset: 1, duration: 1, bar: 0 },
+    { midi: 67, onset: 2, duration: 1, bar: 1 },
+    { midi: 72, onset: 3, duration: 1, bar: 1 },
+  ]
+  const msPerQuarter = 60_000 / DEFAULT_BPM
+
+  it('puts a note-on exactly on the beat when the jitter is off', () => {
+    const events = playNotes(NOTES, { jitter: false })
+    const onsets = events.filter((e) => e.kind === 'noteOn').map((e) => e.t)
+    expect(onsets).toEqual(NOTES.map((note) => Math.round(note.onset * msPerQuarter)))
+  })
+
+  it('holds the velocity steady when the jitter is off', () => {
+    const events = playNotes(NOTES, { jitter: false })
+    for (const event of events) {
+      if (event.kind === 'noteOn') expect(event.velocity).toBe(BASE_VELOCITY)
+    }
+  })
+
+  it('stays inside the stated jitter bound when it is on', () => {
+    for (const seed of [1, 2, 3, 99, 12345]) {
+      const events = playNotes(NOTES, { seed })
+      const onsets = events.filter((e) => e.kind === 'noteOn').map((e) => e.t)
+      onsets.forEach((t, index) => {
+        const written = (NOTES[index]?.onset ?? 0) * msPerQuarter
+        expect(Math.abs(t - written)).toBeLessThanOrEqual(ONSET_JITTER_MS + 1)
+      })
+    }
+  })
+
+  it('is a function of its seed and nothing else', () => {
+    expect(playNotes(NOTES, { seed: 7 })).toEqual(playNotes(NOTES, { seed: 7 }))
+    expect(playNotes(NOTES, { seed: 7 })).not.toEqual(playNotes(NOTES, { seed: 8 }))
+  })
+
+  it('does not depend on the order the notes arrive in', () => {
+    const shuffled = [NOTES[3], NOTES[1], NOTES[0], NOTES[2]] as PlayedNote[]
+    expect(playNotes(shuffled, { seed: 7 })).toEqual(playNotes(NOTES, { seed: 7 }))
+  })
+
+  it('scales every time by the tempo factor, and the pitches not at all', () => {
+    const normal = playNotes(NOTES, { jitter: false })
+    const faster = playNotes(NOTES, { jitter: false, tempoScale: 0.5 })
+    const onsets = (events: typeof normal) =>
+      events.filter((e) => e.kind === 'noteOn').map((e) => e.t)
+    const pitches = (events: typeof normal) =>
+      events.filter((e) => e.kind === 'noteOn').map((e) => (e.kind === 'noteOn' ? e.note : -1))
+
+    expect(pitches(faster)).toEqual(pitches(normal))
+    // Within a millisecond: onsets are rounded to whole milliseconds, so half
+    // of an odd number is off by exactly that and no more.
+    onsets(faster).forEach((t, index) => {
+      expect(Math.abs(t - (onsets(normal)[index] as number) / 2)).toBeLessThanOrEqual(1)
+    })
+  })
+
+  it('releases every key it presses, and never before it presses it', () => {
+    const events = playNotes(NOTES, { seed: 5 })
+    const held = new Map<number, number>()
+    for (const event of events) {
+      if (event.kind === 'noteOn') {
+        expect(held.has(event.note)).toBe(false)
+        held.set(event.note, event.t)
+      } else if (event.kind === 'noteOff') {
+        expect(held.get(event.note)).toBeLessThan(event.t)
+        held.delete(event.note)
+      }
+    }
+    expect(held.size).toBe(0)
+  })
+
+  it('emits nothing for nothing', () => {
+    expect(playNotes([], { seed: 1 })).toEqual([])
   })
 })

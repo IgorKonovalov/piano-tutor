@@ -1,9 +1,8 @@
 import type { MidiPort } from '../../shared/midi'
 import { MidiPortUnavailable, type MidiSource } from './MidiSource'
 import { toBytes } from './parse'
-import { findScenarioById } from '../../core/src/midi/generate'
 import { type Clock, TimedByteSource, systemClock } from './timedSource'
-import { listVirtualPorts, type HarnessGate } from './virtualPorts'
+import { findScenario, listVirtualPorts, type HarnessGate } from './virtualPorts'
 
 export { type Clock, systemClock }
 
@@ -32,7 +31,7 @@ export class SyntheticSource extends TimedByteSource implements MidiSource {
   }
 
   async open(portId: string): Promise<void> {
-    const scenario = findScenarioById(portId)
+    const scenario = findScenario(portId)
     if (scenario === undefined) {
       throw new MidiPortUnavailable(portId, `No generated scenario is named ${portId}`)
     }

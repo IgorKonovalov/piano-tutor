@@ -463,8 +463,8 @@ type PracticeReport = {
 | phase | owner | state | commit |
 |---|---|---|---|
 | 1 — A score appears on screen | dev | done | 4f5c45d |
-| 2 — The expected notes come off the score | dev | done | committed with this row |
-| 3 — The app plays the score, badly on purpose | dev | not started | |
+| 2 — The expected notes come off the score | dev | done | 46a6b3e |
+| 3 — The app plays the score, badly on purpose | dev | done | committed with this row |
 | 4 — A take aligns to a score | dev | not started | |
 | 5 — The score colours and the numbers show | dev | not started | |
 | 6 — A MIDI file is a second-class score | dev | not started | |
@@ -476,13 +476,14 @@ type PracticeReport = {
   `_` (_ bars), on _ (machine).
 - **Score load and extraction (Phase 5):** _ ms for the largest fixture score.
 - **NFR 11 (Phase 5):** frame delta unchanged from Plan 0001 with the Score view mounted? _
-- **NFR 11 (Phase 2 full-gate run, reported not claimed):** frames p50 1, p95 1, max 1 over 500
-  note-ons -- unchanged from Plan 0001. The millisecond figures in the same run read p50 452,
-  p95 952, max 1006 against Plan 0001's p50 3.2 / p95 6.1, on a machine that was compiling at the
-  time. Frames and milliseconds disagreeing by two orders of magnitude means the figure is timer
-  lag in `SyntheticSource`'s playback, not paint lag: the event's `t` is its scheduled time, so a
-  late timer is charged to the app. Worth knowing before the harness's ms column is read as a
-  latency.
+- **NFR 11 (reported not claimed, across this plan's gate runs):** frames p50 1, p95 1, max 1 over
+  500 note-ons in every run -- unchanged from Plan 0001. The millisecond column moved a great
+  deal between runs on the same machine: p50 3.2 / p95 6.0 (phase 1), p50 452 / p95 952 (phase 2,
+  while a build was running), p50 3.1 / p95 5.8 (phase 3). Frames and milliseconds disagreeing by
+  two orders of magnitude in the middle run means that figure is timer lag in `SyntheticSource`'s
+  playback rather than paint lag: an event's `t` is its scheduled time, so a late timer on a busy
+  machine is charged to the app. The frame column is the one that held steady, which is what
+  NFR 11 asserts.
 
 ### Notes
 
@@ -508,6 +509,22 @@ type PracticeReport = {
   the OSMD instance, so extraction happens there and rides out on `onLoaded`;
   `renderer/views/Score.module.css` styles the panel added to `Score.tsx`, which is in the list;
   `renderer/score/timelineFromOsmd.test.ts` is new, see the row below.
+- Phase 3: adding the `virtual:score:*` family changes what the port list contains, so three
+  files outside the phase's list were edited to keep saying something true rather than to go
+  green: `electron/midi/virtualPorts.test.ts` and `electron/midi/SyntheticSource.test.ts` (Plan
+  0001's, which enumerate the ports by id and by count) and `e2e/app.spec.ts` (same, plus the
+  gate-shut case). All three keep an exact count.
+- Phase 3: `electron/midi/virtualPorts.ts` imports the four committed `*.timeline.json` files
+  from `core/fixtures/`, so main can play a written piece without the library and without
+  parsing MusicXML. That puts about 10 kB of fixture into the main bundle unconditionally,
+  reachable only behind the harness gate.
+- Phase 3: the ports are `virtual:score:<slug>`, not `virtual:score:<hash>`. A port id is read by
+  a person and cited in a done-when; Phase 5's own done-when names
+  `virtual:score:pickup-two-hands`, so the slug is the form the plan already assumes.
+- Phase 3: `rushBar` compresses the bar and lets the bars after it resume at their written times
+  -- the player hurried and then waited -- so exactly one bar deviates. A bar whose notes all
+  fall on one onset cannot be rushed and shows nothing; `pickup-two-hands` bars 1 and 2 are like
+  that, and a rush test has to pick a bar with more than one onset in it.
 - Phase 2 deviation: the phase says the adapter has no unit test because it needs a DOM. OSMD's
   **parse** runs under jsdom (its layout does not, and a timeline comes from the parsed model,
   never the drawn one), so `renderer/score/timelineFromOsmd.test.ts` runs the same comparison at

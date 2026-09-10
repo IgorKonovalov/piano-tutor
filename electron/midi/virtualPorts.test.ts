@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { RtMidiSource } from './RtMidiSource'
-import { VIRTUAL_SCENARIOS, listVirtualPorts, virtualPortsEnabled } from './virtualPorts'
+import {
+  SCORE_SCENARIOS,
+  allVirtualScenarios,
+  findScenario,
+  listVirtualPorts,
+  virtualPortsEnabled,
+} from './virtualPorts'
 
 const packagedWithoutHarness = { isPackaged: true, env: {} }
 const packagedWithHarness = { isPackaged: true, env: { PT_HARNESS: '1' } }
@@ -52,12 +58,18 @@ describe('listPorts', () => {
       'virtual:ii-V-I-in-F',
       'virtual:a-minor-arpeggios',
       'virtual:dense-2000',
+      'virtual:score:scale-c-major',
+      'virtual:score:pickup-two-hands',
+      'virtual:score:key-and-time-change',
+      'virtual:score:multi-rest-and-ties',
+      'virtual:score:pickup-two-hands-wrong-note',
+      'virtual:score:scale-c-major-stopped',
     ])
   })
 
   it('returns every scenario when PT_HARNESS opens the gate on a packaged build', async () => {
     const ports = await new RtMidiSource(packagedWithHarness).listPorts()
-    expect(ports.filter((p) => p.kind === 'virtual')).toHaveLength(VIRTUAL_SCENARIOS.length)
+    expect(ports.filter((p) => p.kind === 'virtual')).toHaveLength(allVirtualScenarios().length)
   })
 
   it('lists hardware ports ahead of the virtual group', async () => {
@@ -65,5 +77,69 @@ describe('listPorts', () => {
     const firstVirtual = ports.findIndex((p) => p.kind === 'virtual')
     expect(firstVirtual).toBeGreaterThanOrEqual(0)
     expect(ports.slice(firstVirtual).every((p) => p.kind === 'virtual')).toBe(true)
+  })
+})
+
+describe('the score scenarios', () => {
+  it('names every port after the fixture it plays, and every id is unique', () => {
+    const ids = allVirtualScenarios().map((scenario) => scenario.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const scenario of SCORE_SCENARIOS) {
+      expect(scenario.id.startsWith(`virtual:score:${scenario.slug}`)).toBe(true)
+      expect(findScenario(scenario.id)).toBe(scenario)
+    }
+  })
+
+  it('resolves both families through one lookup', () => {
+    expect(findScenario('virtual:c-major-scale')?.id).toBe('virtual:c-major-scale')
+    expect(findScenario('virtual:score:scale-c-major')?.id).toBe('virtual:score:scale-c-major')
+    expect(findScenario('virtual:nothing-like-this')).toBeUndefined()
+  })
+
+  it('plays the notes the committed timeline holds, in order', () => {
+    const scenario = SCORE_SCENARIOS.find((s) => s.id === 'virtual:score:scale-c-major')
+    if (scenario === undefined) throw new Error('the clean scale scenario is missing')
+
+    const played = scenario
+      .generate()
+      .filter((event) => event.kind === 'noteOn')
+      .map((event) => (event.kind === 'noteOn' ? event.note : -1))
+    expect(played).toEqual(scenario.timeline.notes.map((note) => note.midi))
+  })
+
+  it('is the same passage every time it is opened', () => {
+    for (const scenario of SCORE_SCENARIOS) {
+      expect(scenario.generate()).toEqual(scenario.generate())
+      expect(scenario.generate().length).toBeGreaterThan(0)
+    }
+  })
+
+  it('plays a deliberately wrong note where its label says it does', () => {
+    const clean = SCORE_SCENARIOS.find((s) => s.id === 'virtual:score:pickup-two-hands')
+    const wrong = SCORE_SCENARIOS.find(
+      (s) => s.id === 'virtual:score:pickup-two-hands-wrong-note'
+    )
+    if (clean === undefined || wrong === undefined) throw new Error('a pickup scenario is missing')
+
+    const pitchesOf = (scenario: typeof clean) =>
+      scenario
+        .generate()
+        .filter((event) => event.kind === 'noteOn')
+        .map((event) => (event.kind === 'noteOn' ? event.note : -1))
+
+    const before = pitchesOf(clean)
+    const after = pitchesOf(wrong)
+    expect(after).toHaveLength(before.length)
+    expect(after.filter((midi, index) => midi !== before[index])).toHaveLength(1)
+  })
+
+  it('stops where its label says it stops', () => {
+    const stopped = SCORE_SCENARIOS.find((s) => s.id === 'virtual:score:scale-c-major-stopped')
+    if (stopped === undefined) throw new Error('the stopped scenario is missing')
+
+    const struck = stopped.generate().filter((event) => event.kind === 'noteOn').length
+    const uptoBar1 = stopped.timeline.notes.filter((note) => note.bar <= 1).length
+    expect(struck).toBe(uptoBar1)
+    expect(struck).toBeLessThan(stopped.timeline.notes.length)
   })
 })
