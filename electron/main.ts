@@ -56,7 +56,7 @@ void app.whenReady().then(() => {
   registerTakeHandlers({ pipeline, takesDirectory: takesDir })
   registerScoreHandlers({ getWindow: () => mainWindow, scoresDirectory: scoresDir })
 
-  const paths = getRendererPaths()
+  const paths = getRendererPaths(rendererUrl !== undefined)
   mainWindow = createWindow({ ...paths, rendererUrl })
   mainWindow.on('closed', () => {
     mainWindow = null

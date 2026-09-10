@@ -14,6 +14,13 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self' http://localhost:5173 ws://localhost:5173; script-src 'self' 'unsafe-inline' http://localhost:5173; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
+    <!--
+      Served from renderer/public, so the name survives the build unhashed and
+      main can point the window at icon.png beside it. Vite rewrites the
+      leading slash to the relative `base`, which is what packaged file:// URLs
+      need.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>piano-tutor</title>
   </head>
   <body>

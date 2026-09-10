@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="piano keys">
+  <!--
+    Four white keys with three black keys over the gaps, and the same geometry
+    as icon.png beside it. Not an octave: at 16px a C-to-B span is seven
+    slivers, so the mark trades the real key widths for one that still reads as
+    a keyboard in a tab strip. Colours are the tokens from renderer/styles.css.
+  -->
+  <rect width="32" height="32" rx="6" fill="#14161a" />
+  <rect x="3" y="5" width="26" height="22" rx="1.5" fill="#e6e9ef" />
+  <g fill="#0f1114">
+    <path d="M8 5h3v12.3a1.3 1.3 0 0 1-1.3 1.3h-0.4a1.3 1.3 0 0 1-1.3-1.3Z" />
+    <path d="M14.5 5h3v12.3a1.3 1.3 0 0 1-1.3 1.3h-0.4a1.3 1.3 0 0 1-1.3-1.3Z" />
+    <path d="M21 5h3v12.3a1.3 1.3 0 0 1-1.3 1.3h-0.4a1.3 1.3 0 0 1-1.3-1.3Z" />
+    <rect x="9.15" y="18.6" width="0.7" height="8.4" />
+    <rect x="15.65" y="18.6" width="0.7" height="8.4" />
+    <rect x="22.15" y="18.6" width="0.7" height="8.4" />
+  </g>
+</svg>

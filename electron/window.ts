@@ -56,18 +56,28 @@ export function installCsp(viteServing: boolean): void {
 export interface RendererPaths {
   preloadPath: string
   rendererFile: string
+  iconFile: string
 }
 
 /**
  * `app.getAppPath()` is the directory holding the manifest whose `main` field
  * loaded us: the repository root in dev, the asar root packaged. Both put the
  * three bundles under `dist/`, so one expression serves both.
+ *
+ * The icon is the exception, and takes the same "is Vite serving" flag the CSP
+ * does. It is one file -- `renderer/public/icon.png`, the same mark as the
+ * page favicon beside it -- that Vite copies verbatim into `dist/renderer/`,
+ * but only at build. While Vite is serving there is no `dist/renderer/`, so
+ * that run reads the source copy out of the unpackaged tree instead.
  */
-export function getRendererPaths(): RendererPaths {
+export function getRendererPaths(viteServing: boolean): RendererPaths {
   const appPath = app.getAppPath()
   return {
     preloadPath: join(appPath, 'dist', 'preload', 'index.cjs'),
     rendererFile: join(appPath, 'dist', 'renderer', 'index.html'),
+    iconFile: viteServing
+      ? join(appPath, 'renderer', 'public', 'icon.png')
+      : join(appPath, 'dist', 'renderer', 'icon.png'),
   }
 }
 
@@ -83,6 +93,7 @@ export function createWindow(opts: CreateWindowOptions): BrowserWindow {
     show: false,
     backgroundColor: '#14161a',
     title: 'piano-tutor',
+    icon: opts.iconFile,
     webPreferences: {
       preload: opts.preloadPath,
       contextIsolation: true,
