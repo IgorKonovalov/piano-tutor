@@ -23,3 +23,7 @@ Thumbs.db
 
 # Recordings made while developing never enter the repo; fixtures live in core/fixtures/
 takes/
+
+# Real repertoire is fetched, never committed: the four hand-written fixtures
+# under core/fixtures/scores/ are the only score files this repo redistributes.
+scores-local/
