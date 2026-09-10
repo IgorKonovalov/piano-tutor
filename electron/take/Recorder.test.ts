@@ -9,6 +9,7 @@ import { MidiParser } from '../midi/parse'
 import type { Clock } from '../midi/timedSource'
 import { listTakes, readTake, takePath } from './takeFile'
 import type { MidiEvent } from '../../shared/midi'
+import { TakeIdSchema, TakeReplayRequestSchema } from '../../shared/take'
 import { findScenarioById } from '../../core/src/midi/generate'
 
 let directory: string
@@ -135,6 +136,32 @@ describe('the takes list', () => {
   })
 })
 
+describe('a take id is a path segment, never a path', () => {
+  it('accepts the id the recorder actually produces', () => {
+    const { id } = record(longEnough())
+    expect(TakeIdSchema.safeParse({ id }).success).toBe(true)
+    expect(TakeReplayRequestSchema.safeParse({ id, speed: 1 }).success).toBe(true)
+  })
+
+  it('refuses an id that would climb out of the takes directory', () => {
+    // Main joins the id onto the takes directory, so the schema is what stands
+    // between a payload and an arbitrary path.
+    for (const id of ['../../secrets', '..', 'a/b', 'a\\b', 'take.jsonl', '']) {
+      expect(TakeIdSchema.safeParse({ id }).success, id).toBe(false)
+      expect(TakeReplayRequestSchema.safeParse({ id, speed: 1 }).success, id).toBe(false)
+    }
+  })
+
+  it('keeps the id and the filename the same thing', () => {
+    // What `listTakes` reports as an id is the filename without its extension,
+    // so a row the user can see is a row the schema will let them open.
+    record(longEnough())
+    const [row] = listTakes(directory)
+    expect(row).toBeDefined()
+    expect(TakeIdSchema.safeParse({ id: row!.id }).success).toBe(true)
+  })
+})
+
 describe('a session too short to be a take', () => {
   it('is deleted at stop rather than listed', () => {
     const { id, result } = record(longEnough(MINIMUM_NOTE_ONS - 1))
@@ -221,10 +248,10 @@ describe('NFR 8: a take survives the process being killed', () => {
     const { events: recovered } = readTake(takePath(directory, id))
     recorder.stop()
 
-    // 2 200 events were flushed and 150 more were not; the loss is the tail,
-    // not a fraction of the session.
+    // The session ran to 2 200 events and 150 more arrived after the last
+    // flush. Everything flushed is on disk, so the loss is the unflushed tail
+    // and nothing else: it does not grow with the length of the take.
     expect(recovered).toHaveLength(events.length)
-    expect(events.length + 150 - recovered.length).toBe(150)
   })
 })
 

@@ -51,14 +51,29 @@ export const TakeContentSchema = z.object({
 })
 export type TakeContent = z.infer<typeof TakeContentSchema>
 
+/**
+ * A take id is a **path segment, never a path**. It is the take's start time
+ * with the characters Windows will not put in a filename swapped for hyphens
+ * (`takeIdFor`), so it is exactly this shape and nothing else.
+ *
+ * The pattern is the boundary check, not a formatting nicety: main turns an id
+ * straight into a path under `userData/takes`, and a bare `string().min(1)`
+ * would let `../../…` out of that directory. Validating the shape here means
+ * one parse at the seam decides it, rather than the filesystem deciding it by
+ * failing.
+ */
+export const TAKE_ID_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/
+
+const takeId = z.string().regex(TAKE_ID_PATTERN)
+
+export const TakeIdSchema = z.object({ id: takeId })
+
 /** 0.5x, 1x and 2x are the speeds the replay view offers. */
 export const TakeReplayRequestSchema = z.object({
-  id: z.string().min(1),
+  id: takeId,
   speed: z.number().min(0.25).max(4),
 })
 export type TakeReplayRequest = z.infer<typeof TakeReplayRequestSchema>
-
-export const TakeIdSchema = z.object({ id: z.string().min(1) })
 
 /**
  * The `take` half of `window.api`, declared where both sides can see it.
