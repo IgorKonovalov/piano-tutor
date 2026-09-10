@@ -7,7 +7,7 @@ supersedes the old one and update the status here.
 Rule of thumb: if you cannot name an option you are *not* taking, you do not need an ADR, you
 need a code comment.
 
-**Next free number: 0009.**
+**Next free number: 0010.**
 
 An index row is a pointer, not an abstract: the link, the title as the ADR's `H1` writes it, and
 the status.
@@ -22,6 +22,7 @@ the status.
 | [0006](0006-listing-ports-does-not-touch-the-device.md) | Listing ports does not touch the device; `busy` is earned by a failed open | proposed |
 | [0007](0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md) | Playback is a schedule built in `core/` and clocked by main behind a `MidiSink` | proposed |
 | [0008](0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md) | The app may sound what it plays: a synthesised fallback voice, and no samples | proposed |
+| [0009](0009-an-ornament-is-optional-a-grace-note-is-scored-neither-way.md) | An ornament is optional: a grace note is scored neither way | proposed |
 
 ## Conventions
 

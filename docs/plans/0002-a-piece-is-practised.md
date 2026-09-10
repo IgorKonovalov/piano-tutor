@@ -731,3 +731,38 @@ type PracticeReport = {
   extraction is right rather than merely self-consistent. Carries a MuseScore dependency and a
   CC BY-NC-SA attribution, which is why it is a followup and not a phase.
 - The `architect` review decides whether ADR-0003 and ADR-0005 move to `accepted`.
+
+### Raised by the close review, 2026-09-10
+
+Three defects the fresh session found in shipped code, and where each one goes. The first two are
+fixed **before** Phase 7 runs, because both distort exactly what that phase asks the player to
+judge; the third is carried.
+
+- **A written ornament is charged as an extra note.** `scoredNotes` keeps grace notes out of the
+  expected groups and nothing keeps them out of the played ones, so playing what is written turns
+  the bar `wrong`. No fixture score has a grace note, so the path is exercised by nothing.
+  Decided by ADR-0009: an expected group carries its attached grace pitches as **optional** —
+  free whether struck or skipped. Needs a fifth fixture score with an ornament in it. **Fixed
+  before Phase 7**, because item 2 asks whether the colours match the player's own sense of the
+  take, and on real repertoire this defect is the only thing that answer would be about.
+- **The Score view can analyse a previous take and present it as the one just played.**
+  `renderer/views/Score.tsx` finds the take by `scoreId` alone, which returns the newest take of
+  that piece rather than the one that just ended; a session under ten note-ons is never written,
+  so the find silently returns the last one and the "too short to keep" message never fires.
+  Nothing on screen names which take a report is about. Fix: know the take id the session wrote,
+  rather than inferring it. **Fixed before Phase 7**, because item 6 compares two takes of one
+  piece and this is where that goes wrong.
+- **The report is not in fact sized by bars.** `report.ts` emits one `extra` verdict per unmatched
+  played pitch, unbounded, and only `notAttempted` bars are stripped from the counts. Both size
+  tests hold the event count fixed or reduce it; neither plays more notes than the score has, so
+  a player who repeats a passage grows the report without limit. That property is NFR 12's stated
+  method and NFR 7's lever. **Carried:** it is Plan 0003's to close, since the coach's token
+  budget is what depends on it. Wants a cap on extras per bar — a count plus a sample — and a
+  test with a take twice the length of the score.
+
+Two smaller items from the same review, neither blocking: `report.counts` includes bars the app
+tells the player it did not judge (`unalignable` is not subtracted the way `notAttempted` is,
+while `PracticeStats` says "Nothing after it is judged"); and `SyntheticSource.open` does not
+consult the harness gate, so a `virtual:*` id still plays in a packaged build even though
+`listPorts` hides it — inherited from Plan 0001, and the roadmap's release plan is where that
+check belongs.
