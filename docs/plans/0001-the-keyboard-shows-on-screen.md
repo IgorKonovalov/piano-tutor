@@ -448,7 +448,7 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 | 4 — The staff draws what is held | dev | done | 8d4b9d9 |
 | 5 — Every session is a take | dev | done | 11b6d77 |
 | 6 — The whole gate runs with nothing plugged in | dev | done | b4a67c3 |
-| 7 — At the instrument | human | not started | |
+| 7 — At the instrument | human | done | answers below |
 
 ### Measurements
 
@@ -472,10 +472,17 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
   Process creation is earlier than `app.whenReady`, so the figure is a slight over-estimate of the
   row as written; it is the earliest instant available without putting a hook in main. Budget is
   3 000 ms.
-- **NFR 1 (Phase 7), at the instrument:** p50 _ ms, p95 _ ms, max _ ms over 500 note-ons.
+- **NFR 1 (Phase 7), at the instrument:** p50 3.4 ms, p95 6.1 ms, max 12.1 ms over 500 note-ons,
+  CK88 over USB into `hw:0`, development machine. Frame delta p50 1, p95 1, max 1. Budget is
+  30 ms at p95 and 50 ms at max. The synthetic figure at Phase 6 was p50 5.3 / p95 7.9 on the same
+  machine, so **the real transport measured slightly faster than the harness**, and the gap the
+  harness cannot see turned out to be nothing.
   *This is the number NFR 1 means; the synthetic figures above do not traverse USB.*
-- **Windows port name (Phase 7):** _
-- **Yamaha USB driver needed for MIDI (Phase 7):** yes / no
+- **Windows port name (Phase 7):** two ports, `CK Series-1` (`hw:0`) and `CK Series-2` (`hw:1`).
+  `hw:0` is the one that carries the keyboard. This is the two-port enumeration the plan's risk
+  list anticipated.
+- **Yamaha USB driver needed for MIDI (Phase 7):** **no.** The ports appeared with no Yamaha
+  driver installed on this machine, so the MIDI half is class-compliant.
 
 ### Notes
 
@@ -592,6 +599,32 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
 - Followup not acted on: `npm run test:e2e` runs `npm run build` first, so `npm run gate` builds
   even when nothing changed. It costs a couple of seconds.
 
+### Phase 7 answers, at the instrument
+
+Run on 2026-09-10 with the CK88 on USB, against `npm run dev` so the overlay was mounted.
+
+1. **Port name and driver.** `CK Series-1` and `CK Series-2`; `CK Series-1` carries the keyboard.
+   No Yamaha driver was installed. Both ports probed as openable.
+2. **Four zones on their own channels.** *Not verified.* Every event of the session arrived on
+   channel 1 (2 334 events checked in the recorded take), because the zones were not configured to
+   transmit separately. The parser keeps the channel on every event and that is covered by
+   `parse.test.ts`; what is unconfirmed is the instrument half.
+3. **Pedals.** Sustain only -- the other two pedals are not connected to this instrument. Sustain
+   works: 56 CC 64 events in the take, the indicator lights, and a chord held through a pedal
+   release behaves as it sounds.
+4. **Velocity range.** Spans the range but saturates too early at the top. Over 1 139 note-ons:
+   min 1, p10 38, p50 61, p90 79, p99 89, max 94. Deliberate hammering reached 125 in a separate
+   take. The shading is linear in `velocity / 127`, so an ordinary stroke tints to 48 % and the
+   loudest real playing to 74 %. Followup below.
+5. **NFR 1 for real.** p50 3.4 ms, p95 6.1 ms, max 12.1 ms over 500 note-ons. See Measurements.
+6. **Latency by feel.** No visible trailing of the lit key behind the sound.
+7. **Unplug and replug mid-session.** The port list recovers and the port reopens without
+   restarting the app.
+8. **A DAW holding the port.** *Not verified* -- no DAW installed on this machine. The `busy`
+   path is implemented and probes on every poll, but nothing has exercised it against a real
+   holder.
+9. **Hardware beside the harness.** The two groups read as distinct.
+
 ### Close triggers
 
 - **What shipped:** feature. The whole walking skeleton: the Electron shell, the MIDI pipeline,
@@ -606,17 +639,22 @@ type Scenario = { id: string; seed: number; generate(): MidiEvent[] }
   - `node scripts/check-doc-links.mjs` - exit 0
   - `npm run test:e2e` - exit 0 (6 tests)
   - `npm run gate`, which is all six in that order - exit 0
-- **Outstanding `human` phases:** Phase 7, at the instrument. Not attempted. Everything in it
-  needs the CK88 plugged in, and it is the only evidence in this plan about the product rather
-  than the pipeline: the port name Windows reports and whether Yamaha's driver was needed, the
-  four zone channels, the three pedals, the velocity range, **NFR 1 measured for real over 500
-  note-ons**, latency by feel, unplug and replug recovery, a DAW holding the port, and whether the
-  hardware and harness groups read as distinct.
+- **Outstanding `human` phases:** none. Phase 7 ran on 2026-09-10; its answers are above. Two of
+  its nine lines could not be checked on this machine (zones on separate channels, a DAW holding
+  the port) and are recorded as not verified rather than as passes. Everything in it
 - **Also for the architect:** ADR-0004's gate no longer matches the code, by a change the user
   authorised in session. See the first line of `### Notes`.
 
 ## Followups (after this lands)
 
+- **Velocity shading saturates too early.** The keyboard tints linearly on `velocity / 127`, but
+  the CK88 delivers p99 89 and max 94 in ordinary playing, so the top third of the scale is never
+  reached and a loud chord reads as three-quarters lit. Raised at Phase 7. The fix is a response
+  curve over the range actually played rather than the theoretical one; the take files under
+  `userData/takes/` hold the distribution to fit it against.
+- **The live view shifts vertically as notes are added.** Reported at Phase 7: the staff appears
+  to jump when more notes are held. The labels panel above it grows a line when a chord has
+  alternative readings, which moves everything below. The panels want a fixed height.
 - The `architect` review decides whether ADR-0001, ADR-0003 and ADR-0004 move to `accepted`.
   ADR-0004's evidence is Phase 6 going green with nothing attached and Phase 7 confirming that
   the real instrument still behaves.
