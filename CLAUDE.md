@@ -48,7 +48,8 @@ core/            # Pure TypeScript. Theory (tonal), MidiEvent model, chord + key
 electron/        # Main process (esbuild -> dist/main/index.cjs).
   main.ts        #   Lifecycle, CSP, window, IPC registration.
   midi/          #   MidiSource interface + RtMidi, Replay and Synthetic implementations;
-                 #   byte -> MidiEvent parser; virtualPorts.ts (ADR-0004, unpackaged builds only).
+                 #   byte -> MidiEvent parser; virtualPorts.ts (ADR-0004; unpackaged builds, and
+                 #   PT_HARNESS overrides that either way whenever it is set).
   take/          #   The recorder: appends events to takes under userData; lists and loads takes.
   score/         #   The score library under userData: import, list, read; the MIDI-file adapter.
   coach/         #   CoachProvider interface; claude-cli, anthropic-api and none providers; prompt.ts.

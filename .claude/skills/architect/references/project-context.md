@@ -114,7 +114,11 @@ enumerate plans.
 - **The CK88 has four zones**, each able to transmit on its own channel. Events keep their
   channel; the display merges by default.
 - **RtMidi on Windows has no hot-plug callback.** The port list is polled.
-- **Windows MIDI ports are exclusive.** A DAW holding the port blocks the app; the port list says so.
+- **A MIDI input port is not exclusive across processes, on this device.** Measured at the CK88
+  (Plan 0001 Phase 7): two processes read the same port at once and both received the stream, so
+  the app can run beside a DAW. A second open *within one process* does fail, which is where the
+  belief comes from. The port list keeps a `busy` path and probes for it; on this instrument it
+  has never fired.
 - **`@julusian/midi` is N-API**, so one prebuilt binary serves the Node and Electron versions in
   use without `electron-rebuild`. If a prebuilt is missing for a new machine, ADR-0001
   Alternative B (Web MIDI in the renderer behind the same event shape) is the named fallback.

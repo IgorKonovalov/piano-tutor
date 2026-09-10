@@ -673,19 +673,19 @@ Run on 2026-09-10 with the CK88 on USB, against `npm run dev` so the overlay was
   row is now always rendered and none may wrap.
 - ~~**`CLAUDE.md`'s MIDI-sharing note is wrong for this device and needs rewriting.**~~ Rewritten
   at the close from Phase 7 item 8's measurement, along with the Yamaha-driver note above it. **The
-  same falsified claim is still in three places in the code** and one of them is user-facing:
-  `shared/midi.ts` (the `busy` comment), `electron/midi/RtMidiSource.ts` (the file header) and the
-  `MidiPortUnavailable` message at `RtMidiSource.ts:104`, which tells the player "there is no
-  system-wide MIDI sharing". `dev` rewrites those three.
+  three code sites carrying the same falsified claim** — the `busy` comment in `shared/midi.ts`,
+  the `RtMidiSource.ts` header and the user-facing `MidiPortUnavailable` message — were rewritten
+  in `9e01cb7`, and the skills' own platform notes in the sweep after it.
 - **The `busy` port path has never fired, and on this instrument it cannot.** It is implemented
   and probed on every two-second poll -- an open and a close per hardware port -- to detect a
   condition this device does not produce. Worth deciding whether the probe earns that, or whether
   `busy` should be discovered at open time instead. Note the probe is also the only reason
   `listPorts` touches the device at all.
-- The `architect` review decides whether ADR-0001, ADR-0003 and ADR-0004 move to `accepted`.
-  ADR-0004's evidence is Phase 6 going green with nothing attached and Phase 7 confirming that
-  the real instrument still behaves.
-- `CLAUDE.md`'s platform note on the Yamaha driver is rewritten from Phase 7's answer.
+- ~~The `architect` review decides whether ADR-0001, ADR-0003 and ADR-0004 move to `accepted`.~~
+  All three accepted at the close on 2026-09-10, ADR-0004 with its Decision amended first.
+- ~~`CLAUDE.md`'s platform note on the Yamaha driver is rewritten from Phase 7's answer.~~ Done at
+  the close: no Yamaha driver is needed for the MIDI half, and the two-port enumeration is
+  recorded with it.
 - One real recorded take is committed under `core/fixtures/takes/` after Phase 7 and the `core/`
   tests gain it alongside the generated scenarios, so the theory code sees human timing at least
   once (the generator-drift risk above).
@@ -696,23 +696,18 @@ Run on 2026-09-10 with the CK88 on USB, against `npm run dev` so the overlay was
   now records `PT_HARNESS` as authoritative in both directions and why.
 - ~~`docs/nfr.md` rows 1 and 4 described measurements that were not the ones taken.~~ Row 1 now
   names the epoch-anchored stamp; row 4 now names process creation and says what it over-estimates.
-- **`installCsp` keys off packaging, not off whether Vite is serving.** `electron/main.ts` passes
-  `isDev = !app.isPackaged`, so the end-to-end run — which drives a *built* renderer loaded from
-  `file:` — still gets the loose policy with `'unsafe-inline'` and the localhost origins in
-  `default-src`. The packaged policy (`default-src 'self'`) is therefore installed by nothing the
-  gate runs, and NFR 3's "verified by a Playwright run with networking disabled" verifies the
-  wrong one. `createWindow` already holds the real condition: `opts.rendererUrl !== undefined`.
-  Either derive the flag from that, or make the release plan's packaged-build check cover the CSP.
-- **A take id is validated for shape but not for meaning.** `TakeIdSchema` is
-  `z.string().min(1)` and `takeHandlers.ts` joins it straight into `userData/takes` through
-  `takePath`, so `../../…` escapes the directory. Nothing untrusted reaches the renderer today,
-  which is the only reason this is small; constrain the id at the seam to the character set
-  `takeIdFor` produces.
-- **`electron/midi/MidiSource.ts` documents `t` as `performance.now()`**, which `shared/midi.ts`
-  correctly documents as epoch-anchored. The seam's own comment is the first thing the author of a
-  fourth transport reads.
-- **`RtMidiSource.describeHardwarePort` seeds `detail: 'In use by this app'`** on the base object
-  and every branch overwrites it; the string is unreachable.
-- **`Recorder.test.ts`'s "bounds the loss by the flush interval"** asserts
-  `events.length + 150 - recovered.length === 150`, which is `recovered.length === events.length`
-  written the long way round. Say the shorter thing.
+- ~~**`installCsp` keys off packaging, not off whether Vite is serving.**~~ Fixed in `cafa8df`:
+  the flag now comes from `ELECTRON_RENDERER_URL`, the same value that decides whether the window
+  loads a URL or a built file, and `electron/window.test.ts` asserts both policy strings per
+  directive. **The end-to-end run now drives the shipped policy and passes**, which is the first
+  evidence that `default-src 'self'` works for a `file:`-loaded renderer — previously assumed.
+  `docs/nfr.md` row 3 records both. The release plan's packaged-build check still owns the
+  packaged case.
+- ~~**A take id is validated for shape but not for meaning.**~~ Fixed in `dbf482c`: `TakeIdSchema`
+  and `TakeReplayRequestSchema` share one schema pinned to the shape `takeIdFor` produces, so a
+  path-shaped id is refused at the seam rather than by the filesystem failing.
+- ~~**`electron/midi/MidiSource.ts` documents `t` as `performance.now()`**~~ Fixed in `9e01cb7`,
+  with why the anchor is load-bearing rather than just what it is.
+- ~~**`RtMidiSource.describeHardwarePort` seeds an unreachable `detail`.**~~ Fixed in `9e01cb7`.
+- ~~**`Recorder.test.ts`'s "bounds the loss by the flush interval" asserts the long way round.**~~
+  Fixed in `dbf482c`.

@@ -104,7 +104,8 @@ product call. No sibling implementer.
 
 - **Renderer never touches the OS or the network**; the CSP has no `connect-src`.
 - **Main holds no UI state**; **`core/` imports no process**.
-- **Security defaults** on every window; double CSP; `'unsafe-inline'` only unpackaged.
+- **Security defaults** on every window; double CSP; `'unsafe-inline'` in `script-src` only while
+  Vite is serving, never merely because the build is unpackaged.
 - **Validate at the boundary** with Zod, once; trust inside.
 - **Stamp at arrival, forward then record, never drop** (NFR 1, 2, 8).
 - **Pure, deterministic `core/`** with committed fixtures.

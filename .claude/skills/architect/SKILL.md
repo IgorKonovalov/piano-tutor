@@ -194,7 +194,9 @@ is architectural integrity, not line-by-line style. Run the five lenses in order
 - **The seams stayed thin.** `MidiSource` and `CoachProvider` gained nothing a plan did not name;
   a new domain channel has an ADR or a plan decision behind it.
 - **Security defaults intact.** `contextIsolation`, `sandbox`, no `nodeIntegration`, double CSP,
-  `'unsafe-inline'` only unpackaged, `shell.openExternal`, `will-navigate` intercepted.
+  `'unsafe-inline'` in `script-src` only while Vite is serving (not merely unpackaged, which is a
+  different question and let the shipped policy go unexercised), `shell.openExternal`,
+  `will-navigate` intercepted.
 - **The API key never reaches the renderer**, a log line or a take file.
 
 ### 3. Doc freshness and release bookkeeping
