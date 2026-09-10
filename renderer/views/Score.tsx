@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { MidiPort } from '../../shared/midi'
 import { type ScoreMeta, isMidiScore } from '../../shared/score'
-import type { BarState } from '../../shared/score'
+import type { BarState, NoteVerdict } from '../../shared/score'
 import {
   barAt,
   canonicalTimeline,
@@ -39,12 +39,27 @@ const MARK_LABEL: Record<BarState, string> = {
   unalignable: 'lost',
 }
 
-/** "1 wrong note", not "1 wrong notes". */
-function markLabel(state: BarState, problems: number): string {
-  if (problems === 0) return MARK_LABEL[state]
-  return `${problems} ${state === 'wrong' ? 'wrong' : MARK_LABEL[state]} ${
-    problems === 1 ? 'note' : 'notes'
-  }`
+/**
+ * What a bar's mark says when something in it went wrong.
+ *
+ * The kind has to come from the verdicts, not from the bar's state. A bar is
+ * `wrong` whether the player added notes, missed notes or played the wrong
+ * ones, and calling all three "wrong notes" put "23 wrong notes" on a bar in a
+ * take whose own statistics line said zero wrong notes -- the two disagreeing
+ * about the same report. Extras are the common case after a false start, where
+ * a repeated bar is the player being careful rather than being wrong.
+ */
+function markLabel(state: BarState, notes: readonly NoteVerdict[]): string {
+  const problems = notes.filter((note) => note.kind !== 'correct')
+  if (problems.length === 0) return MARK_LABEL[state]
+
+  const kinds = new Set(problems.map((note) => note.kind))
+  const noun = problems.length === 1 ? 'note' : 'notes'
+  const only = kinds.size === 1 ? [...kinds][0] : undefined
+  if (only === 'wrongPitch') return `${problems.length} wrong ${noun}`
+  if (only === 'missing') return `${problems.length} missed ${noun}`
+  if (only === 'extra') return `${problems.length} extra ${noun}`
+  return `${problems.length} ${noun} not as written`
 }
 
 export function Score() {
@@ -218,8 +233,7 @@ export function Score() {
         : [{ bar: selectedBar, state: 'highlight', label: `bar ${selectedBar}` }]
     }
     return report.bars.map((bar) => {
-      const problems = bar.notes.filter((note) => note.kind !== 'correct').length
-      return { bar: bar.bar, state: bar.state, label: markLabel(bar.state, problems) }
+      return { bar: bar.bar, state: bar.state, label: markLabel(bar.state, bar.notes) }
     })
   }, [report, selectedBar])
 
