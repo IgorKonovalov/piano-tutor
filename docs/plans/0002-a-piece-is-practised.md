@@ -468,7 +468,7 @@ type PracticeReport = {
 | 4 — A take aligns to a score | dev | done | 43373bb |
 | 5 — The score colours and the numbers show | dev | done | 6f704b2 |
 | 6 — A MIDI file is a second-class score | dev | done | 85350e9 |
-| 7 — At the piano, with a real piece | human | answered 2026-09-10 evening | see `### Phase 7 at the piano`; item 6 open |
+| 7 — At the piano, with a real piece | human | answered 2026-09-10 evening | see `### Phase 7 at the piano`; item 6 open, re-attempted under Plan 0008 and still unanswered |
 
 ### Measurements
 
@@ -729,6 +729,14 @@ then: one expected group may absorb a run of played groups.
 
 **Item 6 — well against badly.** **Not attempted.** The timing finding above makes the comparison
 uninformative until it is fixed: both takes would read `out of time` throughout.
+
+> **Re-attempted 2026-09-10 evening, under Plan 0008's Phase 6, and still unanswered.** Plan 0008
+> closed that night and the blocker is gone — a good take and a bad one no longer both read out
+> of time. What went wrong is the take, not the model: two performances ran into one recording and
+> on into the Fugue, so the figures (695 as written, 244 wrong, 323 missed, 75 extra, 29 of 61
+> bars clean) describe neither. **This item wants one clean take of each, nothing more**, and it
+> is the last thing standing between this plan and its close. Plan 0008's
+> `### Phase 6 at the piano` carries the run.
 
 **Item 7 — NFR 12 by feel.** Answered, the colouring appears at once.
 

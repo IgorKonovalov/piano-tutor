@@ -27,7 +27,7 @@ the status.
 | [0011](0011-an-attempt-is-a-take-the-loop-repeats-through-the-recorder.md) | An attempt is a take: the practice loop repeats through the recorder, not through the aligner | proposed |
 | [0012](0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md) | The metronome is a grid both processes schedule from, and the timing reference whenever it runs | proposed |
 | [0013](0013-what-you-played-is-drawn-over-the-engraving-never-into-it.md) | What you played is drawn over the engraving, never into it | proposed |
-| [0014](0014-timing-is-judged-against-a-local-tempo-not-one-line-through-the-take.md) | Timing is judged against a local tempo, not one line through the take | proposed |
+| [0014](0014-timing-is-judged-against-a-local-tempo-not-one-line-through-the-take.md) | Timing is judged against a local tempo, not one line through the take | accepted 2026-09-10 |
 
 ## Conventions
 

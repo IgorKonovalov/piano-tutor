@@ -1,17 +1,30 @@
 # 0008 — The timing model
 
-> **Status:** in-progress
+> **Status:** done — closed 2026-09-10
 > **Created:** 2026-09-10
 > **Owner skill(s):** dev, human
-> **Related ADRs:** [0014](../adrs/0014-timing-is-judged-against-a-local-tempo-not-one-line-through-the-take.md)
-> (proposed) is this plan's whole design;
-> [0010](../adrs/0010-alignment-ends-where-the-player-stopped-an-unplayed-tail-is-free.md) (proposed)
+> **Related ADRs:** [0014](../../adrs/0014-timing-is-judged-against-a-local-tempo-not-one-line-through-the-take.md)
+> (accepted 2026-09-10 at this close, with an `Outcome` section) is this plan's whole design;
+> [0010](../../adrs/0010-alignment-ends-where-the-player-stopped-an-unplayed-tail-is-free.md) (proposed)
 > is the previous fix in the same area and the model for how this one is recorded;
-> [0012](../adrs/0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md)
+> [0012](../../adrs/0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md)
 > (proposed) owns the click-relative path and bounds this plan to the other one
-> **NFRs claimed:** 12, and a new row **14** in [nfr.md](../nfr.md) this plan adds
-> **Depends on:** Plan [0002](0002-a-piece-is-practised.md) Phases 4 and 5 — the aligner, the
+> **NFRs claimed:** 12, and a new row **14** in [nfr.md](../../nfr.md) this plan adds
+> **Depends on:** Plan [0002](../0002-a-piece-is-practised.md) Phases 4 and 5 — the aligner, the
 > fitted tempo and the per-bar report this plan replaces the timing half of
+> **Closed:** 2026-09-10 — five `dev` phases landed (`60050f7`, `6ba8f05`, `1296c40`,
+> `4e11434`, `28fd9a8`) and the `human` phase was answered at the CK88 the same evening
+> (`b64ee7e`). Architect review: **no blockers**, two `major` and four `minor`; the full gate
+> re-run green end to end on the finished tree (typecheck, lint, 578 unit tests across 26 files,
+> both Node gates, `npm run build`, 23 end-to-end tests). The local reference itself lands and is
+> what it claimed to be — a restart is named and costs the player nothing, the bars before it
+> stay clean, the tempo figure is one the player recognises. **What is built on top of it does
+> not**: a bar the player really rushed read `as written` while three bars around it went amber,
+> and a real rallentando produced no observation at all. Both are Phase 6 findings against a
+> human hand that the generated oracle passes, both are `## Followups` rows, and the first of
+> them wants an ADR. ADR-0014 accepted with a dated `Outcome` recording that its
+> "the rushed-bar property survives, and is in fact sharper" did not hold at the instrument.
+> Version bumped to v0.3.0.
 
 ## TL;DR
 
@@ -560,6 +573,26 @@ From Phase 6 at the instrument, worst first:
   now. `renderer/components/BarDetail.tsx:97`.
 - **Re-run Plan 0002 Phase 7 item 6 cleanly**, one take each, and answer it in that plan's log.
   Two performances landed in one take on the night and the figures describe neither.
+
+From the close review, 2026-09-10:
+
+- **The repeating-figuration test cannot fail for the reason the risk names.**
+  `restarts.test.ts:87` builds a piece whose bars 1 and 2 are note for note the same and plays it
+  **cleanly**, so nothing is left over and `findRestarts` returns before it ever searches for a
+  covering stretch. The case the risk describes — leftover groups *in* a repeating piece — is
+  untested, and the instrument found it in the Prelude within one take. Whatever guard the row
+  above adds needs that fixture first.
+- **The report-size property is asserted on a fixture too small to carry it.** The ratio test
+  (`report.test.ts`, "stays sized by the score") compares two restarts on a four-bar scale against
+  none, at a bound of 1.1. Thirty-five restarts on a 62-bar piece is the shape NFR 7's lever
+  actually has to survive, and no test reaches it. Worth folding into the capping row above.
+- **`analyse()`'s global `fit` is computed for nobody.** `core/src/align/report.ts:102` still runs
+  `fitTempo` over the confident pairs on every report; `analyse` has no caller outside
+  `practiceReport`, and nothing reads `fit` or `localTempi`. Harmless arithmetic, but it is the
+  one thing in this file a future reader might reach for by mistake now that the reference is
+  local. Either give the seam a caller or drop it to a test helper.
+- **One more line of stale copy beside `BarDetail`'s.** `core/src/align/report.ts:347`:
+  "Bars ordered by how far they sat from the fitted tempo" — the same sentence Phase 2 made wrong.
 
 Carried from before the phase:
 

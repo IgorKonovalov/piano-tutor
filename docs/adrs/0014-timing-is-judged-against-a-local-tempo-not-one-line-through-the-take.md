@@ -1,8 +1,8 @@
 # ADR-0014 — Timing is judged against a local tempo, not one line through the take
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-10, at the close of Plan 0008
 > **Date:** 2026-09-10
-> **Related plan(s):** Plan [0008](../plans/0008-the-timing-model.md)
+> **Related plan(s):** Plan [0008](../plans/done/0008-the-timing-model.md)
 
 ## Context
 
@@ -152,3 +152,39 @@ reason, that an oracle written after the thing it tests tends to agree with it.
 ADR-0011 makes each drill attempt in the practice loop its own take, which shortens takes and
 reduces the exposure to this defect. It does not remove it: a single attempt can still contain a
 hesitation, and a player practising outside a drill is in exactly tonight's case.
+
+## Outcome (2026-09-10, at Plan 0008's close)
+
+Accepted, and this section rather than an edit to the body records what the implementation
+falsified. Plan 0008 shipped the decision and its `human` phase took it to the CK88 the same
+evening; the plan's `### Phase 6 at the piano` carries the takes.
+
+**What held.** The propagation property, which is why this ADR exists: a false start is named in
+words, the notes it accounts for leave `counts.extra` entirely, and the bars before it stay clean.
+The player recovers. The steady-state tempo reads 71, 74, 64 and 83 bpm across four takes and the
+player recognises each as what they were playing, against the 53-for-64 this ADR was written from.
+Strictness reads as strictness rather than as a different opinion.
+
+**What did not.** Two of the three things the Decision hangs off the local reference:
+
+- *"The rushed-bar property survives, and is in fact sharper"* is **wrong as written**. One bar
+  rushed deliberately in an otherwise even take read `as written`, while three bars around it went
+  amber. The reason is not the local reference but what was measured against it: a bar is judged
+  by its **overall pace**, and a hand hurries *inside* a bar rather than taking the whole bar
+  uniformly faster. The generated oracle passes the property because `rushBar` compresses a bar
+  uniformly, which is the shape of take no hand produces. Plan 0008's Phase 2 notes record that a
+  note-level residual was written first and dropped as too noisy, so the repair is a design
+  question with a measured obstacle in front of it and wants its own ADR.
+- *"A rallentando is followed, not punished ... reported as a tempo observation"* did not reach a
+  real take. A deliberate rallentando produced **no observation at all** and four amber bars: the
+  run-detection wants three consecutive bar paces each moving one way, and bar-to-bar noise in a
+  human take breaks the run before it is three long.
+
+Two smaller ones, both in the restart half: the restart entries are bounded in shape but not in
+count (thirty-five sentences in one paragraph on a 62-bar piece), and pitch evidence alone, with
+no corroborating time gap, fires on the Prelude's repeated broken-chord figuration — the risk this
+ADR's own Decision names and the guard it never got.
+
+None of this reverses the decision: a global line failed every one of these cases *and* the ones
+that now hold. What it says is that the local reference is the floor the rest has to be built on,
+not the whole of it. The rows are in Plan 0008's `## Followups`, worst first.
