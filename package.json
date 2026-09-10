@@ -1,6 +1,6 @@
 {
   "name": "piano-tutor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "A Windows desktop piano tutor for a Yamaha CK88 over USB MIDI.",
   "license": "UNLICENSED",
