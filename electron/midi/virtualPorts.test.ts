@@ -65,6 +65,7 @@ describe('listPorts', () => {
       'virtual:score:pickup-two-hands-wrong-note',
       'virtual:score:scale-c-major-stopped',
       'virtual:score:scale-c-major-restart',
+      'virtual:score:scale-c-major-uneven',
       'virtual:score:scale-c-major-rallentando',
     ])
   })

@@ -42,10 +42,9 @@ test('the ports view lists the harness with nothing attached', async () => {
   await expect(page.getByTestId('port-group-hardware')).toBeVisible()
   const virtualRows = page.getByTestId('port-group-virtual').getByTestId('port-row')
   // Four hand-written passages, the six written pieces of plan 0002 phase 3
-  // and the restart and rallentando of plan 0008 phase 1. The count is exact
-  // on purpose: a port that quietly stops being enumerated is the failure
-  // this is watching for.
-  await expect(virtualRows).toHaveCount(12)
+  // and the three takes of plan 0008. The count is exact on purpose: a port
+  // that quietly stops being enumerated is the failure this is watching for.
+  await expect(virtualRows).toHaveCount(13)
   for (const id of [
     'virtual:c-major-scale',
     'virtual:ii-V-I-in-F',
@@ -57,6 +56,7 @@ test('the ports view lists the harness with nothing attached', async () => {
     'virtual:score:scale-c-major-stopped',
     'virtual:score:scale-c-major-restart',
     'virtual:score:scale-c-major-rallentando',
+    'virtual:score:scale-c-major-uneven',
   ]) {
     await expect(page.locator(`[data-port-id="${id}"]`)).toBeVisible()
   }

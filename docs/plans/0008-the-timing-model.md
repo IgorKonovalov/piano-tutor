@@ -352,11 +352,33 @@ interface PracticeReportAdditions {
 | 1 — The generator restarts, and slows down | dev | done | 60050f7 |
 | 2 — A bar is judged against its neighbours | dev | done | 6ba8f05 |
 | 3 — A restart is named, not counted as mistakes | dev | done | 1296c40 |
-| 4 — The tempo you kept, and the shape you gave it | dev | done | committed with this row |
-| 5 — How fussy the app should be | dev | | |
-| 6 — At the piano, with the takes that started this | human | | |
+| 4 — The tempo you kept, and the shape you gave it | dev | done | 4e11434 |
+| 5 — How fussy the app should be | dev | done | committed with this row |
+| 6 — At the piano, with the takes that started this | human | outstanding | — |
 
 ### Measurements
+
+Development machine, Windows 10, this checkout. Properties are asserted in tests; everything here
+is a number about one machine and is reported, never asserted.
+
+- **The floor of the local model.** Over 40 seeds and 8 generated scenarios of *correct playing* —
+  clean takes of `scale-c-major`, `key-and-time-change` and `grace-note`, a take at half speed, a
+  restart, and rallentandos of factor 0.5, 0.7 and 1.3 — the worst bar reaches **40 ms** of
+  `timingDeviation` (p95 40, and 25 to 28 on the clean takes). A bar the player genuinely rushed
+  (`rushBar` at 0.55) sits at **585 ms at its mildest** over the same seeds. The signal is about
+  fifteen times the floor, which is what let all three strictness positions sit above the floor.
+- **The window width, measured rather than chosen.** Against a rallentando falling to 70 % on the
+  scale fixture, a window of one bar either side reads the middle bar **3 ms** out; a window of two
+  reads it **72 ms** out, past the threshold. One bar either side is what ships.
+- **What the restart costs the tempo figure.** `steadyTempo` of a `restartAtBar(2)` take is
+  **1.0008×** the same take without the restart. The global fit ADR-0014 measured was 53.4 qpm
+  against a player at about 64, a 17 % error.
+- **The rallentando, described.** `rallentando({ fromBar: 1, toBar: 3, factor: 0.7 })` reports one
+  observation of **-28 % to -30 %** across seven seeds, against the -30 % the perturbation declares.
+- **NFR 12, stop to a coloured score, in the app:** 5 ms (e2e run, `pickup-two-hands`). Well inside
+  the 2 s budget; the piece is four bars, so this is a floor and not a stress figure.
+- **NFR 11, frames from injection to paint:** p50 1, p95 1, max 1 over 500 note-ons; 3.4 / 6.1 /
+  7.1 ms. **NFR 4, process creation to first painted key:** 793 ms.
 
 ### Notes
 
@@ -423,15 +445,41 @@ interface PracticeReportAdditions {
   describes a change over the last n-1 of them: the first bar is the tempo it changed *from*. That
   is what makes `rallentando({ fromBar: 1, toBar: 3 })` report bars 1 to 3 rather than 0 to 3.
   Measured over seven seeds: -28 to -30 % against the -30 the perturbation declares.
+- **Phase 5, the default threshold moved from 45 ms to 75 ms.** The three positions are 45 / 75 /
+  130 ms with `normal` the default. 45 ms was chosen for a *global* reference, where the number
+  meant a different thing; against a local one the measured floor of correct playing is 40 ms, so
+  45 is now the **strictest** honest position rather than the middle one. Every test that asserts
+  the timing property does so through `TIMING_THRESHOLD_MS`, and one of them asserts the property
+  again at `strict`, which is the stronger claim. No setting calls correct playing an error.
+- **Phase 5, one file outside the phase's list: a fourth generated port.** The last done-when
+  needs the e2e to see the bar count change, and no existing port has a bar between 45 and 130 ms
+  — correct playing tops out at 40 and a rushed bar starts at 585. `virtual:score:scale-c-major-uneven`
+  (bar 2 at 93 % of its written length, about -104 ms) is that bar. It touches
+  `electron/midi/virtualPorts.ts` and the three exact port counts, which go from 12 to 13. **Asked
+  and approved by the user before it was written**, with the alternative — lowering `strict` to
+  30 ms so the rallentando port straddles it — rejected because that would have had the strictest
+  setting report the model's own noise as the player's error.
+- **Phase 5, `renderer/views/Score.tsx.module.css` was not touched.** The control reuses the
+  toolbar's existing `.field` and `.port` classes; there was nothing to add.
 - **Phase 1, the ratio assertions are to two decimal places.** `playNotes` rounds to whole
   milliseconds, so a ratio over one ~667 ms gap carries about a part in a thousand of rounding.
 
 ### Close triggers
 
-- **What shipped:**
-- **User-visible docs touched:**
-- **Full gate at the last phase:**
-- **Outstanding `human` phases:**
+- **What shipped:** a feature. `timingDeviation` changes its reference from one line through the
+  take to a tempo fitted from each bar's neighbours (ADR-0014); `PracticeReport` gains `restarts`
+  and `tempoObservations`; `fittedTempo` keeps its name and units and becomes the steady-state
+  tempo; a three-position strictness control appears in the Score view. Three new generated ports.
+  Nothing in the matcher changed.
+- **User-visible docs touched:** `README.md` (the *Practising a piece* section, rewritten for the
+  local reference, restarts, tempo observations and the *Timing* control) and `docs/nfr.md` (new
+  row 14).
+- **Full gate at the last phase:** `npm run typecheck` 0, `npm run lint` 0, `npm test` 0 (578 tests
+  across 26 files), `node scripts/check-pins.mjs` 0, `node scripts/check-doc-links.mjs` 0,
+  `npm run build` 0, `npx playwright test` 0 (23 tests).
+- **Outstanding `human` phases:** **Phase 6, at the piano.** Not attempted. It needs the CK88 and
+  the user's own judgement on seven questions, one of which (item 5) is Plan 0002's Phase 7 item 6
+  and belongs in that plan's log as well.
 
 ## Followups (after this lands)
 

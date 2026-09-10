@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_STRICTNESS,
   ExpectedTimelineSchema,
   PracticeReportSchema,
   type BarVerdict,
   type ExpectedTimeline,
   type PracticeReport,
+  type TimingStrictness,
 } from '../../../shared/score'
 import type { MidiEvent } from '../../../shared/midi'
 import graceJson from '../../fixtures/scores/grace-note.timeline.json'
@@ -903,5 +905,83 @@ describe('the tempo you kept, and the shape you gave it', () => {
     })
     expect(report.tempoObservations).toEqual([])
     expect(report.bars.find((bar) => bar.bar === 2)?.state).toBe('timing')
+  })
+})
+
+describe('how fussy the app should be', () => {
+  /** Uneven enough to be past one threshold and inside another. */
+  const HURRIED: Perturbation = { kind: 'rushBar', bar: 2, fraction: 0.93 }
+
+  function at(strictness: TimingStrictness): PracticeReport {
+    const timeline = TIMELINES['scale-c-major']
+    if (timeline === undefined) throw new Error('no scale fixture')
+    const take = perturb(timeline, { seed: SEED, perturbations: [HURRIED] })
+    return PracticeReportSchema.parse(
+      practiceReport({ timeline, events: take.events, takeId: 'strictness', strictness })
+    )
+  }
+
+  it('moves only what the app thinks, never what it measured', () => {
+    const strict = at('strict')
+    const relaxed = at('relaxed')
+
+    expect(strict.counts).toEqual(relaxed.counts)
+    expect(strict.bars.map((bar) => bar.timingDeviation)).toEqual(
+      relaxed.bars.map((bar) => bar.timingDeviation)
+    )
+    expect(strict.bars.map((bar) => bar.notes)).toEqual(relaxed.bars.map((bar) => bar.notes))
+    expect(strict.fittedTempo).toEqual(relaxed.fittedTempo)
+    expect(strict.tempoObservations).toEqual(relaxed.tempoObservations)
+    expect(strict.restarts).toEqual(relaxed.restarts)
+  })
+
+  it('changes how many bars are called out, which is the whole of what it does', () => {
+    const timing = (report: PracticeReport) =>
+      report.bars.filter((bar) => bar.state === 'timing').length
+
+    expect(timing(at('strict'))).toBeGreaterThan(timing(at('relaxed')))
+    expect(timing(at('relaxed'))).toBe(0)
+  })
+
+  it('is the same as choosing nothing when nothing is chosen', () => {
+    const timeline = TIMELINES['scale-c-major']
+    if (timeline === undefined) throw new Error('no scale fixture')
+    const take = perturb(timeline, { seed: SEED, perturbations: [HURRIED] })
+    const chosen = practiceReport({
+      timeline,
+      events: take.events,
+      takeId: 'strictness',
+      strictness: DEFAULT_STRICTNESS,
+    })
+    const unchosen = practiceReport({ timeline, events: take.events, takeId: 'strictness' })
+    expect(states(unchosen)).toEqual(states(chosen))
+  })
+
+  it('lets no setting call correct playing an error', () => {
+    // The floor the thresholds were chosen against (ADR-0014, and the note on
+    // STRICTNESS_MS): a restart, a rallentando and an even take at half speed
+    // are correct playing, and the strictest setting still says so.
+    const correct: Perturbation[][] = [
+      [],
+      [{ kind: 'tempoScale', factor: 2 }],
+      [{ kind: 'restartAtBar', bar: 2 }],
+      [{ kind: 'rallentando', fromBar: 1, toBar: 3, factor: 0.7 }],
+      [{ kind: 'rallentando', fromBar: 1, toBar: 3, factor: 0.5 }],
+    ]
+    for (const perturbations of correct) {
+      const timeline = TIMELINES['scale-c-major']
+      if (timeline === undefined) throw new Error('no scale fixture')
+      const take = perturb(timeline, { seed: SEED, perturbations })
+      const report = practiceReport({
+        timeline,
+        events: take.events,
+        takeId: 'strict',
+        strictness: 'strict',
+      })
+      expect(
+        report.bars.filter((bar) => bar.state === 'timing'),
+        JSON.stringify(perturbations)
+      ).toEqual([])
+    }
   })
 })

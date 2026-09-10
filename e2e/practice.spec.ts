@@ -273,3 +273,38 @@ test('a false start is named as a restart, not counted as extra notes', async ()
 
   expect(launched.networkRequests).toEqual([])
 })
+
+test('the timing control changes how many bars are called out, on the take already played', async () => {
+  // `scale-c-major-uneven` takes bar 2 at 93% of its written length: past the
+  // strictest threshold and inside the most relaxed one. Nothing is recorded
+  // again -- the report is re-derived from the take that is already loaded.
+  test.setTimeout(180_000)
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView(launched)
+  await importScore(launched, 'scale-c-major.musicxml')
+
+  await practise('virtual:score:scale-c-major-uneven', 12)
+
+  const timing = page.locator('[data-testid="bar-mark"][data-state="timing"]')
+  const takeLabel = await page.getByTestId('stat-take').textContent()
+
+  await page.getByTestId('strictness').selectOption('strict')
+  await expect(timing).toHaveCount(1)
+  await expect(timing).toHaveAttribute('data-bar', '2')
+
+  await page.getByTestId('strictness').selectOption('relaxed')
+  await expect(timing).toHaveCount(0)
+  await expect(page.locator('[data-testid="bar-mark"][data-state="clean"]')).toHaveCount(4)
+
+  await page.getByTestId('strictness').selectOption('strict')
+  await expect(timing).toHaveCount(1)
+
+  // The same take throughout: no new recording, and the counts never moved.
+  expect(await page.getByTestId('stat-take').textContent()).toBe(takeLabel)
+  await expect(page.getByTestId('stat-wrong')).toHaveText('0')
+  await expect(page.getByTestId('stat-missing')).toHaveText('0')
+  await expect(page.getByTestId('stat-extra')).toHaveText('0')
+
+  expect(launched.networkRequests).toEqual([])
+})

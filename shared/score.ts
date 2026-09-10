@@ -215,6 +215,31 @@ export const RestartVerdictSchema = z.object({
 export type RestartVerdict = z.infer<typeof RestartVerdictSchema>
 
 /**
+ * How fussy the player wants the app to be about timing.
+ *
+ * Three named positions rather than a slider, because a slider invites tuning
+ * the number until the feedback flatters. It moves the threshold a bar's
+ * deviation is called out at and **nothing else**: the same take reports the
+ * same notes, the same counts and the same `timingDeviation` at every setting,
+ * because those are measurements and this is an opinion about them.
+ *
+ * Not persisted in this version: there is no settings store yet, so it is
+ * remembered for as long as the view is open, the precedent the quantisation
+ * grid set.
+ */
+export const TimingStrictnessSchema = z.enum(['relaxed', 'normal', 'strict'])
+export type TimingStrictness = z.infer<typeof TimingStrictnessSchema>
+
+export const DEFAULT_STRICTNESS: TimingStrictness = 'normal'
+
+/** What each position is called where a player reads it. */
+export const STRICTNESS_LABELS: Record<TimingStrictness, string> = {
+  relaxed: 'Let it breathe',
+  normal: 'Normal',
+  strict: 'Keep it tight',
+}
+
+/**
  * What the tempo did over a span: **information, never a verdict**. No bar's
  * state changes because one of these exists (ADR-0014). A player who slows
  * into a cadence has done something worth telling them about and nothing worth

@@ -159,10 +159,11 @@ const SCORE_SCENARIO_LABELS: readonly ScoreScenarioLabel[] = [
     perturbations: [{ kind: 'stopAfterBar', bar: 1 }],
   },
   /**
-   * The two takes ADR-0014 was written from. The scale fixture is the one
-   * worth timing: a note on every quarter across four bars, where the other
-   * fixtures put a single chord in each bar and have nothing to be uneven
-   * about.
+   * The takes ADR-0014 was written from, and one bar that really is uneven so
+   * the strictness control has something to change its mind about. The scale
+   * fixture is the one worth timing: a note on every quarter across four bars,
+   * where the other fixtures put a single chord in each bar and have nothing
+   * to be uneven about.
    */
   {
     slug: 'scale-c-major',
@@ -171,6 +172,14 @@ const SCORE_SCENARIO_LABELS: readonly ScoreScenarioLabel[] = [
     description: 'A false start: bar 2 is played, played again, and the piece carries on',
     seed: 0x5ca1,
     perturbations: [{ kind: 'restartAtBar', bar: 2 }],
+  },
+  {
+    slug: 'scale-c-major',
+    suffix: 'uneven',
+    name: 'Score: C major scale, bar 2 a little hurried',
+    description: 'Bar 2 taken at 93% of its written length: uneven, but only just',
+    seed: 0x5ca1,
+    perturbations: [{ kind: 'rushBar', bar: 2, fraction: 0.93 }],
   },
   {
     slug: 'scale-c-major',

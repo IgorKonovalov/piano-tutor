@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { MidiPort } from '../../shared/midi'
-import { type ScoreMeta, isMidiScore } from '../../shared/score'
+import {
+  DEFAULT_STRICTNESS,
+  STRICTNESS_LABELS,
+  TimingStrictnessSchema,
+  type ScoreMeta,
+  type TimingStrictness,
+  isMidiScore,
+} from '../../shared/score'
 import type { BarState, NoteVerdict } from '../../shared/score'
 import {
   barAt,
@@ -73,6 +80,12 @@ export function Score() {
   const [showRead, setShowRead] = useState(false)
 
   const [quantiseTo, setQuantiseTo] = useState(DEFAULT_QUANTISE_QUARTERS)
+  /**
+   * How fussy to be about timing. Kept in the view rather than in a settings
+   * store because there is not one yet; it lasts as long as the view is open,
+   * which is the precedent the quantisation grid set.
+   */
+  const [strictness, setStrictness] = useState<TimingStrictness>(DEFAULT_STRICTNESS)
   const [ports, setPorts] = useState<MidiPort[]>([])
   const [portId, setPortId] = useState<string>('')
   const [recording, setRecording] = useState(false)
@@ -202,11 +215,11 @@ export function Score() {
         )
         return
       }
-      await practice.analyse(recorded.id, timeline)
+      await practice.analyse(recorded.id, timeline, strictness)
     } catch (err) {
       setPracticeError((err as Error).message)
     }
-  }, [practice, timeline])
+  }, [practice, strictness, timeline])
 
   // A count of what has arrived, while it is arriving. Nothing is judged from
   // it -- that is the whole shape of this feature -- but a player needs to see
@@ -381,6 +394,29 @@ export function Score() {
               >
                 Clear
               </button>
+
+              <label className={styles.field} htmlFor="strictness">
+                Timing
+              </label>
+              <select
+                id="strictness"
+                className={styles.port}
+                value={strictness}
+                onChange={(event) => {
+                  const next = TimingStrictnessSchema.parse(event.target.value)
+                  setStrictness(next)
+                  // The take is already loaded; this re-derives the report from
+                  // it rather than recording again or reading the file again.
+                  practice.restrict(next)
+                }}
+                data-testid="strictness"
+              >
+                {TimingStrictnessSchema.options.map((option) => (
+                  <option key={option} value={option}>
+                    {STRICTNESS_LABELS[option]}
+                  </option>
+                ))}
+              </select>
 
               {midi && (
                 <>

@@ -1,5 +1,11 @@
-import { useCallback, useState } from 'react'
-import type { ExpectedTimeline, PracticeReport } from '../../shared/score'
+import { useCallback, useRef, useState } from 'react'
+import type { MidiEvent } from '../../shared/midi'
+import {
+  DEFAULT_STRICTNESS,
+  type ExpectedTimeline,
+  type PracticeReport,
+  type TimingStrictness,
+} from '../../shared/score'
 import { practiceReport } from '../../core/src/align/report'
 
 /**
@@ -10,6 +16,11 @@ import { practiceReport } from '../../core/src/align/report'
  * take, so this is called once, when the player stops, and the time it takes
  * is the turnaround NFR 12 names. That time is measured and reported, never
  * asserted -- it is a figure about one machine.
+ *
+ * The take is kept after it is analysed so that changing how fussy the app
+ * should be re-derives the report from it: nothing is re-recorded and the file
+ * is not read again. Strictness is an opinion about a measurement, so
+ * measuring twice would be the wrong shape.
  */
 
 export interface Analysed {
@@ -28,31 +39,73 @@ export type PracticeState =
 export interface PracticeAnalysis {
   state: PracticeState
   /** Loads the take, aligns it against the timeline, and times both. */
-  analyse: (takeId: string, timeline: ExpectedTimeline) => Promise<void>
+  analyse: (
+    takeId: string,
+    timeline: ExpectedTimeline,
+    strictness?: TimingStrictness
+  ) => Promise<void>
+  /** Re-derives the report from the take already loaded, at a new strictness. */
+  restrict: (strictness: TimingStrictness) => void
   clear: () => void
+}
+
+interface Loaded {
+  takeId: string
+  timeline: ExpectedTimeline
+  events: MidiEvent[]
 }
 
 export function usePracticeReport(): PracticeAnalysis {
   const [state, setState] = useState<PracticeState>({ status: 'idle' })
+  const loaded = useRef<Loaded | null>(null)
 
-  const analyse = useCallback(async (takeId: string, timeline: ExpectedTimeline) => {
-    setState({ status: 'working' })
-    try {
-      const startedAt = performance.now()
-      const take = await window.api.take.load(takeId)
-      const report = practiceReport({ timeline, events: take.events, takeId })
-      setState({
-        status: 'ready',
-        report,
-        elapsedMs: Math.round(performance.now() - startedAt),
-        events: take.events.length,
-      })
-    } catch (err) {
-      setState({ status: 'error', message: (err as Error).message })
-    }
+  const analyse = useCallback(
+    async (
+      takeId: string,
+      timeline: ExpectedTimeline,
+      strictness: TimingStrictness = DEFAULT_STRICTNESS
+    ) => {
+      setState({ status: 'working' })
+      try {
+        const startedAt = performance.now()
+        const take = await window.api.take.load(takeId)
+        const report = practiceReport({ timeline, events: take.events, takeId, strictness })
+        loaded.current = { takeId, timeline, events: take.events }
+        setState({
+          status: 'ready',
+          report,
+          elapsedMs: Math.round(performance.now() - startedAt),
+          events: take.events.length,
+        })
+      } catch (err) {
+        loaded.current = null
+        setState({ status: 'error', message: (err as Error).message })
+      }
+    },
+    []
+  )
+
+  const restrict = useCallback((strictness: TimingStrictness) => {
+    const take = loaded.current
+    if (take === null) return
+    setState((current) => {
+      if (current.status !== 'ready') return current
+      return {
+        ...current,
+        report: practiceReport({
+          timeline: take.timeline,
+          events: take.events,
+          takeId: take.takeId,
+          strictness,
+        }),
+      }
+    })
   }, [])
 
-  const clear = useCallback(() => setState({ status: 'idle' }), [])
+  const clear = useCallback(() => {
+    loaded.current = null
+    setState({ status: 'idle' })
+  }, [])
 
-  return { state, analyse, clear }
+  return { state, analyse, restrict, clear }
 }

@@ -1,10 +1,12 @@
 import type { MidiEvent } from '../../../shared/midi'
-import type {
-  BarState,
-  BarVerdict,
-  ExpectedTimeline,
-  NoteVerdict,
-  PracticeReport,
+import {
+  DEFAULT_STRICTNESS,
+  type BarState,
+  type BarVerdict,
+  type ExpectedTimeline,
+  type NoteVerdict,
+  type PracticeReport,
+  type TimingStrictness,
 } from '../../../shared/score'
 import { type Alignment, align, arrivalTime, confidentPairs, struckPitches } from './align'
 import {
@@ -41,15 +43,31 @@ import {
 
 /**
  * How far a bar may sit from its local reference before the bar is called out
- * for timing. Forty-five milliseconds is a little under a demisemiquaver
- * at a walking tempo and comfortably inside what a listener hears as "not
- * together"; below it sits ordinary human unevenness and the generator's own
- * jitter, which is bounded at twelve.
+ * for timing, at each of the three positions the player can choose between.
  *
- * The tests assert the **ordering** of bars by badness rather than this
- * number, so tuning it cannot make a test pass that should not.
+ * The floor is measured, not chosen. Over forty seeds and eight generated
+ * scenarios of **correct playing** -- clean takes of three fixtures, a take at
+ * half speed, a restart, and rallentandos of 0.5, 0.7 and 1.3 -- the worst bar
+ * reaches 40 ms, which is the local reference's own arithmetic and not the
+ * player. A bar the player genuinely rushed sits at 585 ms in the same runs.
+ * The signal is fifteen times the floor, so every position here can sit above
+ * the floor and still be nowhere near a real mistake: a strictness that
+ * reported the 40 ms would be reporting the model, which is the thing ADR-0014
+ * exists to stop.
+ *
+ * `strict` is a little under a demisemiquaver at a walking tempo, and the two
+ * looser positions are room for a phrase that breathes. The tests assert the
+ * **ordering** of bars by badness rather than these numbers, so tuning them
+ * cannot make a test pass that should not.
  */
-export const TIMING_THRESHOLD_MS = 45
+export const STRICTNESS_MS: Record<TimingStrictness, number> = {
+  relaxed: 130,
+  normal: 75,
+  strict: 45,
+}
+
+/** The threshold with nothing chosen, which is what every test measures at. */
+export const TIMING_THRESHOLD_MS = STRICTNESS_MS[DEFAULT_STRICTNESS]
 
 export interface PracticeReportInput {
   timeline: ExpectedTimeline
@@ -59,6 +77,12 @@ export interface PracticeReportInput {
   scoreId?: string
   onsetWindowMs?: number
   band?: number
+  /**
+   * How fussy to be about timing. Only bar **state** moves with it: the notes,
+   * the counts and every `timingDeviation` are measurements and are the same
+   * at every setting.
+   */
+  strictness?: TimingStrictness
 }
 
 export interface PracticeAnalysis {
@@ -205,6 +229,7 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
         bar: bar.index,
         notes: barNotes,
         timingDeviation,
+        threshold: STRICTNESS_MS[input.strictness ?? DEFAULT_STRICTNESS],
         abandonedFrom,
         unalignableFromBar:
           alignment.unalignableFrom === null
@@ -306,6 +331,7 @@ function stateFor(input: {
   bar: number
   notes: readonly NoteVerdict[]
   timingDeviation: number
+  threshold: number
   abandonedFrom: number | null
   unalignableFromBar: number | null
 }): BarState {
@@ -314,7 +340,7 @@ function stateFor(input: {
   }
   if (input.abandonedFrom !== null && input.bar >= input.abandonedFrom) return 'notAttempted'
   if (input.notes.some((note) => note.kind !== 'correct')) return 'wrong'
-  if (Math.abs(input.timingDeviation) > TIMING_THRESHOLD_MS) return 'timing'
+  if (Math.abs(input.timingDeviation) > input.threshold) return 'timing'
   return 'clean'
 }
 

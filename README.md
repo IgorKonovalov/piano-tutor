@@ -133,13 +133,23 @@ while you play. Press *Stop and show me* and the bars colour: green where you pl
 written, amber where the timing wandered, red where the notes did not match, and grey for the bars
 you never reached. Clicking a bar says what happened in it, note by note.
 
-The tempo is not given to you and not assumed: one tempo is fitted to what you actually played,
-and each bar is judged against that. Playing the whole piece evenly at half speed is playing it
-correctly, and the app says so.
+The tempo is not given to you and not assumed. Each bar is judged against the tempo **the bars
+around it** were keeping, so timing here is about evenness rather than about speed: playing the
+whole piece evenly at half speed is playing it correctly, and the app says so. Going back over a
+bar is said in words -- "you went back over bar 4" -- and the notes you played twice are not
+counted as mistakes. Slowing into a cadence is described the same way, "you slowed 29% over bars
+1 to 3", and never marked as an error. The tempo figure is the one you actually held, taken from
+the stretches where you were steady, so a false start does not drag it.
+
+The *Timing* control says how fussy to be about it: *Let it breathe*, *Normal* or *Keep it
+tight*. It changes only how many bars are called out -- the notes, the counts and the numbers
+themselves are the same at every setting -- and it re-colours the take you have just played
+without your having to play it again. It is not remembered between sessions yet.
 
 With nothing plugged in, the *Play from* list includes generated performances of the fixture
-pieces -- including one with a deliberate wrong note in bar 3 -- so the whole path can be watched
-end to end without an instrument.
+pieces -- one with a deliberate wrong note in bar 3, one that goes back over bar 2, one that
+slows to the end and one with a single hurried bar -- so the whole path can be watched end to end
+without an instrument.
 
 ## Working in this repository
 
