@@ -353,7 +353,7 @@ interface PracticeReportAdditions {
 | 2 — A bar is judged against its neighbours | dev | done | 6ba8f05 |
 | 3 — A restart is named, not counted as mistakes | dev | done | 1296c40 |
 | 4 — The tempo you kept, and the shape you gave it | dev | done | 4e11434 |
-| 5 — How fussy the app should be | dev | done | committed with this row |
+| 5 — How fussy the app should be | dev | done | 28fd9a8 |
 | 6 — At the piano, with the takes that started this | human | outstanding | — |
 
 ### Measurements
