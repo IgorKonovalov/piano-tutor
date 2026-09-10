@@ -1,6 +1,6 @@
 # 0002 — A piece is practised
 
-> **Status:** draft
+> **Status:** in-progress
 > **Created:** 2026-09-09
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0003](../adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) (proposed),
@@ -122,7 +122,8 @@ with nothing plugged in (NFR 11); Phase 7 is the only one that needs the instrum
   `electron/preload/api/score.ts`, `electron/preload/index.ts`, `shared/score.ts` (Zod:
   `ScoreId`, `ScoreMeta`), `shared/ipc-channels.ts`, `renderer/score/OsmdView.tsx` +
   `.module.css`, `renderer/views/Score.tsx` + `.module.css`, `renderer/hooks/useScore.ts`,
-  `renderer/App.tsx` (navigation gains Score), `core/fixtures/scores/*.musicxml`, `README.md`.
+  `renderer/App.tsx` (navigation gains Score), `core/fixtures/scores/*.musicxml`,
+  `scripts/fetch-scores.mjs`, `.gitignore`, `README.md`.
 - **Notes for the implementer:**
   - **Four fixture scores, hand-written, committed.** They are the ground truth for every later
     phase and hand-writing them avoids both a licensing question and a guess about what a file
@@ -131,6 +132,12 @@ with nothing plugged in (NFR 11); Phase 7 is the only one that needs the instrum
     is the classic off-by-one and it must be in the fixtures from the first phase; (c)
     `key-and-time-change.musicxml`, a key change and a 4/4-to-3/4 change mid-piece; (d)
     `multi-rest-and-ties.musicxml`, a multi-measure rest and notes tied across a barline.
+  - **Real repertoire comes from a corpus, fetched, never committed.** The four fixtures above
+    are the ground truth precisely because they are simple, so they cannot also be the thing that
+    smoke-tests OSMD against real engraving. `scripts/fetch-scores.mjs` downloads a named subset
+    of the MuseTrainer library into `scores-local/` (gitignored) to be imported through the same
+    dialog a user would use. It is a developer convenience, **not a gate** — it reaches the
+    network, so it never runs at pre-push or at a plan close. See **Real-score corpora** below.
   - The library id is content-addressed (a hash of the bytes) so importing the same file twice is
     idempotent and a take's score reference cannot go stale. `ScoreMeta` carries the id, the
     original filename, the import timestamp and the title OSMD reports once it has parsed.
@@ -307,8 +314,9 @@ with nothing plugged in (NFR 11); Phase 7 is the only one that needs the instrum
   implementation log. This is the phase the harness cannot substitute for: every input above was
   generated, and generated playing is metronomic and evenly voiced in a way human playing is not.
 - **Checklist:**
-  1. Import a real MusicXML file you actually want to practise. Does it draw correctly? Anything
-     OSMD renders wrongly or refuses?
+  1. Import a real MusicXML file you actually want to practise — one from the fetched corpus
+     (**Real-score corpora** below) or your own. Does it draw correctly? Anything OSMD renders
+     wrongly or refuses?
   2. Play it through and stop. Do the coloured bars match your own sense of where you fumbled?
   3. **The false-start case.** Start a bar, stop, go back a bar and continue. What does the
      report say — does it recover, or does everything after it read as wrong? This is the known
@@ -325,6 +333,42 @@ with nothing plugged in (NFR 11); Phase 7 is the only one that needs the instrum
 - **If this phase is deferred by an unattended run** (`dev` logs it and moves on, per the queue
   protocol in `CLAUDE.md`), the plan **cannot close.** Nothing above has been proved by a green
   gate, and item 3 in particular is a question the generator cannot ask.
+
+## Real-score corpora
+
+Where a real piece comes from, decided 2026-09-10. **Nothing here is committed.**
+`scripts/fetch-scores.mjs` downloads a named subset into `scores-local/`, which is gitignored,
+so the app never redistributes a score and no licence obligation attaches to this repo. The
+hand-written fixtures of Phase 1 remain the only score files under version control.
+
+| Corpus | Format | Licence | Role here |
+|--------|--------|---------|-----------|
+| [MuseTrainer library](https://github.com/musetrainer/library) | 70 x `.mxl` | none stated | The working source. Right format, no tooling. |
+| [DCML Beethoven sonatas](https://github.com/DCMLab/beethoven_piano_sonatas) | 91 x `.mscx` | CC BY-NC-SA 4.0 | Not v1. Needs conversion; see the followup. |
+
+- **MuseTrainer is the practical source and its "public domain" is a title, not a licence.** The
+  files are valid compressed MusicXML — a zip of `META-INF/container.xml` plus `score.xml`,
+  MusicXML 3.1, exported by MuseScore 3.x — which is exactly what this phase accepts, and they
+  need no conversion step. But the repo has no `LICENSE`, the GitHub API reports none, the files
+  carry no `<rights>` element, and each names a `<source>` on musescore.com: they are community
+  uploads. Most *compositions* are public domain; the *arrangements* are user-made derivative
+  works, and several pieces are not public domain at all — `Mariage_dAmour` is Paul de
+  Senneville, 1979, present three times and twice mislabelled "Chopin - Spring Waltz", alongside
+  `Hungarian_Sonata`, `Carol_of_the_Bells` (Wilhousky, 1936) and `Bella_Ciao_-_La_Casa_de_Papel`.
+  Practising from them is the player's own business; shipping them is not this repo's to do.
+  This is the same reasoning that made the Phase 1 fixtures hand-written, applied to the corpus.
+- **Every real file has repeats, so Phase 7 meets that cut on its first import.** The Bach minuet
+  probed carries three `<repeat>` elements. "No repeats, endings, da capo or segno" under **What
+  this plan does NOT do** stands, but it stops being theoretical the moment a real piece loads:
+  the piece practises linearly and the player should be told so, not surprised by it.
+- **The DCML corpus is a different kind of asset and it is not v1.** It is `.mscx`, MuseScore 3
+  native XML, which OSMD cannot read — using it means a MuseScore CLI conversion, an external
+  tool and a human step. Its licence is clear where MuseTrainer's is absent, but CC BY-NC-SA
+  carries real obligations: attribution, the cited data report, non-commercial use, and a
+  ShareAlike term that would reach anything derived and redistributed. What makes it worth
+  remembering is `notes/*.notes.tsv` and `measures/*.measures.tsv`: an expected-note table
+  produced by an entirely separate toolchain, which is an independent check on ADR-0005's
+  extraction in the same spirit as Phase 6's two adapters agreeing.
 
 ## Data shapes
 
@@ -414,11 +458,11 @@ type PracticeReport = {
 > last one. **The phases above are the contract; everything here is what happened.** Observations,
 > never conclusions. A deviation from the plan or an unmet done-when is always disclosed.
 
-**Lane:** _(main checkout or worktree path and branch)_
+**Lane:** `main` checkout, branch `main`.
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — A score appears on screen | dev | not started | |
+| 1 — A score appears on screen | dev | done | committed with this row |
 | 2 — The expected notes come off the score | dev | not started | |
 | 3 — The app plays the score, badly on purpose | dev | not started | |
 | 4 — A take aligns to a score | dev | not started | |
@@ -435,7 +479,20 @@ type PracticeReport = {
 
 ### Notes
 
-_(deviations, unmet done-whens, followups noticed and not acted on; one line each)_
+- Phase 1: the bar-colour capability is a real control in the Score view (a bar field, and
+  clicking a bar) rather than the test hook the phase names; ADR-0004 keeps hooks out of the
+  renderer, so the e2e case drives the control a player drives.
+- Phase 1: two files outside the phase's list were touched. `renderer/types/global.d.ts` gains
+  `score: ScoreApi` -- the mirror of `electron/preload/index.ts`, which is in the list, and
+  without it the renderer cannot see `window.api.score`. `e2e/score.spec.ts` (Phase 2's list)
+  carries Phase 1's e2e case, which the done-when requires and no listed file could hold.
+- Phase 1: `score:set-title` is a fifth channel in the `score:*` domain, beyond the four the
+  phase names. `ScoreMeta` carries "the title OSMD reports once it has parsed", and only the
+  renderer parses, so the title has to travel back.
+- Phase 1: OSMD 2.1.2 is the latest published version, so the plan's pin installed as written.
+- Phase 1 observation for Phase 2: OSMD's `MeasureList` has one entry per source measure --
+  seven for `multi-rest-and-ties`, whose bars 3 to 5 are drawn as a single multi-measure-rest
+  object. The bar index survives the collapse; the drawn box does not.
 
 ### Close triggers
 
@@ -455,4 +512,9 @@ _(facts for architect to verify and decide from, no recommendations)_
 - **Live bar-by-bar feedback** as its own plan, on top of the aligner this one proves.
 - **Grace notes and ornaments** scored rather than excluded.
 - **Extraction in a worker** if a large score blocks the renderer at load.
+- **Cross-check the timeline against the DCML corpus** — convert a sonata movement from `.mscx`
+  and assert our OSMD-derived timeline against that corpus's `notes.tsv`. A second opinion on
+  ADR-0005 from a toolchain with no shared code, and the strongest available evidence that the
+  extraction is right rather than merely self-consistent. Carries a MuseScore dependency and a
+  CC BY-NC-SA attribution, which is why it is a followup and not a phase.
 - The `architect` review decides whether ADR-0003 and ADR-0005 move to `accepted`.

@@ -1,0 +1,83 @@
+/*
+ * Engraved music is black on paper. The rest of the app is dark because it is
+ * read from a piano bench, but a score inverted is a score nobody can sight
+ * read, so this one panel keeps its paper.
+ */
+.paper {
+  position: relative;
+  display: inline-block;
+  min-width: 100%;
+  padding: var(--space-4);
+  background: #fdfdfb;
+  border-radius: var(--radius-2);
+}
+
+.host {
+  position: relative;
+}
+
+.layer {
+  position: absolute;
+  inset: var(--space-4);
+  pointer-events: none;
+}
+
+/*
+ * One button per drawn bar, sitting exactly over the box OSMD laid out. Always
+ * present and always clickable, so selecting a bar does not depend on a
+ * verdict existing for it; unmarked bars are invisible until hovered.
+ */
+.bar {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-1);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.bar:hover {
+  border-color: rgb(110 168 254 / 45%);
+  background: rgb(110 168 254 / 8%);
+}
+
+.barLabel {
+  position: absolute;
+  top: -2px;
+  left: 2px;
+  padding: 0 3px;
+  border-radius: var(--radius-1);
+  background: rgb(20 22 26 / 82%);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.highlight {
+  border-color: var(--color-accent);
+  background: rgb(110 168 254 / 18%);
+}
+
+.clean {
+  border-color: var(--color-ok);
+  background: rgb(95 209 140 / 16%);
+}
+
+.timing {
+  border-color: var(--color-warn);
+  background: rgb(232 176 75 / 18%);
+}
+
+.wrong {
+  border-color: var(--color-error);
+  background: rgb(242 119 122 / 18%);
+}
+
+.notAttempted {
+  border-color: var(--color-border);
+  background: rgb(43 48 56 / 22%);
+}

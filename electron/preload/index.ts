@@ -1,7 +1,9 @@
 import { contextBridge } from 'electron'
 import type { MidiApi } from '../../shared/midi'
+import type { ScoreApi } from '../../shared/score'
 import type { TakeApi } from '../../shared/take'
 import { midi } from './api/midi'
+import { score } from './api/score'
 import { take } from './api/take'
 
 /**
@@ -10,9 +12,10 @@ import { take } from './api/take'
  * renderer's `Window` declaration reads: a capability added on one side and
  * not the other fails to compile rather than to run.
  */
-const api: { midi: MidiApi; take: TakeApi } = {
+const api: { midi: MidiApi; take: TakeApi; score: ScoreApi } = {
   midi,
   take,
+  score,
 }
 
 contextBridge.exposeInMainWorld('api', api)

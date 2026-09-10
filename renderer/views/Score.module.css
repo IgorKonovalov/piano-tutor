@@ -1,0 +1,160 @@
+.view {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: var(--space-5);
+  height: 100%;
+  padding: var(--space-5);
+}
+
+.library {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.add {
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-1);
+  color: var(--color-accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.add:hover {
+  background: rgb(110 168 254 / 10%);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+}
+
+.score {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-raised);
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  text-align: left;
+}
+
+.score:last-child {
+  border-bottom: none;
+}
+
+.score:hover {
+  background: var(--color-bg-sunken);
+}
+
+/* Selection is a left rule as well as a background: one carrier is not enough. */
+.current {
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.title {
+  display: block;
+  font-weight: 500;
+}
+
+.filename {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-fg-dim);
+  overflow-wrap: anywhere;
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.field {
+  font-weight: 500;
+}
+
+.barInput {
+  width: 84px;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-1);
+  color: inherit;
+  font-family: var(--font-mono);
+}
+
+.hint {
+  flex: 1;
+  color: var(--color-fg-dim);
+  font-size: 12px;
+}
+
+.clear {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+}
+
+.clear:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+  background: var(--color-bg-sunken);
+}
+
+.empty {
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-2);
+  color: var(--color-fg-dim);
+  background: var(--color-bg-sunken);
+}
+
+.error {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-2);
+  color: var(--color-error);
+  background: var(--color-bg-sunken);
+}
+
+.retry {
+  margin-left: var(--space-3);
+  padding: 2px var(--space-3);
+  background: transparent;
+  border: 1px solid currentcolor;
+  border-radius: var(--radius-1);
+  cursor: pointer;
+}

@@ -19,6 +19,7 @@ replay, all measured at the CK88. Next is
 | Why Electron, why MIDI lives in the main process | [ADR-0001](docs/adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) |
 | How the LLM coach reaches a model, and the terms-of-service caveat | [ADR-0002](docs/adrs/0002-the-coach-is-a-provider-behind-one-interface-and-the-first-provider-is-the-claude-cli.md) |
 | Why two notation engines | [ADR-0003](docs/adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) |
+| Why a score is parsed once, by the library that draws it | [ADR-0005](docs/adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) |
 | The numbers behind "real-time" and "offline" | [docs/nfr.md](docs/nfr.md) |
 | How the live pipeline was built, phase by phase | [Plan 0001](docs/plans/done/0001-the-keyboard-shows-on-screen.md) |
 | What comes after | [docs/plans/README.md](docs/plans/README.md) |
@@ -93,6 +94,18 @@ human at the instrument says that.
 [Plan 0001](docs/plans/done/0001-the-keyboard-shows-on-screen.md) Phase 7 is the checklist that did
 it, and its answers — the port names, the real key-to-pixel figures, the velocity range — are in
 that plan's implementation log.
+
+### Scores
+
+The **Score** view keeps a library of pieces. *Add a score...* opens a file dialog and accepts
+`.musicxml`, `.xml` and `.mxl`; the file is copied verbatim into the app's data folder under an id
+that is a hash of its bytes, so importing the same file twice is one entry and a take can always
+be re-aligned against the exact bytes it was played against. Editing the piece and re-importing
+makes a new entry rather than silently changing what an old take was judged against.
+
+Bars are indexed the way the notation engine parsed them, starting at zero, which is not always
+the number printed on the page -- an anacrusis is bar 0. The bar field above the score marks one,
+and clicking a bar marks it too; that is the same mechanism per-bar feedback will use.
 
 ## Working in this repository
 

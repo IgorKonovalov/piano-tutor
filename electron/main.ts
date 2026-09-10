@@ -1,10 +1,12 @@
 import { type BrowserWindow, app } from 'electron'
 import { createWindow, getRendererPaths, installCsp } from './window'
 import { cleanupMidiHandlers, registerMidiHandlers } from './ipc/midiHandlers'
+import { cleanupScoreHandlers, registerScoreHandlers } from './ipc/scoreHandlers'
 import { cleanupTakeHandlers, registerTakeHandlers } from './ipc/takeHandlers'
 import { createMidiPipeline } from './midi/pipeline'
 import { RtMidiSource } from './midi/RtMidiSource'
 import { SyntheticSource } from './midi/SyntheticSource'
+import { scoresDirectory } from './score/library'
 import { Recorder } from './take/Recorder'
 import { takesDirectory } from './take/takeFile'
 
@@ -34,6 +36,7 @@ const recorder = new Recorder()
 // userData is only resolvable once Electron is ready, so the directory is a
 // function rather than a value.
 const takesDir = () => takesDirectory(app.getPath('userData'))
+const scoresDir = () => scoresDirectory(app.getPath('userData'))
 
 const pipeline = createMidiPipeline({
   getWindow: () => mainWindow,
@@ -51,6 +54,7 @@ void app.whenReady().then(() => {
   installCsp(rendererUrl !== undefined)
   registerMidiHandlers({ pipeline, rtMidi, synthetic })
   registerTakeHandlers({ pipeline, takesDirectory: takesDir })
+  registerScoreHandlers({ getWindow: () => mainWindow, scoresDirectory: scoresDir })
 
   const paths = getRendererPaths()
   mainWindow = createWindow({ ...paths, rendererUrl })
@@ -69,4 +73,5 @@ app.on('before-quit', () => {
   void pipeline.close()
   cleanupMidiHandlers()
   cleanupTakeHandlers()
+  cleanupScoreHandlers()
 })
