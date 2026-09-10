@@ -385,7 +385,7 @@ interface MidiSink {
 | 3 — The Score view plays the piece | dev | done | `47c69ed` |
 | 4 — A take plays back out to the instrument | dev | done | `cd71382` |
 | 5 — You can hear it with nothing plugged in | dev | done | `94cde15` |
-| 6 — Stop always stops | dev | done | committed with this row |
+| 6 — Stop always stops | dev | done | `f227397` |
 | 7 — At the piano | human | **outstanding** | |
 
 ### Measurements
