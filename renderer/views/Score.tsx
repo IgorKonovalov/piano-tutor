@@ -93,6 +93,11 @@ export function Score() {
     : (loaded?.timeline ?? null)
   const barCount = midi ? (timeline?.bars.length ?? 0) : (loaded?.barCount ?? 0)
   const report = practice.state.status === 'ready' ? practice.state.report : null
+  const chosenPort = ports.find((port) => port.id === portId)
+  // More than one instrument, or a build that carries the generated ports.
+  const choosable =
+    ports.filter((port) => port.kind === 'hardware').length > 1 ||
+    ports.some((port) => port.kind === 'virtual')
 
   useEffect(() => {
     let cancelled = false
@@ -101,7 +106,12 @@ export function Score() {
       .then((found) => {
         if (cancelled) return
         setPorts(found)
-        setPortId((current) => (current === '' ? (found[0]?.id ?? '') : current))
+        // Default to the instrument, never to a generated passage: a player
+        // always plays from their own keyboard, and the harness ports exist
+        // for the app to test itself.
+        setPortId((current) =>
+          current === '' ? (found.find((p) => p.kind === 'hardware')?.id ?? found[0]?.id ?? '') : current
+        )
       })
       .catch(() => {
         // The port list is not this view's job to report on; the Ports view
@@ -283,24 +293,38 @@ export function Score() {
         ) : (
           <>
             <div className={styles.toolbar}>
-              <label className={styles.field} htmlFor="practice-port">
-                Play from
-              </label>
-              <select
-                id="practice-port"
-                className={styles.port}
-                value={portId}
-                disabled={recording || ports.length === 0}
-                onChange={(event) => setPortId(event.target.value)}
-                data-testid="practice-port"
-              >
-                {ports.length === 0 && <option value="">Nothing connected</option>}
-                {ports.map((port) => (
-                  <option key={port.id} value={port.id}>
-                    {port.name}
-                  </option>
-                ))}
-              </select>
+              {/*
+                * A player always plays from their instrument, so the source is
+                * not a question worth asking: it is chosen for them and shown
+                * as a fact. The picker appears only when there is a real
+                * choice -- more than one instrument, or a build carrying the
+                * generated ports the app tests itself with (ADR-0004).
+                */}
+              {choosable ? (
+                <>
+                  <label className={styles.field} htmlFor="practice-port">
+                    Play from
+                  </label>
+                  <select
+                    id="practice-port"
+                    className={styles.port}
+                    value={portId}
+                    disabled={recording}
+                    onChange={(event) => setPortId(event.target.value)}
+                    data-testid="practice-port"
+                  >
+                    {ports.map((port) => (
+                      <option key={port.id} value={port.id}>
+                        {port.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <span className={styles.source} data-testid="practice-port-name">
+                  {portId === '' ? 'No instrument connected' : (chosenPort?.name ?? portId)}
+                </span>
+              )}
               <button
                 type="button"
                 className={recording ? `${styles.practise} ${styles.stop}` : styles.practise}

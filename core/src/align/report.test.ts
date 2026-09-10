@@ -6,6 +6,7 @@ import {
   type ExpectedTimeline,
   type PracticeReport,
 } from '../../../shared/score'
+import type { MidiEvent } from '../../../shared/midi'
 import keyAndTimeJson from '../../fixtures/scores/key-and-time-change.timeline.json'
 import multiRestJson from '../../fixtures/scores/multi-rest-and-ties.timeline.json'
 import pickupJson from '../../fixtures/scores/pickup-two-hands.timeline.json'
@@ -373,5 +374,61 @@ describe('an empty take', () => {
     expect(states(report)).toEqual(timeline.bars.map(() => 'notAttempted'))
     expect(report.counts).toEqual({ correct: 0, wrongPitch: 0, missing: 0, extra: 0 })
     expect(report.fittedTempo).toBeNull()
+  })
+})
+
+describe('a piece played with broken chords', () => {
+  /**
+   * The take that found this: a player working through `pickup-two-hands` at
+   * the instrument, arpeggiating every chord about 650 ms per note, all
+   * nineteen pitches correct and in order. The report said four as written,
+   * fifteen missed and fifteen extra -- the same pitches counted as both.
+   */
+  const timeline = TIMELINES['pickup-two-hands'] as ExpectedTimeline
+
+  function brokenTake(): MidiEvent[] {
+    const events: MidiEvent[] = []
+    let t = 0
+    for (const note of [...timeline.notes].sort(
+      (a, b) => a.onset - b.onset || a.midi - b.midi
+    )) {
+      events.push({ kind: 'noteOn', t, ch: 0, note: note.midi, velocity: 70 })
+      events.push({ kind: 'noteOff', t: t + 500, ch: 0, note: note.midi, velocity: 0 })
+      t += 650
+    }
+    return events.sort((a, b) => a.t - b.t)
+  }
+
+  it('counts every note as written, not as missing and extra at once', () => {
+    const report = practiceReport({ timeline, events: brokenTake(), takeId: 'broken' })
+    expect(report.counts).toEqual({
+      correct: timeline.notes.length,
+      wrongPitch: 0,
+      missing: 0,
+      extra: 0,
+    })
+  })
+
+  it('never reports a pitch as both missing and extra in the same bar', () => {
+    // The signature of the failure, asserted directly so it cannot come back
+    // in another form: a note the player did strike cannot be missing.
+    const report = practiceReport({ timeline, events: brokenTake(), takeId: 'broken' })
+    for (const bar of report.bars) {
+      const missing = bar.notes.filter((n) => n.kind === 'missing').map((n) => n.expected)
+      const extra = bar.notes.filter((n) => n.kind === 'extra').map((n) => n.played)
+      expect(missing.filter((pitch) => extra.includes(pitch))).toEqual([])
+    }
+  })
+
+  it('finds a wrong note inside a broken chord, and only that one', () => {
+    const events = brokenTake()
+    const target = events.find((e) => e.kind === 'noteOn' && e.note === 76)
+    if (target === undefined || target.kind !== 'noteOn') throw new Error('no E5 in the take')
+    target.note = 77
+
+    const report = practiceReport({ timeline, events, takeId: 'broken-wrong' })
+    expect(report.counts.wrongPitch).toBe(1)
+    expect(report.counts.missing).toBe(0)
+    expect(report.counts.extra).toBe(0)
   })
 })

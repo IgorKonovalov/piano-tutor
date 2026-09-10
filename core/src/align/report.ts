@@ -6,7 +6,7 @@ import type {
   NoteVerdict,
   PracticeReport,
 } from '../../../shared/score'
-import { type Alignment, align, confidentPairs } from './align'
+import { type Alignment, align, confidentPairs, struckPitches } from './align'
 import {
   type ExpectedGroup,
   type PlayedGroup,
@@ -96,12 +96,19 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
       lastBar = expectedGroup.bar
       lastMatchedExpected = Math.max(lastMatchedExpected, step.expected)
 
-      const struck = pitchesMissingFrom(playedGroup.pitches, expectedGroup.pitches)
-      const absent = pitchesMissingFrom(expectedGroup.pitches, playedGroup.pitches)
+      // A match may span several played groups when the player broke the
+      // chord, so what it is judged against is every note in the run.
+      const heard = struckPitches(played, step)
+      const heardNotes = played
+        .slice(step.played, step.played + step.playedCount)
+        .flatMap((group) => group.notes)
+
+      const struck = pitchesMissingFrom(heard, expectedGroup.pitches)
+      const absent = pitchesMissingFrom(expectedGroup.pitches, heard)
 
       for (const pitch of expectedGroup.pitches) {
         if (absent.includes(pitch)) continue
-        const at = playedGroup.notes.find((note) => note.midi === pitch)?.t ?? playedGroup.t
+        const at = heardNotes.find((note) => note.midi === pitch)?.t ?? playedGroup.t
         push(expectedGroup.bar, { kind: 'correct', expected: pitch, playedAt: at })
       }
 

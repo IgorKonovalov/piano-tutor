@@ -537,6 +537,26 @@ type PracticeReport = {
   no `min-height: 0`, so `height: 100%` inside it resolved against nothing, and the Score view's
   grid row was implicit and therefore `auto`, so it overflowed the container it was sized to.
   Both are Plan 0001-era CSS that no earlier view exercised.
+- **First contact with the instrument found a real defect in the aligner**, before Phase 7 was
+  formally run. The user practised `pickup-two-hands` on the CK88, arpeggiating every chord at
+  about 650 ms per note, and played all nineteen pitches correctly and in order. The report said
+  4 as written, 15 missed and 15 extra, with the same pitches counted as both. The cause was the
+  model rather than a threshold: onset grouping joins played notes within 50 ms, so four written
+  chords arrived as nineteen groups, and a one-to-one group match can only call the surplus extra
+  and the remainder missing. Fixed by letting one expected group absorb a run of played groups,
+  bounded by the size of the chord written. That take now scores 19/0/0/0. This is Phase 7 item 5
+  answered early and answered no -- and the plan's rule that Phase 7 findings become followups
+  was overridden because the user was testing live and the feature was unusable.
+- Observation for the review: after that take the bars read `timing` rather than `clean`, with
+  deviations around a second, because one fitted tempo cannot describe an exploratory practice
+  run. That is Phase 7 item 4, and it is the risk the plan already names; it is not fixed.
+- Observation: `electron/take/Recorder.test.ts`'s "leaves a take that still reads back" failed
+  once and passed on the next three full runs, while a dev instance of the app was running. Worth
+  knowing before it is read as a regression.
+- The Score view no longer asks which port to play from when there is nothing to choose: a player
+  always plays from their instrument, so it is chosen and stated. The picker returns for a second
+  instrument or a build carrying the generated ports, which is what keeps the e2e practice specs
+  and ADR-0004 working.
 - Phase 7 is `human` and was not attempted. What it needs from the user: the CK88 plugged in, a
   real MusicXML file they want to practise, and the seven checklist answers written into this log.
   Item 3 (the false start) and item 5 (a rolled chord against the 50 ms window) are the two the

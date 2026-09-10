@@ -122,7 +122,7 @@ describe('the tie-break puts the player at the earliest place that fits', () => 
     const alignment = align(expected(repeated), played([[60]]))
 
     const match = alignment.steps.find((step) => step.kind === 'match')
-    expect(match).toEqual({ kind: 'match', expected: 0, played: 0, difference: 0 })
+    expect(match).toEqual({ kind: 'match', expected: 0, played: 0, playedCount: 1, difference: 0 })
     expect(alignment.steps.filter((step) => step.kind === 'missing').map((s) =>
       s.kind === 'missing' ? s.expected : -1
     )).toEqual([1, 2, 3])
@@ -201,5 +201,75 @@ describe('confidentPairs', () => {
   it('is empty when nothing was played', () => {
     const score = expected(SCALE)
     expect(confidentPairs(align(score, []), score, [])).toEqual([])
+  })
+})
+
+describe('a chord the player broke', () => {
+  /**
+   * Measured at the instrument: a player working through a chordal piece put
+   * about 650 ms between the notes of one written chord -- thirteen times the
+   * grouping window -- and every note was correct. Before this, the app told
+   * them they had missed fifteen notes out of nineteen and played fifteen that
+   * were not written. No onset window can join those; the match has to.
+   */
+  it('matches one written chord against the run of notes it was played as', () => {
+    const score = expected([[48, 55, 67, 72], [48, 55, 72, 76, 79]])
+    // Every note right, one at a time, far apart.
+    const take = played([[48], [55], [67], [72], [48], [55], [72], [76], [79]], 650)
+
+    const alignment = align(score, take)
+    const matches = alignment.steps.filter((step) => step.kind === 'match')
+
+    expect(matches).toHaveLength(2)
+    expect(matches[0]).toMatchObject({ expected: 0, played: 0, playedCount: 4, difference: 0 })
+    expect(matches[1]).toMatchObject({ expected: 1, played: 4, playedCount: 5, difference: 0 })
+    expect(alignment.steps.filter((step) => step.kind !== 'match')).toEqual([])
+  })
+
+  it('does not care how far apart the notes of the chord were', () => {
+    const score = expected([[60, 64, 67]])
+    for (const spacing of [10, 200, 650, 2000]) {
+      const alignment = align(score, played([[60], [64], [67]], spacing))
+      expect(alignment.steps).toHaveLength(1)
+      expect(alignment.steps[0]).toMatchObject({ playedCount: 3, difference: 0 })
+    }
+  })
+
+  it('still finds the wrong note inside a broken chord', () => {
+    const score = expected([[60, 64, 67]])
+    const alignment = align(score, played([[60], [65], [67]], 500))
+    const match = alignment.steps[0]
+    expect(match).toMatchObject({ kind: 'match', playedCount: 3 })
+    expect(match?.kind === 'match' && match.difference).toBe(2)
+  })
+
+  it('never merges two chords that were played as two chords', () => {
+    // The decisive case for the tie-break: an exact match costs nothing, and
+    // nothing beats nothing, so absorbing can never look cheaper here.
+    const score = expected([[60, 64, 67], [60, 64, 67]])
+    const alignment = align(score, played([[60, 64, 67], [60, 64, 67]]))
+    expect(alignment.cost).toBe(0)
+    expect(alignment.steps.every((step) => step.kind === 'match' && step.playedCount === 1)).toBe(
+      true
+    )
+  })
+
+  it('cannot absorb more notes than the chord is written with', () => {
+    // Three written notes may account for at most three struck ones; the rest
+    // are extra, which is what makes absorbing unable to swallow a passage.
+    const score = expected([[60, 64, 67]])
+    const alignment = align(score, played([[60], [64], [67], [71], [74], [77]], 400))
+    const match = alignment.steps.find((step) => step.kind === 'match')
+    expect(match?.kind === 'match' && match.playedCount).toBeLessThanOrEqual(3)
+    expect(alignment.steps.filter((step) => step.kind === 'extra').length).toBeGreaterThan(0)
+  })
+
+  it('leaves a single-note line alone', () => {
+    // Nothing to absorb when nothing is a chord: the scale still matches
+    // one-to-one, which is what stops this from eating melodies.
+    const alignment = align(expected(SCALE), played(SCALE))
+    expect(alignment.steps.every((step) => step.kind === 'match' && step.playedCount === 1)).toBe(
+      true
+    )
   })
 })

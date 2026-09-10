@@ -45,9 +45,37 @@ function gapCost(pitches: readonly number[]): number {
   return pitches.length + 1
 }
 
+/**
+ * A written chord may reach the app as several separate events -- broken,
+ * rolled, arpeggiated, or simply spread by a player taking their time over it.
+ * None of those is a mistake, and **no onset window can join them**: a chord
+ * spread across half a second is indistinguishable, by time alone, from two
+ * deliberate beats. So one expected group may instead absorb a *run* of played
+ * groups.
+ *
+ * The run is bounded by the size of the chord written -- five written notes
+ * can account for at most five struck ones -- so absorbing can never swallow a
+ * passage. Measured at the instrument: a player working through a chordal
+ * piece put roughly 650 ms between the notes of one chord, thirteen times the
+ * grouping window, and every note of it was correct.
+ */
+const MAX_ABSORBED_GROUPS = 8
+
+/**
+ * What absorbing one extra group costs. Small enough that a broken chord beats
+ * calling four of its notes missing and four more extra; large enough that two
+ * chords played correctly as two events are never merged, since an exact match
+ * costs nothing and nothing beats nothing.
+ */
+const ROLL_COST = 1
+
 export type Step =
-  /** Played `played` where the score wanted `expected`. */
-  | { kind: 'match'; expected: number; played: number; difference: number }
+  /**
+   * Played `playedCount` groups from `played` onward where the score wanted
+   * the single group `expected`. `playedCount` is 1 for a chord struck
+   * together, and more for one the player broke.
+   */
+  | { kind: 'match'; expected: number; played: number; playedCount: number; difference: number }
   /** The score wanted this group and nothing was played for it. */
   | { kind: 'missing'; expected: number }
   /** This group was played and the score has nothing there. */
@@ -88,6 +116,7 @@ export function align(
   const lows: number[] = []
   const cost: number[][] = []
   const choice: Step['kind'][][] = []
+  const absorbedAt: number[][] = []
 
   for (let i = 0; i <= n; i++) {
     const lo = Math.max(0, i - band)
@@ -96,6 +125,7 @@ export function align(
     const size = Math.max(0, hi - lo + 1)
     cost.push(new Array<number>(size).fill(UNREACHABLE))
     choice.push(new Array<Step['kind']>(size).fill('match'))
+    absorbedAt.push(new Array<number>(size).fill(1))
   }
 
   const at = (i: number, j: number): number => {
@@ -111,6 +141,13 @@ export function align(
     const k = j - (lows[i] ?? 0)
     if (row === undefined || k < 0 || k >= row.length) return 'match'
     return row[k] ?? 'match'
+  }
+
+  const absorbedFor = (i: number, j: number): number => {
+    const row = absorbedAt[i]
+    const k = j - (lows[i] ?? 0)
+    if (row === undefined || k < 0 || k >= row.length) return 1
+    return row[k] ?? 1
   }
 
   const row0 = cost[0]
@@ -153,20 +190,43 @@ export function align(
           how = 'extra'
         }
       }
+      let absorbed = 1
       if (i > 0 && j > 0 && expectedGroup !== undefined && playedGroup !== undefined) {
         const substitution =
           at(i - 1, j - 1) + pitchDifference(expectedGroup.pitches, playedGroup.pitches)
         if (substitution < best) {
           best = substitution
           how = 'match'
+          absorbed = 1
+        }
+
+        // The same written chord against a run of played groups: the chord as
+        // the player actually broke it.
+        const most = Math.min(MAX_ABSORBED_GROUPS, expectedGroup.pitches.length, j)
+        const union = [...playedGroup.pitches]
+        for (let run = 2; run <= most; run++) {
+          const earlier = played[j - run]
+          if (earlier === undefined) break
+          union.push(...earlier.pitches)
+          const rolled =
+            at(i - 1, j - run) +
+            pitchDifference(expectedGroup.pitches, [...union].sort((a, b) => a - b)) +
+            (run - 1) * ROLL_COST
+          if (rolled < best) {
+            best = rolled
+            how = 'match'
+            absorbed = run
+          }
         }
       }
 
       const row = cost[i]
       const choices = choice[i]
+      const runs = absorbedAt[i]
       const k = j - lo
       if (row !== undefined) row[k] = best
       if (choices !== undefined) choices[k] = how
+      if (runs !== undefined) runs[k] = absorbed
     }
   }
 
@@ -176,19 +236,21 @@ export function align(
   while (i > 0 || j > 0) {
     const how = i === 0 ? 'extra' : j === 0 ? 'missing' : choiceAt(i, j)
     if (how === 'match' && i > 0 && j > 0) {
+      const run = Math.min(absorbedFor(i, j), j)
       const expectedGroup = expected[i - 1]
-      const playedGroup = played[j - 1]
+      const struck = played.slice(j - run, j).flatMap((group) => group.pitches)
       steps.push({
         kind: 'match',
         expected: i - 1,
-        played: j - 1,
+        played: j - run,
+        playedCount: run,
         difference:
-          expectedGroup === undefined || playedGroup === undefined
+          expectedGroup === undefined
             ? 0
-            : pitchDifference(expectedGroup.pitches, playedGroup.pitches),
+            : pitchDifference(expectedGroup.pitches, [...struck].sort((a, b) => a - b)),
       })
       i--
-      j--
+      j -= run
     } else if (how === 'missing' && i > 0) {
       steps.push({ kind: 'missing', expected: i - 1 })
       i--
@@ -243,11 +305,9 @@ function findUnalignable(
       sharesNothing = true
     } else {
       const expectedGroup = expected[step.expected]
-      const playedGroup = played[step.played]
       sharesNothing =
         expectedGroup !== undefined &&
-        playedGroup !== undefined &&
-        step.difference >= expectedGroup.pitches.length + playedGroup.pitches.length
+        step.difference >= expectedGroup.pitches.length + struckCount(played, step)
     }
 
     if (!sharesNothing) {
@@ -260,6 +320,30 @@ function findUnalignable(
     if (run >= band && runStartsAt !== null) return runStartsAt
   }
   return null
+}
+
+/** How many pitches a match consumed from the played side. */
+export function struckCount(
+  played: readonly PlayedGroup[],
+  step: Extract<Step, { kind: 'match' }>
+): number {
+  let total = 0
+  for (let k = 0; k < step.playedCount; k++) {
+    total += played[step.played + k]?.pitches.length ?? 0
+  }
+  return total
+}
+
+/** Every pitch a match consumed, sorted: a broken chord as one set of notes. */
+export function struckPitches(
+  played: readonly PlayedGroup[],
+  step: Extract<Step, { kind: 'match' }>
+): number[] {
+  const pitches: number[] = []
+  for (let k = 0; k < step.playedCount; k++) {
+    pitches.push(...(played[step.played + k]?.pitches ?? []))
+  }
+  return pitches.sort((a, b) => a - b)
 }
 
 /** Matched pairs, in order, that a tempo can honestly be fitted to. */
@@ -276,7 +360,8 @@ export function confidentPairs(
     if (expectedGroup === undefined || playedGroup === undefined) continue
     // A group where nothing at all matched says nothing about when the player
     // meant to be; it would drag the fit towards a note they did not intend.
-    if (step.difference >= expectedGroup.pitches.length + playedGroup.pitches.length) continue
+    if (step.difference >= expectedGroup.pitches.length + struckCount(played, step)) continue
+    // The first note of a broken chord is when the player arrived at it.
     pairs.push({ onset: expectedGroup.onset, t: playedGroup.t })
   }
   return pairs
