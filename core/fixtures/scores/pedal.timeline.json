@@ -1,5 +1,5 @@
 {
-  "scoreId": "33589cb7113dc54b390bbace724b6128",
+  "scoreId": "d647c518e8cf156716b9a295f97c6d1c",
   "notes": [
     {
       "midi": 60,
@@ -70,17 +70,6 @@
     {
       "midi": 71,
       "onset": 6,
-      "duration": 0.5,
-      "bar": 1,
-      "staff": 0,
-      "voice": 1,
-      "tied": false,
-      "optional": true,
-      "ornament": null
-    },
-    {
-      "midi": 72,
-      "onset": 6,
       "duration": 1,
       "bar": 1,
       "staff": 0,
@@ -90,7 +79,7 @@
       "ornament": null
     },
     {
-      "midi": 74,
+      "midi": 72,
       "onset": 7,
       "duration": 1,
       "bar": 1,
@@ -101,7 +90,7 @@
       "ornament": null
     },
     {
-      "midi": 76,
+      "midi": 74,
       "onset": 8,
       "duration": 1,
       "bar": 2,
@@ -112,7 +101,7 @@
       "ornament": null
     },
     {
-      "midi": 77,
+      "midi": 76,
       "onset": 9,
       "duration": 1,
       "bar": 2,
@@ -123,10 +112,32 @@
       "ornament": null
     },
     {
-      "midi": 79,
+      "midi": 77,
       "onset": 10,
-      "duration": 2,
+      "duration": 1,
       "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "optional": false,
+      "ornament": null
+    },
+    {
+      "midi": 79,
+      "onset": 11,
+      "duration": 1,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "optional": false,
+      "ornament": null
+    },
+    {
+      "midi": 72,
+      "onset": 12,
+      "duration": 4,
+      "bar": 3,
       "staff": 0,
       "voice": 1,
       "tied": false,
@@ -149,7 +160,33 @@
       "index": 2,
       "onset": 8,
       "beats": 4
+    },
+    {
+      "index": 3,
+      "onset": 12,
+      "beats": 4
     }
   ],
-  "pedal": []
+  "pedal": [
+    {
+      "at": 4,
+      "down": true,
+      "staff": 0
+    },
+    {
+      "at": 6,
+      "down": false,
+      "staff": 0
+    },
+    {
+      "at": 6,
+      "down": true,
+      "staff": 0
+    },
+    {
+      "at": 10,
+      "down": false,
+      "staff": 0
+    }
+  ]
 }

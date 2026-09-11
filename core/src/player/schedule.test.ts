@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import samplerJson from '../../fixtures/playback/sampler.timeline.json'
 import ornamentsJson from '../../fixtures/scores/ornaments.timeline.json'
+import pedalJson from '../../fixtures/scores/pedal.timeline.json'
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
 import {
   DEFAULT_BPM,
@@ -33,6 +34,9 @@ const sampler = ExpectedTimelineSchema.parse(samplerJson)
 
 /** Seven symbol ornaments, each realised by OSMD at extraction. */
 const ornaments = ExpectedTimelineSchema.parse(ornamentsJson)
+
+/** A press, a change and a lift, in a four-bar line (bars 1 and 2 pedalled). */
+const pedalled = ExpectedTimelineSchema.parse(pedalJson)
 
 function struck(schedule: PlaybackSchedule) {
   return schedule.events.filter((e) => e.event.kind === 'noteOn')
@@ -409,6 +413,78 @@ describe('an ornament plays its realisation, not the note under it (ADR-0018)', 
         [...schedule.events.map((e) => e.at)].sort((a, b) => a - b)
       )
       expect(struck(schedule)).toHaveLength(released(schedule).length)
+    }
+  })
+})
+
+describe('the pedal goes down where the page says (ADR-0018)', () => {
+  /** Every CC 64 in a schedule, as [at, value], in schedule order. */
+  const sustainAt = (schedule: PlaybackSchedule) =>
+    schedule.events
+      .filter((e) => e.event.kind === 'cc' && e.event.controller === CC_SUSTAIN)
+      .map((e) => [e.at, (e.event as { value: number }).value])
+
+  it('presses at the marked beat, changes, and lifts at the release', () => {
+    // 120 bpm is 500 ms a quarter: down on quarter 4, a change on 6, up on 10.
+    expect(sustainAt(scheduleFromTimeline(pedalled, { bpm: 120 }))).toEqual([
+      [2000, 127],
+      [3000, 0],
+      [3000, 127],
+      [5000, 0],
+    ])
+  })
+
+  it('orders the pedal after the release and before the strike at one instant', () => {
+    const schedule = scheduleFromTimeline(pedalled, { bpm: 120 })
+    const atChange = schedule.events
+      .filter((e) => e.at === 3000)
+      .map((e) =>
+        e.event.kind === 'cc' ? `cc${(e.event as { value: number }).value}` : e.event.kind
+      )
+    // Nothing is released exactly at 3000 (the gap is taken first), so the
+    // lift and the press lead, and B4 is struck into the fresh pedal.
+    expect(atChange).toEqual(['cc0', 'cc127', 'noteOn'])
+    const press = schedule.events.findIndex((e) => e.at === 2000 && e.event.kind === 'cc')
+    const g4 = schedule.events.findIndex((e) => e.at === 2000 && e.event.kind === 'noteOn')
+    expect(press).toBeLessThan(g4)
+  })
+
+  it('presses at the start of a range that begins under a held pedal', () => {
+    // Bar 2 begins on quarter 8, inside the span the change at 6 opened.
+    const schedule = scheduleFromTimeline(pedalled, { bpm: 120, fromBar: 2, toBar: 2 })
+    expect(sustainAt(schedule)).toEqual([
+      [0, 127],
+      [1000, 0],
+    ])
+    expect(schedule.events[0]?.event.kind).toBe('cc')
+  })
+
+  it('sends nothing for a range the pedal never reaches, and lifts one it leaves down', () => {
+    expect(sustainAt(scheduleFromTimeline(pedalled, { bpm: 120, fromBar: 0, toBar: 0 }))).toEqual([])
+
+    // Bars 1 alone: down at 4, changed at 6, still down at the range's end.
+    const held = scheduleFromTimeline(pedalled, { bpm: 120, fromBar: 1, toBar: 1 })
+    expect(outstandingAtEnd(held)).toEqual({ notes: [], pedals: [] })
+    expect(sustainAt(held).at(-1)?.[1]).toBe(0)
+  })
+
+  it('sends no CC 64 at all for a score with no pedal marks', () => {
+    expect(sustainAt(scheduleFromTimeline(sampler, { bpm: 120 }))).toEqual([])
+  })
+
+  it('stays ordered and balanced over every range', () => {
+    for (const [fromBar, toBar] of [
+      [0, 3],
+      [1, 1],
+      [1, 2],
+      [2, 3],
+      [3, 3],
+    ] as const) {
+      const schedule = scheduleFromTimeline(pedalled, { bpm: 120, fromBar, toBar })
+      expect(outstandingAtEnd(schedule)).toEqual({ notes: [], pedals: [] })
+      expect(schedule.events.map((e) => e.at)).toEqual(
+        [...schedule.events.map((e) => e.at)].sort((a, b) => a - b)
+      )
     }
   })
 })

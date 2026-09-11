@@ -42,6 +42,7 @@ function piece(bars: number): ExpectedTimeline {
     scoreId: '0'.repeat(32),
     notes,
     bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 4, beats: 4 })),
+    pedal: [],
   }
 }
 

@@ -4,6 +4,7 @@ import {
   type MusicSheet,
   type Note,
   OrnamentEnum,
+  type SourceMeasure,
   type Tie,
   type VoiceEntry,
 } from 'opensheetmusicdisplay'
@@ -12,8 +13,9 @@ import type {
   ExpectedNote,
   ExpectedTimeline,
   OrnamentKind,
+  PedalMark,
 } from '../../shared/score'
-import { compareNotes, roundQuarters } from '../../core/src/score/timeline'
+import { comparePedalMarks, compareNotes, roundQuarters } from '../../core/src/score/timeline'
 
 /**
  * The one place a MusicXML file becomes an `ExpectedTimeline` (ADR-0005).
@@ -45,6 +47,7 @@ function quarters(whole: number): number {
 export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTimeline {
   const notes: ExpectedNote[] = []
   const bars: ExpectedBar[] = []
+  const pedal: PedalMark[] = []
   // The key in force on each staff. A measure carries a key instruction only
   // where one is written, so this is carried forward from the last one seen.
   const keys = new Map<number, KeyInstruction>()
@@ -64,6 +67,8 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
       onset: quarters(measure.AbsoluteTimestamp.RealValue),
       beats: quarters(measure.Duration.RealValue),
     })
+
+    readStaffExpressions(measure, pedal)
 
     for (const container of measure.VerticalSourceStaffEntryContainers) {
       for (const entry of container.StaffEntries) {
@@ -135,7 +140,32 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
 
   notes.sort(compareNotes)
   bars.sort((a, b) => a.index - b.index)
-  return { scoreId, notes, bars }
+  pedal.sort(comparePedalMarks)
+  return { scoreId, notes, bars, pedal }
+}
+
+/**
+ * The marks OSMD hangs off a measure's staff-linked `MultiExpression`s: what
+ * the page says, at the position it says it (ADR-0018). One walk, because the
+ * pedal, the dynamics and the hairpins all live on the same objects.
+ *
+ * A pedal *change* reaches here as a `PedalEnd` and a `PedalStart` on one
+ * expression -- OSMD's reader closes the open line and opens the next at the
+ * same timestamp -- so both are read from every expression, and the sort puts
+ * the lift first.
+ */
+function readStaffExpressions(measure: SourceMeasure, pedal: PedalMark[]): void {
+  measure.StaffLinkedExpressions.forEach((expressions, staff) => {
+    for (const expression of expressions) {
+      const at = quarters(expression.AbsoluteTimestamp.RealValue)
+      if (expression.PedalEnd !== undefined && expression.PedalEnd !== null) {
+        pedal.push({ at, down: false, staff })
+      }
+      if (expression.PedalStart !== undefined && expression.PedalStart !== null) {
+        pedal.push({ at, down: true, staff })
+      }
+    }
+  })
 }
 
 /** OSMD's `OrnamentEnum`, by the names the timeline uses. */

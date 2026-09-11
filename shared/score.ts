@@ -161,12 +161,29 @@ export const ExpectedBarSchema = z.object({
 })
 export type ExpectedBar = z.infer<typeof ExpectedBarSchema>
 
+/**
+ * A sustain-pedal change where the page marks one (ADR-0018). Not a property
+ * of a note: a press happens between notes and over rests, and the lift -- the
+ * half that decides whether a chord blurs into the next -- belongs to no note
+ * at all. Playback reads it; scoring never does (ADR-0021).
+ */
+export const PedalMarkSchema = z.object({
+  /** Quarter notes from the start of the piece, like every other onset here. */
+  at: z.number().nonnegative(),
+  down: z.boolean(),
+  /** The staff the mark is written under. The pedal itself is the whole instrument's. */
+  staff: z.number().int().nonnegative(),
+})
+export type PedalMark = z.infer<typeof PedalMarkSchema>
+
 export const ExpectedTimelineSchema = z.object({
   scoreId: scoreId,
   /** Ordered by onset, then pitch. */
   notes: z.array(ExpectedNoteSchema),
   /** One entry per source measure, in order, with no index skipped. */
   bars: z.array(ExpectedBarSchema),
+  /** Ordered by `at`, a lift ahead of a press at the same instant. */
+  pedal: z.array(PedalMarkSchema),
 })
 export type ExpectedTimeline = z.infer<typeof ExpectedTimelineSchema>
 

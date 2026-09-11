@@ -60,6 +60,7 @@ it('has a committed timeline for every fixture score', () => {
     'key-and-time-change',
     'multi-rest-and-ties',
     'ornaments',
+    'pedal',
     'pickup-two-hands',
     'scale-c-major',
   ])
@@ -176,6 +177,30 @@ describe('ornaments, realised by OSMD and captured as they are built (ADR-0018)'
     const again = timelineFromOsmd(osmd.Sheet, timeline.scoreId)
     expect(canonicalTimeline(again)).toBe(canonicalTimeline(timeline))
     expect(entriesPerStaffEntry()).toEqual(before)
+  })
+})
+
+describe('pedal marks, read off the staff-linked expressions (ADR-0018)', () => {
+  it('holds a press at the marked beat, a change as lift-then-press, and the release', async () => {
+    const fixture = CASES.find((c) => c.name === 'pedal')
+    if (fixture === undefined) throw new Error('the pedal fixture is missing')
+    const osmd = new OpenSheetMusicDisplay(host, { autoResize: false, backend: 'svg' })
+    await osmd.load(fixture.xml)
+
+    const timeline = timelineFromOsmd(osmd.Sheet, '0'.repeat(32))
+    expect(timeline.pedal).toEqual([
+      { at: 4, down: true, staff: 0 },
+      { at: 6, down: false, staff: 0 },
+      { at: 6, down: true, staff: 0 },
+      { at: 10, down: false, staff: 0 },
+    ])
+  })
+
+  it('is empty for a score that marks no pedal', () => {
+    for (const { name, expected } of CASES) {
+      if (name === 'pedal') continue
+      expect(ExpectedTimelineSchema.parse(JSON.parse(expected)).pedal, name).toEqual([])
+    }
   })
 })
 

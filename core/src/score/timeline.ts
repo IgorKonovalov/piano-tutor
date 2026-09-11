@@ -1,4 +1,4 @@
-import type { ExpectedBar, ExpectedNote, ExpectedTimeline } from '../../../shared/score'
+import type { ExpectedBar, ExpectedNote, ExpectedTimeline, PedalMark } from '../../../shared/score'
 
 /**
  * The expected-note timeline and the pure functions over it. `core/` owns
@@ -10,7 +10,16 @@ import type { ExpectedBar, ExpectedNote, ExpectedTimeline } from '../../../share
  * reads a clock, and nothing here knows a tempo.
  */
 
-export type { ExpectedBar, ExpectedNote, ExpectedTimeline }
+export type { ExpectedBar, ExpectedNote, ExpectedTimeline, PedalMark }
+
+/**
+ * Pedal marks in the order playback needs them: by position, and at one
+ * position a lift ahead of a press, so a pedal change clears the old harmony
+ * before it catches the new one.
+ */
+export function comparePedalMarks(a: PedalMark, b: PedalMark): number {
+  return a.at - b.at || Number(a.down) - Number(b.down) || a.staff - b.staff
+}
 
 /**
  * Durations come from fractions, so a triplet is a repeating decimal. Rounding
@@ -137,7 +146,12 @@ export function canonicalTimeline(timeline: ExpectedTimeline): string {
     onset: roundQuarters(bar.onset),
     beats: roundQuarters(bar.beats),
   }))
-  return `${JSON.stringify({ scoreId: timeline.scoreId, notes, bars }, null, 2)}\n`
+  const pedal = timeline.pedal.map((mark) => ({
+    at: roundQuarters(mark.at),
+    down: mark.down,
+    staff: mark.staff,
+  }))
+  return `${JSON.stringify({ scoreId: timeline.scoreId, notes, bars, pedal }, null, 2)}\n`
 }
 
 /**

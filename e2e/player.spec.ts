@@ -224,6 +224,98 @@ test('a bar range spanning a bar of no length plays both sides of it', async () 
   expect(launched.networkRequests).toEqual([])
 })
 
+/**
+ * Start collecting what the renderer receives on `player:event`, through the
+ * same `window.api` the transport subscribes with. Nothing is added to the app;
+ * the test is one more listener on a push channel that already exists.
+ */
+async function collectPlayerEvents(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const store = window as unknown as { collected: unknown[] }
+    store.collected = []
+    window.api.player.onEvent((event) => {
+      store.collected.push(event)
+    })
+  })
+}
+
+interface Collected {
+  kind: string
+  note?: number
+  controller?: number
+  value?: number
+}
+
+async function collected(page: Page): Promise<Collected[]> {
+  return page.evaluate(() => (window as unknown as { collected: Collected[] }).collected)
+}
+
+const SUSTAIN = 64
+
+test('the page\'s pedal marks reach the player:event stream as CC 64', async () => {
+  test.setTimeout(120_000)
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView(launched)
+  await importScore(launched, 'pedal.musicxml')
+  await collectPlayerEvents(page)
+
+  await page.getByTestId('transport-bpm').fill(String(TEST_BPM))
+  await play(page)
+  await waitForIdle(page)
+
+  const events = await collected(page)
+  const pedal = events.filter((e) => e.kind === 'cc' && e.controller === SUSTAIN)
+  // Down on bar 1's first beat, a change on its third, up on bar 2's third.
+  expect(pedal.map((e) => e.value)).toEqual([127, 0, 127, 0])
+
+  // In order against the notes around them: the press after F4 (the last dry
+  // note) is struck and before G4 is; the change before B4; the lift before F5.
+  const strike = (note: number) => events.findIndex((e) => e.kind === 'noteOn' && e.note === note)
+  const cc = (k: number) => events.indexOf(pedal[k] as Collected)
+  expect(strike(65)).toBeLessThan(cc(0))
+  expect(cc(0)).toBeLessThan(strike(67))
+  expect(strike(69)).toBeLessThan(cc(1))
+  expect(cc(2)).toBeLessThan(strike(71))
+  expect(strike(76)).toBeLessThan(cc(3))
+  expect(cc(3)).toBeLessThan(strike(77))
+
+  expect(Number(await attribute(page, 'transport', 'data-sounding'))).toBe(0)
+  expect(launched.networkRequests).toEqual([])
+})
+
+test('stopping inside a pedalled span still lifts the pedal', async () => {
+  test.setTimeout(120_000)
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView(launched)
+  await importScore(launched, 'pedal.musicxml')
+  await collectPlayerEvents(page)
+
+  // Bars 1 and 2 at a walking tempo: the pedal is down within a second and
+  // stays down for seconds, so a stop lands inside the span.
+  await page.getByTestId('transport-from').fill('1')
+  await page.getByTestId('transport-to').fill('2')
+  await page.getByTestId('transport-bpm').fill('60')
+  await play(page)
+  await expect
+    .poll(async () => (await collected(page)).some((e) => e.kind === 'cc' && e.value === 127))
+    .toBe(true)
+
+  await page.getByTestId('transport-stop').click()
+  await waitForIdle(page)
+
+  // The panic path (ADR-0007): whatever was down is lifted, last, after the
+  // notes it was holding are released.
+  const events = await collected(page)
+  const pedal = events.filter((e) => e.kind === 'cc' && e.controller === SUSTAIN)
+  expect(pedal.at(-1)?.value).toBe(0)
+  // The written lift is on bar 2's third beat, just before F5. F5 never
+  // sounded, so the lift above is the stop's, not the schedule's.
+  expect(events.some((e) => e.kind === 'noteOn' && e.note === 77)).toBe(false)
+  expect(Number(await attribute(page, 'transport', 'data-sounding'))).toBe(0)
+})
+
 test('the highlight walks the bars and lands on the last one chosen', async () => {
   test.setTimeout(120_000)
   launched = await launchApp()

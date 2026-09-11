@@ -275,6 +275,8 @@ export function scheduleFromTimeline(
     })
   }
 
+  events.push(...pedalEvents(timeline, originQuarters, endQuarters, msPerQuarter))
+
   const bars: ScheduleBar[] = selected.map((bar) => ({
     bar: bar.index,
     at: (bar.onset - originQuarters) * msPerQuarter,
@@ -284,6 +286,56 @@ export function scheduleFromTimeline(
     bars,
     durationMs: (endQuarters - originQuarters) * msPerQuarter,
   })
+}
+
+/** CC 64 at the two values every instrument reads as fully down and fully up. */
+const SUSTAIN_DOWN = 127
+const SUSTAIN_UP = 0
+
+function sustain(at: number, down: boolean): ScheduledEvent {
+  return {
+    at,
+    event: {
+      kind: 'cc',
+      t: at,
+      ch: PLAYBACK_CHANNEL,
+      controller: CC_SUSTAIN,
+      value: down ? SUSTAIN_DOWN : SUSTAIN_UP,
+    },
+  }
+}
+
+/**
+ * The page's pedal marks inside `[origin, end]` as CC 64 (ADR-0018), in the
+ * order the timeline holds them: a change arrives as a lift and a press at one
+ * instant, and the sort is stable, so the lift goes first.
+ *
+ * **A range that starts under a held pedal presses it at its start.** The
+ * state is worked out from every mark before the range rather than left to
+ * whatever the instrument was doing, or a demonstration of the middle of a
+ * pedalled passage would sound dry where the piece is wet. A press written at
+ * the range's very end would only be lifted again by the tail, so it is left
+ * out; a lift there is kept. Whatever is still down at the end is lifted by
+ * `normaliseSchedule`, like any pedal a source leaves down.
+ */
+function pedalEvents(
+  timeline: ExpectedTimeline,
+  origin: number,
+  end: number,
+  msPerQuarter: number
+): ScheduledEvent[] {
+  const events: ScheduledEvent[] = []
+  let heldAtStart = false
+  for (const mark of timeline.pedal) {
+    if (mark.at < origin) {
+      heldAtStart = mark.down
+      continue
+    }
+    if (mark.at > end || (mark.down && mark.at === end)) continue
+    events.push(sustain((mark.at - origin) * msPerQuarter, mark.down))
+  }
+  if (heldAtStart) events.unshift(sustain(0, true))
+  return events
 }
 
 /** The bar sounding at a position, or null when the source has no bars. */

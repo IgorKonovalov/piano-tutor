@@ -722,8 +722,8 @@ section names cannot happen.
 | 1 — A score with a turn in it, and the bug on screen | dev | done | 3788e72 |
 | 2 — A bar may be empty | dev | done | b2bd3a7 |
 | 3 — An ornament costs nothing, whatever pitch it shares | dev | done | 2f01d0f |
-| 4 — A turn is played, and costs nothing to play | dev | done | committed with this row |
-| 5 — The pedal goes down | dev | not started | |
+| 4 — A turn is played, and costs nothing to play | dev | done | b3db5b8 |
+| 5 — The pedal goes down | dev | done | committed with this row |
 | 6 — The music gets louder and softer | dev | not started | |
 | 7 — The music breathes | dev | not started | |
 | 8 — Short notes are short | dev | not started | |
@@ -819,6 +819,25 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
   that run finished, a `npm run test:e2e` process from a `bash` parent was still launching
   Electron. Whether that process was the gate's own tail or a second run was not established. The
   suite rerun with no other test process alive passed 34 of 34.
+- **Phases 5 to 7 run outside their file lists, on approval the user gave on 2026-09-11 before
+  Phase 5 began.** A new required track has to reach every place a timeline is built or
+  serialised. For Phase 5 that meant `core/src/score/timeline.ts` (`canonicalTimeline` and a
+  `comparePedalMarks`), `core/src/score/timelineFromMidi.ts`, every committed timeline,
+  `e2e/score.spec.ts`'s `FIXTURE_SCORES`, and the hand-built timelines in `onsetGroups.test.ts`,
+  `report.test.ts`, `restarts.test.ts` and `usePracticeReport.test.ts`.
+- **The committed timelines had to gain `"pedal": []` by script before they could be
+  regenerated.** `electron/midi/virtualPorts.ts` parses four of them when main loads, so the first
+  regeneration run died at startup with a ZodError on `pedal`, which surfaced as an Electron
+  error dialog. After the scripted edit the regeneration ran, rewrote every existing file
+  byte-identically, and added `pedal.timeline.json`.
+- The MIDI adapter returns `pedal: []`. A MIDI file's own CC 64 is not read.
+- `pedalEvents` in `schedule.ts` drops a press written exactly at a range's end and keeps a lift
+  there. A pedal still down at the end is lifted by `normaliseSchedule`'s tail.
+- **Phase 5's full gate** was green except one e2e case: `player.spec.ts:150` read
+  `data-sounding` as 1 right after `data-state` turned idle. That case passed 6 of 6 when rerun
+  alone, and the full e2e rerun passed 36 of 36. The assertion reads the attribute once without
+  waiting. Whether the sounding count can lag the state by a frame was not established.
+  Followup, not acted on.
 
 ### Phase 3 stopped: `createVoiceEntriesForOrnament` misbehaves, and it is a design question
 

@@ -151,5 +151,5 @@ export function timelineFromMidi(
     }))
     .sort(compareNotes)
 
-  return { scoreId: options.scoreId, notes, bars }
+  return { scoreId: options.scoreId, notes, bars, pedal: [] }
 }
