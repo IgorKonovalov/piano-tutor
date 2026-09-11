@@ -648,3 +648,71 @@ note-ons; NFR 4 startup 1071 ms; NFR 12 alignment turnaround 10 ms.
   It was offered in the interview and not chosen; it becomes interesting the day accompaniment is.
 - Remember the output port by name rather than by index, so a selection survives a replug.
 - A channel selector, if Phase 7 finds the CK88 selective about what it receives.
+
+### Raised by the close review, 2026-09-11
+
+The fresh session found **no blocker in the code** and ran the full gate green end to end on this
+tree, independently of the log's own claim: typecheck, lint, 715 unit tests in 31 files, both Node
+gates and 32 end-to-end tests, exit 0. **The only thing standing between this plan and its close
+is Phase 7**, which none of the below changes.
+
+Three findings are fixed **before** Phase 7 runs, by the user's decision at the review. Two of
+them sit on the very path Phase 7 is a checklist for; the third is small enough that carrying it
+would cost more than fixing it.
+
+- **`outputOpen` is inferred from a display string, and ADR-0008's anti-doubling default rides on
+  it.** `renderer/hooks/usePlayer.ts` matches `port.detail === 'Open'`, and that literal is
+  written independently at `electron/midi/RtMidiSink.ts`, where `detail` is otherwise free
+  human-readable text ("The last open failed: ..."). Reword the label — a cosmetic-looking edit —
+  and `outputOpen` is false forever, so the sound target defaults to `computer` while the
+  instrument is open and every note sounds twice a few milliseconds apart, which is precisely what
+  the default rule exists to prevent. Nothing ties the two ends together:
+  `renderer/audio/synth.test.ts` writes its own `'Open'` literal, so the test passes either way.
+  It is not broken today; it is a coupling that breaks silently, and **Phase 7 is the first
+  session in which an output port is genuinely open**, which is the only place the doubling would
+  be heard. Fix: a structural field on `MidiPort` (`open: boolean`), or one exported constant that
+  all three sites import — not a third copy of the word.
+- **The panic path carries one unguarded callback.** `Player.emit` writes to the sink, which is
+  contractually incapable of throwing and was hardened for exactly this reason, and then calls
+  `deps.onEvent` — which reaches `webContents.send` in `electron/main.ts` with no `try`/`catch`. A
+  throw there inside `releaseSounding` abandons the remaining note-offs *and* skips
+  `sink.release()`: the stranded chord this whole plan is built around. **Fixed before Phase 7**,
+  because item 5 is the stuck-note checklist, window-close is both a case it tests and the moment
+  `webContents.send` is likeliest to fail, and a stuck note found there would otherwise be written
+  down as the instrument's fault.
+- **An empty schedule plays in silence and says nothing.** `Player.play` returns before
+  `pushState` when the schedule holds no events, and the leading `stop()` is a no-op on an idle
+  player, so no `player:state` is pushed at all. Choosing a bar range that is all rests and
+  pressing play leaves the transport reading `Idle` with no message and no error. `playScore`
+  normalises an inverted range, so the reachable case is empty bars rather than a mistyped one.
+
+Carried, none of them blocking:
+
+- **NFR 13's stated magnitude is exercised by nothing.** The row asserts its property "over a
+  500-event schedule" in three named places; the largest schedule any of them builds is the C
+  major scale scenario at 29 note-ons, and the end-to-end run counts an eight-note bar range. The
+  property itself is genuinely asserted — nothing dropped, nothing reordered, nothing left
+  sounding — and only the size is unearned. Either run one of the three over `dense-2000`, which
+  already exists, or revise the figure in [nfr.md](../nfr.md), which is the response that row
+  invites for its milliseconds and should invite for its magnitude too.
+- **The `README.md` and `CLAUDE.md` sweep this plan's close trigger says is not owed.**
+  "User-visible docs touched: none" is wrong: the plan shipped a transport, an output port list, a
+  second verb on a take and a sound-target control. `README.md` still states "The piano makes the
+  sound; the app never does" flat, carries no playback section, and its Status line still points
+  at Plan 0002; `CLAUDE.md`'s directory map has no `electron/player/`, `renderer/audio/` or
+  `core/src/player/`, and its architecture diagram has no output path at all. Architect-owned, and
+  done as part of the close rather than now.
+- Two nits: `peakGainOf(velocity) * 1` in `renderer/audio/synth.ts`, and two exports named
+  `serialise` — `electron/ipc/serial.ts` is a mutex, `electron/midi/serialise.ts` turns an event
+  into bytes — imported a line apart in the player's own files.
+
+One correction to the log above rather than a finding: **Phase 5 touched five files outside its
+list, not the three it names.** `renderer/views/Score.tsx` and `renderer/views/Takes.tsx` each
+gained five lines passing the new `sound` prop.
+
+What the review confirmed rather than flagged, because it is the part that was hard: the six panic
+paths are asserted against real bytes at a faked `Output` rather than against the player's own
+callbacks; Phase 2's two wrong done-when figures were corrected in the log instead of worked
+around; the take row gained `data-note-count` rather than a regex over a rendered layout; the
+end-to-end helper waits for `playing` before `idle`, which caught a green-when-it-should-have-been-
+red; and the keyboard never carries playback state by colour alone.
