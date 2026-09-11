@@ -3,7 +3,7 @@
 The one-minute "what is in flight" view. Read this first each session instead of re-deriving
 state from `git log`. Completed plans move to `done/`.
 
-**Next free number: 0010** (ADRs are a separate sequence; next free there is **0018**.)
+**Next free number: 0014** (ADRs are a separate sequence; next free there is **0021**.)
 
 ## Active roster
 
@@ -14,6 +14,10 @@ to pick the plan up. The plan file carries everything else.
 |------|-------|--------|-------|-----------------|
 | [0002](0002-a-piece-is-practised.md) | A piece is practised | in-progress | human | All six `dev` phases landed and the close review ran on 2026-09-10; both defects it asked to be fixed before Phase 7 are fixed. **The only thing left is Phase 7 at the CK88** — items 2, 3 and 6 unanswered, item 4 observed and not judged — and the plan cannot close until those answers are in its log. **Item 6 is no longer blocked**: Plan 0008 closed 2026-09-10 and a good take and a bad one no longer both read out of time. It was attempted that evening and did not land — two performances ran into one take — so it wants one clean take each, nothing more. Nothing else in the roster is blocked by it. |
 | [0009](0009-a-bar-is-judged-note-by-note.md) | A bar is judged note by note | draft | dev, human | ADRs 0015, 0016 and 0017 are its design. **Plan 0008's eight followups, taken as one piece of work**, because four of them are the same bug: every reference in the model still draws through the disturbance it is judging around. A bar gains a second number - the shape of its arrivals inside it, read against a quadratic null so a ritardando reads zero - because a hand that hurries three notes and gives them back leaves the bar's duration unchanged to the millisecond. **Its Phase 2 is a `human` phase in the middle of the run** and Plan 0002's last open item rides on it. **Parked 2026-09-10 until the player can sit at the CK88** — it blocks nothing and nothing blocks it. Its Phase 1 is `dev`-only, self-contained and makes no threshold decisions, so it can be picked up alone to have the fixture waiting. |
+| [0010](0010-the-timeline-tells-the-truth-about-the-page.md) | The timeline tells the truth about the page | draft | dev, human | ADR-0018 is its whole design, and it amends ADR-0005's seam once for the whole list of marks rather than per sign. **The only plan in the roster fixing things that are broken right now**, both found at the CK88 on 2026-09-11: a real score with an attributes-only carrier bar cannot be played at all, and a bar with a turn over it is marked wrong for being played *correctly* — the failure ADR-0009 exists to prevent, alive by another route and exercised by no fixture. OSMD realises the ornament itself (`createVoiceEntriesForOrnament`), so we never own a turn-realiser. **Its Phase 3 renames `grace` to `optional`**, which is the one identifier Plan 0009 could collide on: do not run the two in parallel worktrees without agreeing that first. Its Phase 5 also settles the pedal question Plan 0004 Phase 7 left unexplained. |
+| [0011](0011-the-instrument-can-leave.md) | The instrument can leave | draft | dev, human | ADR-0019 is its whole design and it closes the open question ADR-0007 left: `MidiSink.send` stays fire-and-forget, because RtMidi on Windows prints to stderr and returns, so any status it gave back would be a lie. Main notices a departure by enumeration — free to ask, ADR-0006 — runs the panic path it already has, and tells the renderer. **Notice and say so, not reopen and resume**, by decision; name-matched reopen stays a followup. Depends on nothing in flight; Plan 0004 is closed and shipped everything it needs. It also pays Plan 0004's carried debt that **NFR 13's magnitude is asserted by nothing** larger than 29 note-ons against a row that says 500. |
+| [0012](0012-the-score-view-on-a-real-piece.md) | The Score view on a real piece | draft | dev | The three things the user asked for at the piano on 2026-09-11 after using the view on a four-page score: it scrolls to keep up with playback, a small keyboard sits in a corner, and the library list folds away. **No new ADR and no new seam** — both halves of the scroll already exist, `player:state` carries the bar and Plan 0002 maps a bar to the box OSMD drew. Depends on nothing and blocks nothing, so it can be picked up at any time. **It must not grow a moving cursor**: that is ADR-0020 and Plan 0013, and the plan says so explicitly. |
+| [0013](0013-the-travelling-line.md) | The travelling line | draft | dev, human | ADR-0020 is its whole design: one cursor on the score that takes a position rather than a source, so Plan 0006's metronome follow drives the same component instead of growing a second marker that can disagree about where bar 30 is. **Its Phase 3 edits Plan 0006 Phase 3** to consume it. The hard part is the page, not the time — during playback the position is already exact, and what is missing is a coordinate. **Needs Plan 0007 Phase 1 only** (the `sourceNote`-to-SVG index), not that whole plan, and it is last in the order for that reason. |
 | [0003](0003-the-coach-speaks.md) | The coach speaks | approved | dev, human | ADR-0002 is its whole design. One-shot Analyse, replies saved beside the take, free-play and practised takes both summarised. Every `dev` phase runs on a recorded fixture reply and a stub binary, so it queues with no subscription; **Phase 2 is a spike against the real `claude` CLI** and Phase 6 is the only phase where a model actually answers. It also owns the carried Plan 0002 finding that an `extra` verdict per unmatched pitch is unbounded, because its token budget is what depends on it. |
 | [0005](0005-the-practice-loop.md) | The practice loop | draft | dev, human | ADR-0011 is its whole design: each drill attempt is its own take, and a drill is a bar-range slice of the score's own timeline, so the aligner is untouched. Roadmap item 4, and the highest teaching value the existing seams already reach. Tempo-free by decision — "slower" is the demonstration's speed, never a threshold. **It also owns the coach's session grain** (added 2026-09-10): the coach is asked once per session, never once per attempt, because forty presses cost roughly ten times one roll-up and a trajectory is better advice than forty isolated verdicts. Its Phase 5 needed Plan 0004, which **closed 2026-09-11**, so the demonstration it plays is real rather than degraded; only its Phase 6 still waits on Plan 0003, and that degrades rather than blocks. |
 | [0007](0007-what-you-played-drawn-on-the-score.md) | What you played, drawn on the score | draft | dev, human | ADR-0013 is its whole design: the played pitch is drawn as our own SVG ghost notehead over OSMD's engraving, never merged into it. Raised by the user at the piano on 2026-09-10 — a red bar and a letter name make the player do the join. Depends on nothing but Plan 0002, so it can be picked up at any time; its riskiest fact (`sourceNote` identity) is resolved in its first phase. |
@@ -30,8 +34,9 @@ to pick the plan up. The plan file carries everything else.
   mid-chord included. **What the instrument taught, and the code did not:** a `MidiSink.send` into
   a dead port cannot tell that it failed, so an unplug is survived and a replug is not recovered
   from; and **a real score with an attributes-only carrier measure refuses to play at all**,
-  because `beats` of 0 fails `ExpectedTimelineSchema` — both in
-  [`../backlog.md`](../backlog.md), the second wanting an amendment to ADR-0005. Five followups
+  because `beats` of 0 fails `ExpectedTimelineSchema`. Both were drafted into plans on 2026-09-11
+  — [0011](0011-the-instrument-can-leave.md) and
+  [0010](0010-the-timeline-tells-the-truth-about-the-page.md). Five followups
   survive in that plan's `## Followups`, and NFR 13's *magnitude* is still asserted by nothing
   larger than 29 note-ons.
 
@@ -93,11 +98,25 @@ click, click-relative scoring and — once there is a store — the ladder.
    demonstrate a passage" grown into a plan after the 2026-09-10 interview. **The seams the two
    plans below were drafted against are now real rather than planned:** `MidiSink`, the lookahead
    clock in main, `PlaybackSchedule` in `core/` and the synthesised voice. Two things it leaves
-   behind, both in [`../backlog.md`](../backlog.md) and neither blocking anything on this list: a
-   dead output port is invisible to the sink, so a replug is not recovered from; and a score whose
-   bars include an attributes-only measure cannot be played at all, which is the one that wants an
-   amendment to ADR-0005 and will be cheapest to take alongside item 2b, the other plan reading
-   that seam.
+   behind, neither blocking anything on this list: a dead output port is invisible to the sink, so a
+   replug is not recovered from; and a score whose bars include an attributes-only measure cannot
+   be played at all. **Both now have plans**, drafted 2026-09-11 as items 3b and 3c below, along
+   with the two things the user asked for at the instrument on seeing playback work.
+3b. **The timeline tells the truth about the page** — drafted as Plan
+   [0010](0010-the-timeline-tells-the-truth-about-the-page.md), out of Plan 0004's Phase 7 and its
+   close. **It sits first among the four drafted that day** because it is the only one repairing
+   things that are broken right now: a real score that cannot be played, and a bar marked wrong for
+   being played correctly. ADR-0018 is its design and it amends ADR-0005 once for the whole list of
+   marks, which is what the backlog argued for before any of it was planned.
+3c. **The instrument can leave** — drafted as Plan [0011](0011-the-instrument-can-leave.md), out
+   of the same Phase 7. ADR-0019 closes the question ADR-0007 left open by answering it with the
+   measurement: a send into a dead port cannot report failure on this platform, so the departure is
+   noticed by enumeration instead. It also pays Plan 0004's carried NFR 13 magnitude debt.
+3d. **The Score view on a real piece** — drafted as Plan
+   [0012](0012-the-score-view-on-a-real-piece.md): autoscroll, a corner keyboard and a folding
+   library list, all three asked for at the piano on 2026-09-11 after a four-page score made the
+   view's gaps obvious. No ADR, no new seam, no dependency — the cheapest item on this list and
+   pickable at any time.
 4. **The coach speaks** — drafted as Plan [0003](0003-the-coach-speaks.md), approved and pickable
    now. Independent of Plan 0004, which no longer has to land first.
 5. **The practice loop** — drafted as Plan [0005](0005-the-practice-loop.md). The
@@ -110,11 +129,22 @@ click, click-relative scoring and — once there is a store — the ladder.
    [0007](0007-what-you-played-drawn-on-the-score.md), out of the user's verdict at the piano on
    2026-09-10: colour plus prose localises an error to somewhere in a twelve-note bar and names a
    pitch as a letter, and the player does the join. It deepens Plan 0002's bar overlay from boxes
-   to glyphs and depends on nothing else, so it can run beside either approved plan.
+   to glyphs and depends on nothing else, so it can run beside either approved plan. **Its Phase 1
+   is now load-bearing for two plans**: Plan 0013's cursor consumes the same `sourceNote`-to-SVG
+   index, and ADR-0018 hands that plan one obligation — an expanded ornament note has no notehead
+   of its own.
+6b. **The travelling line** — drafted as Plan [0013](0013-the-travelling-line.md), out of the
+   user's request on 2026-09-11 on seeing playback work: the bar highlight says *somewhere in these
+   twelve notes* and the ear is already ahead of it. **It sits here rather than earlier because it
+   needs item 6's Phase 1 underneath it** — during playback the position is already exact, and what
+   is missing is a coordinate. ADR-0020 makes it one cursor with two position sources, so item 7
+   below consumes it instead of growing a second marker.
 7. **The metronome, and the score follows** — drafted as Plan
    [0006](0006-the-metronome-and-the-score-follows.md), out of Plan 0002's followup after the user
    asked for a metronome on 2026-09-10. It also pays that plan's debt: the follow cursor its prose
-   promised and no phase built.
+   promised and no phase built. **Its Phase 3 is amended by Plan 0013** (ADR-0020) to drive that
+   plan's cursor rather than build a second highlight path; if this one runs first, it ships the
+   bar box as drafted and Plan 0013 absorbs it.
 8. **Drills, and a store that schedules them** — the generator in `core/` (scales, arpeggios,
    chord progressions, a sight-reading drill) riding Plan 0002's path, plus the sight-reading and
    rhythm mechanics in [`../backlog.md`](../backlog.md). Material is **hybrid by decision**:

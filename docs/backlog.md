@@ -149,137 +149,24 @@ own interview:
   [ADR-0003](adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md)
   Alternative C.
 - **A tablet port of the renderer.**
-- **A travelling line on the score, at note resolution.** Raised by the user on 2026-09-11, on
-  seeing playback work. [Plan 0004](plans/done/0004-the-app-plays-the-piece.md) highlights the **bar**
-  the app is sounding; this is the finer thing — a line that moves through the bar and says
-  exactly which notes are sounding at this instant. Three observations from the shipped code,
-  because they decide how big it is:
-  - **During playback the position is already exact and needs no alignment.** A `PlaybackSchedule`
-    holds every event's `at` in milliseconds and `player:state` carries `positionMs`. That is the
-    whole difference from **score following** above, where the position has to be inferred from
-    what the player is doing. The playback line is the cheap half of what looks like one feature.
-  - **What is missing is a coordinate, not a time.** Turning a note's onset into an x on OSMD's
-    engraving is the `sourceNote`-to-SVG mapping that
-    [Plan 0007](plans/0007-what-you-played-drawn-on-the-score.md) exists to resolve, and its
-    riskiest fact is settled in that plan's first phase. This wants that work underneath it and is
-    a second consumer of it.
-  - **`player:state` must not be made a hot channel to feed it.** It is pushed about ten times a
-    second deliberately (`STATE_INTERVAL_MS` in `Player.ts`); the per-event traffic is
-    `player:event`, which the recorder never sees. A smooth line interpolates between state pushes
-    on `requestAnimationFrame`, the way [Plan 0006](plans/0006-the-metronome-and-the-score-follows.md)
-    Phase 3 drives its bar cursor from the grid rather than from a per-beat timer.
-
-  System and stave breaks are the real work: the line has to jump to the next system and down the
-  staves OSMD drew, which is more than advancing one x. It overlaps Plan 0006 Phase 3 without
-  being it — that cursor is bar-level and driven by the click, this one is note-level and driven
-  by the schedule. **Whether they end up one mechanism with two position sources or two separate
-  ones is the first question an interview should settle**, and the answer decides whether this is
-  a phase on Plan 0006 or a plan of its own.
-- **The score scrolls to keep up with playback.** Raised by the user on 2026-09-11 at the
-  instrument, beside the travelling line above, and **much cheaper than it** — worth separating
-  for that reason alone. It needs only bar resolution, and both halves already exist:
-  `player:state` carries the sounding `bar`, and Plan 0002 already maps a bar to the box OSMD drew
-  for it (the `bar-mark` overlay, asserted in `e2e/score.spec.ts`). Scrolling that box into view
-  is close to the whole feature. The judgement calls are when to scroll — per system rather than
-  per bar, or a page turn — and leaving the player's own scrolling alone while they are reading.
-  **Do this before the travelling line**, which needs Plan 0007's coordinate work underneath it
-  and this does not.
-- **The Score view's furniture: a keyboard in the corner, and a panel that folds away.** Raised by
-  the user on 2026-09-11 at the instrument, after using the view on a real piece.
-  - **A small keyboard somewhere in a corner of the Score view, hidden or shown at will.** The
-    `Keyboard` component already takes `held` and `playback` separately, so it can show the
-    player's hands and the app's playing side by side; the Score view is currently the one view
-    that draws neither. Nothing new is needed but a size and a home for it.
-  - **The score list on the left folds away**, so a piece can have the width. Pure layout, and the
-    one of these three with no dependency on anything.
-- **The marks on the page that change how a piece is played.** Raised by the user on 2026-09-11
-  with a bar showing a turn, a fingering, a slur, an accidental under the ornament and a hairpin:
-  the app should read the signs that influence playing "for correct reference", and send pedal
-  signals if it can. `ExpectedNote` carries `midi`, `onset`, `duration`, `bar`, `staff`, `voice`,
-  `tied` and `grace` — nothing else. No dynamics, no articulation, no ornament, no pedal.
-  - **A symbol ornament is a live scoring bug, not merely a playback gap, and ADR-0009 does not
-    cover it.** That ADR made a *grace note* optional — `timelineFromOsmd.ts` reads
-    `voiceEntry.IsGrace`, which is a small note written on the stave. A turn, trill or mordent is
-    a **symbol over a principal note**: OSMD puts it in `OrnamentContainer`, the extractor never
-    looks at that property, and the timeline gets **one** note. So a player who correctly realises
-    the turn plays four or five notes where one is expected, the surplus matches nothing,
-    `report.ts` charges each as `extra` and the bar goes `wrong`. It is precisely the failure
-    ADR-0009 was written to end, still live by another route — and ADR-0009's own Context
-    ("the repertoire Phase 7 exists to try is exactly the repertoire that has ornaments") argues
-    for fixing it. **The blind spot that hid the first one is still open, verified 2026-09-11:**
-    no fixture score contains a `<turn>`, `<trill-mark>` or `<mordent>`. The corpus gained
-    `grace-note.musicxml` for ADR-0009 and that file holds `<grace slash="yes"/>` — a written-out
-    grace note, the case that was fixed. Its own header comment reads "real repertoire is full of
-    ornaments"; the symbol form was never added, so this path is exercised by nothing, exactly as
-    the grace path was not.
-  - **Playback and scoring may want opposite answers here**, which is the fork an interview has to
-    settle. A demonstration should *play* the turn, so extraction would expand the symbol into
-    notes. Judging should *not punish* a player who plays it or who leaves it out, which is
-    ADR-0009's optional treatment. Expanding and marking-optional are not alternatives; the
-    question is whether both happen and where.
-  - **Pedal marks are the missing half of Plan 0004's Phase 7 item 3.** That item asks for a piece
-    to play "with the sustain pedal messages included" and a score cannot: there is no pedal in
-    the timeline, so `scheduleFromTimeline` has none to emit. Reading OSMD's pedal expressions
-    would make the item true as written, and it is the one item on this list with a done-when
-    already waiting for it.
+- **The marks on the page that change how a piece is played — the half that is left.** Raised by
+  the user on 2026-09-11 with a bar showing a turn, a fingering, a slur, an accidental under the
+  ornament and a hairpin: the app should read the signs that influence playing "for correct
+  reference". **Ornaments and pedal graduated** into Plan
+  [0010](plans/0010-the-timeline-tells-the-truth-about-the-page.md) and
+  [ADR-0018](adrs/0018-the-timeline-carries-the-page-ornaments-expanded-pedal-as-its-own-track.md),
+  which took the shape question once for the whole list as this row argued it should be. These
+  three did not, and each needs its own decision on top of that amendment:
   - **Dynamics are excluded by decision, not by oversight.** ADR-0005 makes the timeline
     tempo-free and dynamics-free; Plan 0004 fixes velocity at 72 and says in as many words that
     inventing dynamics from OSMD's markings is a change to that extractor. A hairpin reaching
-    velocity therefore needs an ADR amending 0005, not a patch to the extractor.
+    velocity therefore needs an ADR amending 0005, not a patch to the extractor — and it is the
+    first sign that would change a *number* rather than a set of notes, which is why ADR-0018
+    deliberately left it out.
+  - **Articulation — staccato, accent, slur — has no vocabulary to land in.** `VoiceEntry` exposes
+    them and Plan 0010 read none. They change how a note is *played*, and the model can currently
+    say only whether a note was played, so this wants a scoring idea before it wants an extractor
+    change.
   - **Fingering is the one that needs nothing.** OSMD already draws it — it is visible in the
     user's own screenshot — and it changes neither what is played nor how it is judged. It would
     only need to enter the data if the coach were ever to comment on it.
-
-  The shape question underneath all of it: whether these become fields on `ExpectedNote`, a
-  parallel structure of marks beside the notes, or an expansion performed at extraction so the
-  rest of the app keeps seeing plain notes. That decision is ADR-0005's to amend and should be
-  taken once for the whole list rather than per sign.
-- **A bar of zero beats refuses to play a real score.** Found at the CK88 on 2026-09-11
-  (Plan [0004](plans/done/0004-the-app-plays-the-piece.md) Phase 7) and confirmed at its close.
-  `player:play` was refused by Zod for BWV 555: `ExpectedBarSchema` demands
-  `beats: z.number().positive()`, and `renderer/score/timelineFromOsmd.ts` maps OSMD's
-  `Duration.RealValue` straight through — which is **0** for an attributes-only measure, the
-  carrier bar where a piece changes metre. The score practises fine and cannot be played, and what
-  the player sees is a raw schema message.
-  - **Two things make it worth more than one file.** `barTableProblems` cannot catch it: it checks
-    only that `onset + beats` reaches the next bar's `onset`, and a zero-length bar is perfectly
-    contiguous. And the timeline is schema-checked **only when it crosses IPC for playback** — the
-    practice path builds it in the renderer and validates nothing — so a defect in the extractor
-    surfaces on one path out of two, which is why this survived until a real piece was played.
-  - **Both obvious fixes touch something load-bearing**, which is why it is here rather than in a
-    followup. Relaxing `beats` to non-negative changes `ExpectedTimelineSchema`, which is
-    [ADR-0005](adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md)'s seam and is
-    shared by alignment, the practice report and playback — every consumer that divides by a bar's
-    length would need to be read. Dropping or merging the empty bar instead breaks the "indexed as
-    the score was parsed, with no index skipped" contract that bar-clicking and every take's bar
-    numbers depend on. **An amendment to ADR-0005, taken once**, not a patch at the extractor.
-  - **Also seen once and never explained**, in the same session: `Could not parse MusicXML, no
-    valid partwise element found`, twice in one second, while all four of the user's BWV files are
-    valid `score-partwise`. What was handed to OSMD at that moment is not known.
-
-- **The instrument can be unplugged and plugged back in.** Measured at the CK88 on 2026-09-11
-  (Plan [0004](plans/done/0004-the-app-plays-the-piece.md) Phase 7 item 5d). Pulling the USB cable
-  mid-chord leaves **no stuck note**, which is the property that phase existed to check. What
-  fails is everything after: playback does not resume on replug, and the console floods with
-  `MidiOutWinMM::sendMessage: error sending MIDI message.`, one line per event.
-  - **The flood has a cause worth recording, because it defeats a guard that looks correct.**
-    `RtMidiSink.write` already wraps `sendMessage` in a `try`/`catch` with a one-shot `warned`
-    flag. It never fires: RtMidi's C++ layer prints that line to stderr and **returns**, so the
-    failure never becomes a JavaScript exception. A `send` that fails is indistinguishable, inside
-    the process, from one that succeeded.
-  - **So the sink believes it is open when it is not.** `this.output` stays non-null and
-    `openPortIndex` stays set. Nothing in main learns the device left.
-  - **Noticing is possible without a new mechanism.** The output list is already polled every two
-    seconds and listing opens no handle (ADR-0006), so a port whose index stops being enumerated
-    is the signal. Whether that belongs in the sink, in a handler, or as a `player:*` push to the
-    renderer is the design question, and whether `MidiSink.send` should be able to report failure
-    at all is an ADR-0007 question rather than a patch.
-  - **Coming back wants the port matched by name, not index** — already a followup on Plan 0004,
-    and its Risks section already named a stale `out:<index>` as the hazard. This is that hazard,
-    observed.
-  - **Falling back to the computer is half-built and would not have sounded anyway.** `usePlayer`
-    derives `outputOpen` from the poll, so an unplugged CK88 does flip the *default* target to
-    `computer` — but `Synth` is only constructed inside `play()`, so mid-playback there is no
-    voice to switch to, and an explicit choice in the dropdown pins the target so the default
-    never moves. Creating an `AudioContext` mid-schedule is also outside the click that started
-    it, which ADR-0008 relies on; likely fine in Electron after a gesture, not certain.

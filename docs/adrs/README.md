@@ -7,7 +7,7 @@ supersedes the old one and update the status here.
 Rule of thumb: if you cannot name an option you are *not* taking, you do not need an ADR, you
 need a code comment.
 
-**Next free number: 0018.**
+**Next free number: 0021.**
 
 An index row is a pointer, not an abstract: the link, the title as the ADR's `H1` writes it, and
 the status.
@@ -31,6 +31,9 @@ the status.
 | [0015](0015-a-bar-is-judged-twice-the-pace-it-kept-and-the-shape-inside-it.md) | A bar is judged twice: the pace it kept, and the shape of its arrivals inside it | proposed |
 | [0016](0016-a-reference-is-never-drawn-across-a-disturbance.md) | A reference is never drawn across a disturbance | proposed |
 | [0017](0017-the-oracle-gains-recorded-playing.md) | The oracle gains recorded playing: a take from the instrument is a committed fixture | proposed |
+| [0018](0018-the-timeline-carries-the-page-ornaments-expanded-pedal-as-its-own-track.md) | The timeline carries the page: ornaments expanded, pedal as its own track | proposed |
+| [0019](0019-a-device-departure-is-noticed-by-enumeration-not-by-a-failed-send.md) | A device departure is noticed by enumeration, not by a failed send | proposed |
+| [0020](0020-one-cursor-on-the-score-with-two-position-sources.md) | One cursor on the score, with two position sources | proposed |
 
 ## Conventions
 
