@@ -10,14 +10,16 @@ import {
   type VoiceEntry,
 } from 'opensheetmusicdisplay'
 import { PLAYBACK_VELOCITY } from '../../shared/player'
-import type {
-  DynamicMark,
-  ExpectedBar,
-  ExpectedNote,
-  ExpectedTimeline,
-  OrnamentKind,
-  PedalMark,
-  TempoMark,
+import {
+  type Articulation,
+  ArticulationSchema,
+  type DynamicMark,
+  type ExpectedBar,
+  type ExpectedNote,
+  type ExpectedTimeline,
+  type OrnamentKind,
+  type PedalMark,
+  type TempoMark,
 } from '../../shared/score'
 import {
   compareDynamicMarks,
@@ -127,6 +129,7 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
               tied: tie !== undefined,
               optional: voiceEntry.IsGrace === true,
               ornament: realisation?.kind ?? null,
+              articulation: articulationsOf(voiceEntry),
               fermata: hasFermata(voiceEntry),
             })
 
@@ -141,7 +144,8 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
                 tied: false,
                 optional: true,
                 ornament: realisation?.kind ?? null,
-                // The hold belongs to the written note; its principal carries it.
+                // The marks belong to the written note; its principal carries them.
+                articulation: [],
                 fermata: false,
               })
             }
@@ -159,6 +163,28 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
   const lastBar = bars[bars.length - 1]
   const end = lastBar === undefined ? 0 : roundQuarters(lastBar.onset + lastBar.beats)
   return { scoreId, notes, bars, pedal, dynamics, tempo: readTempo(sheet, end) }
+}
+
+/** OSMD's articulations a keyboard plays differently; every other value is dropped. */
+const ARTICULATIONS: ReadonlyMap<ArticulationEnum, Articulation> = new Map([
+  [ArticulationEnum.staccato, 'staccato'],
+  [ArticulationEnum.staccatissimo, 'staccatissimo'],
+  [ArticulationEnum.tenuto, 'tenuto'],
+  [ArticulationEnum.accent, 'accent'],
+  [ArticulationEnum.strongaccent, 'strongaccent'],
+  [ArticulationEnum.marcatoup, 'marcatoUp'],
+  [ArticulationEnum.marcatodown, 'marcatoDown'],
+  [ArticulationEnum.detachedlegato, 'detachedLegato'],
+])
+
+/** The entry's keyboard articulations, once each, in the schema's order. */
+function articulationsOf(entry: VoiceEntry): Articulation[] {
+  const found = new Set<Articulation>()
+  for (const articulation of entry.Articulations) {
+    const name = ARTICULATIONS.get(articulation.articulationEnum)
+    if (name !== undefined) found.add(name)
+  }
+  return ArticulationSchema.options.filter((name) => found.has(name))
 }
 
 /** Both of OSMD's fermata signs, upright and inverted: each is a hold. */

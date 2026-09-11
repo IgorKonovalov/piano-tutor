@@ -16,7 +16,7 @@ import {
   type ScheduledEvent,
   clampBpm,
 } from '../../../shared/player'
-import type { DynamicMark, ExpectedTimeline } from '../../../shared/score'
+import type { Articulation, DynamicMark, ExpectedTimeline } from '../../../shared/score'
 import { type TempoMap, tempoMap } from './tempoMap'
 
 /**
@@ -61,6 +61,49 @@ function rank(event: MidiEvent): number {
   if (event.kind === 'noteOff') return 0
   if (event.kind === 'noteOn') return 2
   return 1
+}
+
+/**
+ * How much of its written length a detached note sounds, before the release
+ * gap. **Taste, not the page's**: a dot says short and not how short. Chosen
+ * blind, to be tuned at the piano, and no test pins one to a musical claim.
+ * A tenuto is not here because it changes nothing: every note already sounds
+ * its full written length less the release gap.
+ */
+export const STACCATO_LENGTH = 0.5
+export const STACCATISSIMO_LENGTH = 0.25
+/** Portato, the dash-and-dot: detached, but only just. */
+export const DETACHED_LEGATO_LENGTH = 0.75
+
+/**
+ * What an accent adds to the velocity the dynamic gives, and what a strong
+ * accent or a marcato adds. Taste, like the lengths above; the sum is clamped
+ * to MIDI's 127.
+ */
+export const ACCENT_BOOST = 16
+export const STRONG_ACCENT_BOOST = 28
+
+const LENGTHS: Partial<Record<Articulation, number>> = {
+  staccato: STACCATO_LENGTH,
+  staccatissimo: STACCATISSIMO_LENGTH,
+  detachedLegato: DETACHED_LEGATO_LENGTH,
+}
+
+const BOOSTS: Partial<Record<Articulation, number>> = {
+  accent: ACCENT_BOOST,
+  strongaccent: STRONG_ACCENT_BOOST,
+  marcatoUp: STRONG_ACCENT_BOOST,
+  marcatoDown: STRONG_ACCENT_BOOST,
+}
+
+/** The shortest length any of the note's marks asks for; 1 when none does. */
+function lengthFor(articulation: readonly Articulation[]): number {
+  return Math.min(1, ...articulation.map((mark) => LENGTHS[mark] ?? 1))
+}
+
+/** The largest boost any of the note's marks asks for; 0 when none does. */
+function boostFor(articulation: readonly Articulation[]): number {
+  return Math.max(0, ...articulation.map((mark) => BOOSTS[mark] ?? 0))
 }
 
 /** One key of one channel. Two zones can hold the same note number. */
@@ -280,8 +323,13 @@ export function scheduleFromTimeline(
     // A tie is already summed by the timeline, so it is one strike of one key.
     // A grace note has no length of its own; a realised ornament note does.
     const grace = note.optional && note.ornament === null
-    const endAt =
+    const writtenEnd =
       grace || note.duration === 0 ? at + GRACE_NOTE_MS : map.ms(note.onset + note.duration)
+    // A staccato only ever shortens, by a fraction of a positive length, and
+    // the gap is at most a fifth of what is left, so the release still falls
+    // after its own strike however short the note was written.
+    const length = lengthFor(note.articulation)
+    const endAt = length === 1 ? writtenEnd : at + (writtenEnd - at) * length
     const gap = Math.min(RELEASE_GAP_MS, RELEASE_GAP_FRACTION * (endAt - at))
     const offAt = endAt - gap
 
@@ -292,7 +340,11 @@ export function scheduleFromTimeline(
         t: at,
         ch: PLAYBACK_CHANNEL,
         note: note.midi,
-        velocity: velocityOf(note.staff, note.onset),
+        // An accent sits on top of the dynamic, not in place of it.
+        velocity:
+          fixed === undefined
+            ? Math.min(127, velocityOf(note.staff, note.onset) + boostFor(note.articulation))
+            : fixed,
       },
     })
     events.push({

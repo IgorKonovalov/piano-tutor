@@ -170,6 +170,7 @@ export function canonicalTimeline(timeline: ExpectedTimeline): string {
     tied: note.tied,
     optional: note.optional,
     ornament: note.ornament,
+    articulation: [...note.articulation],
     fermata: note.fermata,
   }))
   const bars = timeline.bars.map((bar) => ({

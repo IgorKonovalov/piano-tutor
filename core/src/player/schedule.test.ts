@@ -4,6 +4,7 @@ import ornamentsJson from '../../fixtures/scores/ornaments.timeline.json'
 import pedalJson from '../../fixtures/scores/pedal.timeline.json'
 import dynamicsJson from '../../fixtures/scores/dynamics.timeline.json'
 import tempoChangesJson from '../../fixtures/scores/tempo-changes.timeline.json'
+import articulationJson from '../../fixtures/scores/articulation.timeline.json'
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
 import {
   DEFAULT_BPM,
@@ -50,6 +51,13 @@ const dynamics = ExpectedTimelineSchema.parse(dynamicsJson)
  * fermata.
  */
 const breathing = ExpectedTimelineSchema.parse(tempoChangesJson)
+
+/**
+ * mf throughout. Bar 0: plain C4, staccato D4, tenuto E4, accented F4. Bar 1:
+ * staccatissimo G4, marcato A4, B4, C5. Bar 2: four staccatissimo
+ * thirty-seconds, a rest, and a dotted half.
+ */
+const articulated = ExpectedTimelineSchema.parse(articulationJson)
 
 function struck(schedule: PlaybackSchedule) {
   return schedule.events.filter((e) => e.event.kind === 'noteOn')
@@ -672,6 +680,80 @@ describe('the music breathes where the page says (ADR-0018)', () => {
         expect(struck(schedule)).toHaveLength(released(schedule).length)
       }
     }
+  })
+})
+
+describe('short notes are short and accents bite (ADR-0018)', () => {
+  const unmarked: ExpectedTimeline = {
+    ...articulated,
+    notes: articulated.notes.map((note) => ({ ...note, articulation: [] })),
+  }
+  const marked = scheduleFromTimeline(articulated, { bpm: 120 })
+  const plain = scheduleFromTimeline(unmarked, { bpm: 120 })
+
+  /** The strike at `onset` quarters (500 ms each here) and its own release. */
+  function strikeAt(schedule: PlaybackSchedule, onset: number) {
+    const on = struck(schedule).find((e) => e.at === onset * 500)
+    const note = (on?.event as { note: number; velocity: number } | undefined)?.note
+    const off = released(schedule).find(
+      (e) => e.at > (on?.at ?? Infinity) && (e.event as { note: number }).note === note
+    )
+    return {
+      sounding: (off?.at ?? NaN) - (on?.at ?? NaN),
+      velocity: (on?.event as { velocity: number } | undefined)?.velocity ?? NaN,
+    }
+  }
+
+  it('sounds a staccato note shorter than the same note unmarked', () => {
+    expect(strikeAt(marked, 1).sounding).toBeLessThan(strikeAt(plain, 1).sounding)
+    expect(strikeAt(marked, 4).sounding).toBeLessThan(strikeAt(plain, 4).sounding)
+  })
+
+  it('does not shorten a tenuto note', () => {
+    expect(strikeAt(marked, 2).sounding).toBe(strikeAt(plain, 2).sounding)
+  })
+
+  it('strikes an accented note above the dynamic in force around it', () => {
+    // mf is OSMD's 76; the plain notes either side sit on it.
+    expect(strikeAt(marked, 2).velocity).toBe(76)
+    expect(strikeAt(marked, 3).velocity).toBeGreaterThan(76)
+    expect(strikeAt(marked, 5).velocity).toBeGreaterThan(76)
+    expect(strikeAt(marked, 6).velocity).toBe(76)
+    expect(strikeAt(plain, 3).velocity).toBe(76)
+  })
+
+  it('ends a note already shorter than any staccato length after it starts', () => {
+    for (const bpm of [MIN_BPM, 120, MAX_BPM]) {
+      const schedule = scheduleFromTimeline(articulated, { bpm, fromBar: 2, toBar: 2 })
+      const ons = struck(schedule)
+      for (const on of ons.slice(0, 4)) {
+        const note = (on.event as { note: number }).note
+        const offIndex = schedule.events.findIndex(
+          (e) => e.event.kind === 'noteOff' && e.event.note === note && e.at >= on.at
+        )
+        const off = schedule.events[offIndex]
+        expect(off?.at ?? -Infinity, `${note} at ${bpm} bpm`).toBeGreaterThan(on.at)
+        expect(offIndex).toBeGreaterThan(schedule.events.indexOf(on))
+      }
+    }
+  })
+
+  it('stays ordered and balanced at every tempo', () => {
+    for (const bpm of [MIN_BPM, DEFAULT_BPM, MAX_BPM]) {
+      const schedule = scheduleFromTimeline(articulated, { bpm })
+      expect(outstandingAtEnd(schedule)).toEqual({ notes: [], pedals: [] })
+      expect(schedule.events.map((e) => e.at)).toEqual(
+        [...schedule.events.map((e) => e.at)].sort((a, b) => a - b)
+      )
+      expect(struck(schedule)).toHaveLength(released(schedule).length)
+    }
+  })
+
+  it('lets an explicit velocity stand in for accents as well as dynamics', () => {
+    const fixed = scheduleFromTimeline(articulated, { bpm: 120, velocity: 90 })
+    expect(struck(fixed).every((e) => (e.event as { velocity: number }).velocity === 90)).toBe(
+      true
+    )
   })
 })
 

@@ -845,8 +845,8 @@ section names cannot happen.
 | 4 — A turn is played, and costs nothing to play | dev | done | b3db5b8 |
 | 5 — The pedal goes down | dev | done | d182ad6 |
 | 6 — The music gets louder and softer | dev | done | 97175f8 |
-| 7 — The music breathes | dev | done | committed with this row |
-| 8 — Short notes are short | dev | not started | |
+| 7 — The music breathes | dev | done | 22b1067 |
+| 8 — Short notes are short | dev | done | committed with this row |
 | 9 — The report says where the score asked | dev | not started | |
 | 10 — At the piano | human | not started | |
 
@@ -860,6 +860,10 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
 - **Phase 7 reads no `ContinuousTempoType` value.** A ramp is read by its normalised label:
   `rit`, `ritard`, `ritardando`, `rallentando` (slower), `accel`, `accelerando` (faster). A
   return is read by its label: `a tempo` (previous), `tempo primo` and `tempo i` (first).
+- **Phase 8's taste constants, starting values**, in `core/src/player/schedule.ts`:
+  `STACCATO_LENGTH` 0.5, `STACCATISSIMO_LENGTH` 0.25, `DETACHED_LEGATO_LENGTH` 0.75 (fractions
+  of the written length, before the release gap); `ACCENT_BOOST` 16 and `STRONG_ACCENT_BOOST`
+  28 (velocity added to the dynamic, clamped to 127).
 
 ### Notes
 
@@ -1014,6 +1018,42 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
   reads back`, failing with "expected 0 to be greater than 0" at line 290. That file passed 19 of
   19 when rerun alone, and the full suite rerun passed 804 of 804.
   `npm run test:e2e -- e2e/player.spec.ts e2e/score.spec.ts` passed 24 of 24, first run.
+- **Phase 8 ran outside its file list on the same terms as Phases 5 to 7**, approved by the user
+  on 2026-09-11 before any Phase 8 code: `core/src/score/timeline.ts` (canonical form),
+  `core/src/score/timelineFromMidi.ts`, `articulation: []` in the hand-built timelines of
+  `onsetGroups.test.ts`, `report.test.ts`, `restarts.test.ts` and `usePracticeReport.test.ts`,
+  every committed timeline, and `e2e/score.spec.ts`'s `FIXTURE_SCORES`.
+- The committed timelines gained `"articulation": []` by script first (189 notes in 11 files),
+  because main parses four of them at startup. The regeneration then rewrote them unchanged and
+  added `articulation.timeline.json`.
+- **OSMD 2.1.2 reads `<strong-accent type="up">` as `marcatoup`, and does not read
+  `<detached-legato/>` at all.** In the bundle, `ArticulationEnum.detachedlegato` occurs only in
+  the enum, the VexFlow drawing and the braille export, never in the MusicXML reader. The
+  fixture's B4 arrives unmarked, and the jsdom test asserts that as the library's behaviour. The
+  extractor's `detachedLegato` mapping and `DETACHED_LEGATO_LENGTH` stay, and no MusicXML file
+  can reach them under 2.1.2.
+- A tenuto changes nothing in the schedule: every note already sounds its written length less
+  the release gap. An articulation on an ornament's principal has no effect, because the
+  principal is not sounded, and its realised notes carry `articulation: []`. The scheduler's
+  explicit `velocity` option replaces accents as well as dynamics. Under a dynamic of 127 an
+  accent cannot rise further.
+- `timelineFromOsmd.test.ts`'s "is empty for every score that marks no dynamic" now skips the
+  articulation fixture too, which is marked mf so an accent has a level to rise above.
+- **Followup, not acted on: two events sharing one millisecond can leave the player in either
+  order.** `electron/player/Player.ts`'s `arm` gives each event its own `setTimeout`, with a
+  delay computed from `clock.now()` when that event is armed. Two events with the same `at`,
+  armed one after the other, can round to different whole milliseconds. That was read in the
+  code and not established by a test. It fits the Phase 8 red in `player.spec.ts:256` below.
+  The file is outside every phase's list.
+- **Phase 8's gate took four runs, and no red repeated.** Run 1 of `npm run gate`: typecheck,
+  lint and both Node gates green; `npm test` had one red, the jsdom "no dynamic" case above,
+  which was fixed. Run 2: 813 of 813 unit tests, both Node gates green. The e2e step failed
+  `player.spec.ts:256 > the page's pedal marks reach the player:event stream as CC 64` with
+  "Expected: < 23, Received: 24": F5's strike arrived before the lift written at the same
+  quarter. That case then passed 5 of 5 alone. Run 3, `npm run test:e2e`, failed
+  `score.spec.ts:317 > a compressed .mxl reads as the same music as the .musicxml inside it`
+  with "Expected: ab880089354a303ff5148c42c3f64a7e, Received: 376ec9ea9b05e2036d299752dd5b629b",
+  after 20.9 s. That case then passed 3 of 3 alone. Run 4, `npm run test:e2e`, passed 38 of 38.
 
 ### Phase 3 stopped: `createVoiceEntriesForOrnament` misbehaves, and it is a design question
 

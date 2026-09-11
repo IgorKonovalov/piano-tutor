@@ -34,6 +34,7 @@ function piece(bars: number): ExpectedTimeline {
           tied: false,
           optional: false,
           ornament: null,
+          articulation: [],
           fermata: false,
         })
       }

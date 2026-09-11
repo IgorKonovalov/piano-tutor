@@ -1,5 +1,5 @@
 {
-  "scoreId": "33589cb7113dc54b390bbace724b6128",
+  "scoreId": "9f6bfc9dfa83b1367d92eac76d94d7f1",
   "notes": [
     {
       "midi": 60,
@@ -24,7 +24,9 @@
       "tied": false,
       "optional": false,
       "ornament": null,
-      "articulation": [],
+      "articulation": [
+        "staccato"
+      ],
       "fermata": false
     },
     {
@@ -37,7 +39,9 @@
       "tied": false,
       "optional": false,
       "ornament": null,
-      "articulation": [],
+      "articulation": [
+        "tenuto"
+      ],
       "fermata": false
     },
     {
@@ -50,7 +54,9 @@
       "tied": false,
       "optional": false,
       "ornament": null,
-      "articulation": [],
+      "articulation": [
+        "accent"
+      ],
       "fermata": false
     },
     {
@@ -63,7 +69,9 @@
       "tied": false,
       "optional": false,
       "ornament": null,
-      "articulation": [],
+      "articulation": [
+        "staccatissimo"
+      ],
       "fermata": false
     },
     {
@@ -76,24 +84,13 @@
       "tied": false,
       "optional": false,
       "ornament": null,
-      "articulation": [],
+      "articulation": [
+        "marcatoUp"
+      ],
       "fermata": false
     },
     {
       "midi": 71,
-      "onset": 6,
-      "duration": 0.5,
-      "bar": 1,
-      "staff": 0,
-      "voice": 1,
-      "tied": false,
-      "optional": true,
-      "ornament": null,
-      "articulation": [],
-      "fermata": false
-    },
-    {
-      "midi": 72,
       "onset": 6,
       "duration": 1,
       "bar": 1,
@@ -106,7 +103,7 @@
       "fermata": false
     },
     {
-      "midi": 74,
+      "midi": 72,
       "onset": 7,
       "duration": 1,
       "bar": 1,
@@ -119,35 +116,69 @@
       "fermata": false
     },
     {
-      "midi": 76,
+      "midi": 72,
       "onset": 8,
-      "duration": 1,
+      "duration": 0.125,
       "bar": 2,
       "staff": 0,
       "voice": 1,
       "tied": false,
       "optional": false,
       "ornament": null,
-      "articulation": [],
+      "articulation": [
+        "staccatissimo"
+      ],
+      "fermata": false
+    },
+    {
+      "midi": 74,
+      "onset": 8.125,
+      "duration": 0.125,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "optional": false,
+      "ornament": null,
+      "articulation": [
+        "staccatissimo"
+      ],
+      "fermata": false
+    },
+    {
+      "midi": 76,
+      "onset": 8.25,
+      "duration": 0.125,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "optional": false,
+      "ornament": null,
+      "articulation": [
+        "staccatissimo"
+      ],
       "fermata": false
     },
     {
       "midi": 77,
-      "onset": 9,
-      "duration": 1,
+      "onset": 8.375,
+      "duration": 0.125,
       "bar": 2,
       "staff": 0,
       "voice": 1,
       "tied": false,
       "optional": false,
       "ornament": null,
-      "articulation": [],
+      "articulation": [
+        "staccatissimo"
+      ],
       "fermata": false
     },
     {
       "midi": 79,
-      "onset": 10,
-      "duration": 2,
+      "onset": 9,
+      "duration": 3,
       "bar": 2,
       "staff": 0,
       "voice": 1,
@@ -176,6 +207,15 @@
     }
   ],
   "pedal": [],
-  "dynamics": [],
+  "dynamics": [
+    {
+      "at": 0,
+      "velocity": 76,
+      "label": "mf",
+      "staff": 0,
+      "until": null,
+      "endVelocity": null
+    }
+  ],
   "tempo": []
 }

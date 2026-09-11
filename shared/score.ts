@@ -111,6 +111,22 @@ export const OrnamentKindSchema = z.enum([
 ])
 export type OrnamentKind = z.infer<typeof OrnamentKindSchema>
 
+/**
+ * The keyboard-relevant subset of OSMD's `ArticulationEnum`, in a fixed order.
+ * The rest (`upbow`, `snappizzicato`, ...) is dropped rather than modelled.
+ */
+export const ArticulationSchema = z.enum([
+  'staccato',
+  'staccatissimo',
+  'tenuto',
+  'accent',
+  'strongaccent',
+  'marcatoUp',
+  'marcatoDown',
+  'detachedLegato',
+])
+export type Articulation = z.infer<typeof ArticulationSchema>
+
 export const ExpectedNoteSchema = z.object({
   midi: z.number().int().min(0).max(127),
   /** Quarter notes from the start of the piece. */
@@ -137,6 +153,11 @@ export const ExpectedNoteSchema = z.object({
    * ordinary note, and on a scored note only when its realisation exists.
    */
   ornament: OrnamentKindSchema.nullable(),
+  /**
+   * The marks on this notehead, in `ArticulationSchema`'s order. Playback
+   * shortens and accents from them; scoring never reads them (ADR-0021).
+   */
+  articulation: z.array(ArticulationSchema),
   /** A fermata is written over this note. Playback holds it; scoring never reads it (ADR-0021). */
   fermata: z.boolean(),
 })

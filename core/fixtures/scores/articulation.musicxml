@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Articulation, and nothing else to distract from it (ADR-0018). Three bars
+     of 4/4 on one staff, marked mf from the start.
+
+     Bar 1: a plain C4, then D4 staccato, E4 tenuto and F4 accented.
+     Bar 2: G4 staccatissimo, A4 with a strong accent, B4 detached legato
+     (portato), and a plain C5.
+     Bar 3: four staccatissimo thirty-seconds, so a note already shorter than
+     any staccato length still has to end after it starts; then an eighth
+     rest and a plain dotted half. -->
+<score-partwise version="3.1">
+  <work>
+    <work-title>Articulation</work-title>
+  </work>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Piano</part-name>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>8</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <direction placement="below">
+        <direction-type><dynamics><mf/></dynamics></direction-type>
+      </direction>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type><notations><articulations><staccato/></articulations></notations></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type><notations><articulations><tenuto/></articulations></notations></note>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type><notations><articulations><accent/></articulations></notations></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type><notations><articulations><staccatissimo/></articulations></notations></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type><notations><articulations><strong-accent type="up"/></articulations></notations></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type><notations><articulations><detached-legato/></articulations></notations></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>32nd</type><notations><articulations><staccatissimo/></articulations></notations></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>32nd</type><notations><articulations><staccatissimo/></articulations></notations></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>32nd</type><notations><articulations><staccatissimo/></articulations></notations></note>
+      <note><pitch><step>F</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>32nd</type><notations><articulations><staccatissimo/></articulations></notations></note>
+      <note><rest/><duration>4</duration><voice>1</voice><type>eighth</type></note>
+      <note><pitch><step>G</step><octave>5</octave></pitch><duration>24</duration><voice>1</voice><type>half</type><dot/></note>
+      <barline location="right"><bar-style>light-heavy</bar-style></barline>
+    </measure>
+  </part>
+</score-partwise>

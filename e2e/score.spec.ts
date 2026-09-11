@@ -48,6 +48,7 @@ const FIXTURE_SCORES = [
   { file: 'pedal.musicxml', title: 'Pedal', bars: 4 },
   { file: 'dynamics.musicxml', title: 'Dynamics', bars: 4 },
   { file: 'tempo-changes.musicxml', title: 'Tempo changes', bars: 5 },
+  { file: 'articulation.musicxml', title: 'Articulation', bars: 3 },
 ]
 
 /** `scripts/regen-score-timelines.md` is the procedure this flag belongs to. */

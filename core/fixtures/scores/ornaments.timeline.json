@@ -11,6 +11,7 @@
       "tied": false,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     },
     {
@@ -23,6 +24,7 @@
       "tied": false,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     },
     {
@@ -35,6 +37,7 @@
       "tied": false,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     },
     {
@@ -47,6 +50,7 @@
       "tied": false,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     },
     {
@@ -59,6 +63,7 @@
       "tied": false,
       "optional": true,
       "ornament": "trill",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -71,6 +76,7 @@
       "tied": false,
       "optional": false,
       "ornament": "trill",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -83,6 +89,7 @@
       "tied": false,
       "optional": true,
       "ornament": "trill",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -95,6 +102,7 @@
       "tied": false,
       "optional": true,
       "ornament": "trill",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -107,6 +115,7 @@
       "tied": false,
       "optional": true,
       "ornament": "trill",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -119,6 +128,7 @@
       "tied": false,
       "optional": true,
       "ornament": "trill",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -131,6 +141,7 @@
       "tied": false,
       "optional": true,
       "ornament": "trill",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -143,6 +154,7 @@
       "tied": false,
       "optional": true,
       "ornament": "trill",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -155,6 +167,7 @@
       "tied": false,
       "optional": true,
       "ornament": "trill",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -167,6 +180,7 @@
       "tied": false,
       "optional": false,
       "ornament": "turn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -179,6 +193,7 @@
       "tied": false,
       "optional": true,
       "ornament": "turn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -191,6 +206,7 @@
       "tied": false,
       "optional": true,
       "ornament": "turn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -203,6 +219,7 @@
       "tied": false,
       "optional": true,
       "ornament": "turn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -215,6 +232,7 @@
       "tied": false,
       "optional": true,
       "ornament": "turn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -227,6 +245,7 @@
       "tied": false,
       "optional": true,
       "ornament": "mordent",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -239,6 +258,7 @@
       "tied": false,
       "optional": false,
       "ornament": "mordent",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -251,6 +271,7 @@
       "tied": false,
       "optional": true,
       "ornament": "mordent",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -263,6 +284,7 @@
       "tied": false,
       "optional": true,
       "ornament": "mordent",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -275,6 +297,7 @@
       "tied": false,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     },
     {
@@ -287,6 +310,7 @@
       "tied": false,
       "optional": true,
       "ornament": "invertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -299,6 +323,7 @@
       "tied": false,
       "optional": false,
       "ornament": "invertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -311,6 +336,7 @@
       "tied": false,
       "optional": true,
       "ornament": "invertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -323,6 +349,7 @@
       "tied": false,
       "optional": true,
       "ornament": "invertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -335,6 +362,7 @@
       "tied": false,
       "optional": true,
       "ornament": "invertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -347,6 +375,7 @@
       "tied": false,
       "optional": true,
       "ornament": "delayedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -359,6 +388,7 @@
       "tied": false,
       "optional": false,
       "ornament": "delayedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -371,6 +401,7 @@
       "tied": false,
       "optional": true,
       "ornament": "delayedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -383,6 +414,7 @@
       "tied": false,
       "optional": true,
       "ornament": "delayedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -395,6 +427,7 @@
       "tied": false,
       "optional": true,
       "ornament": "delayedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -407,6 +440,7 @@
       "tied": false,
       "optional": true,
       "ornament": "delayedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -419,6 +453,7 @@
       "tied": false,
       "optional": true,
       "ornament": "delayedInvertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -431,6 +466,7 @@
       "tied": false,
       "optional": false,
       "ornament": "delayedInvertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -443,6 +479,7 @@
       "tied": false,
       "optional": true,
       "ornament": "delayedInvertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -455,6 +492,7 @@
       "tied": false,
       "optional": true,
       "ornament": "delayedInvertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -467,6 +505,7 @@
       "tied": false,
       "optional": true,
       "ornament": "delayedInvertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -479,6 +518,7 @@
       "tied": false,
       "optional": true,
       "ornament": "delayedInvertedTurn",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -491,6 +531,7 @@
       "tied": false,
       "optional": true,
       "ornament": "invertedMordent",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -503,6 +544,7 @@
       "tied": false,
       "optional": false,
       "ornament": "invertedMordent",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -515,6 +557,7 @@
       "tied": false,
       "optional": true,
       "ornament": "invertedMordent",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -527,6 +570,7 @@
       "tied": false,
       "optional": true,
       "ornament": "invertedMordent",
+      "articulation": [],
       "fermata": false
     },
     {
@@ -539,6 +583,7 @@
       "tied": false,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     },
     {
@@ -551,6 +596,7 @@
       "tied": false,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     },
     {
@@ -563,6 +609,7 @@
       "tied": false,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     }
   ],

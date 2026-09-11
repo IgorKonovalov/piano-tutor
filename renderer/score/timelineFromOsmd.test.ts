@@ -55,6 +55,7 @@ afterEach(() => {
 
 it('has a committed timeline for every fixture score', () => {
   expect(CASES.map((c) => c.name).sort()).toEqual([
+    'articulation',
     'dynamics',
     'empty-carrier-bar',
     'grace-note',
@@ -234,8 +235,47 @@ describe('dynamics, read off the same expressions (ADR-0018)', () => {
 
   it('is empty for every score that marks no dynamic', () => {
     for (const { name, expected } of CASES) {
-      if (name === 'dynamics') continue
+      // The articulation fixture is marked mf so an accent has a level to rise above.
+      if (name === 'dynamics' || name === 'articulation') continue
       expect(ExpectedTimelineSchema.parse(JSON.parse(expected)).dynamics, name).toEqual([])
+    }
+  })
+})
+
+describe('articulation, read off the voice entry (ADR-0018)', () => {
+  it('holds the keyboard marks on the note they are written on', async () => {
+    const fixture = CASES.find((c) => c.name === 'articulation')
+    if (fixture === undefined) throw new Error('the articulation fixture is missing')
+    const osmd = new OpenSheetMusicDisplay(host, { autoResize: false, backend: 'svg' })
+    await osmd.load(fixture.xml)
+
+    const timeline = timelineFromOsmd(osmd.Sheet, '0'.repeat(32))
+    // OSMD 2.1.2 behaviour, asserted as the library's: `<strong-accent
+    // type="up">` reads as marcatoUp, and `<detached-legato/>` (B4, 71) is
+    // not read by its MusicXML reader at all, so it arrives unmarked.
+    const dry = ['staccatissimo'] as const
+    expect(timeline.notes.map((note) => [note.midi, note.articulation])).toEqual([
+      [60, []],
+      [62, ['staccato']],
+      [64, ['tenuto']],
+      [65, ['accent']],
+      [67, ['staccatissimo']],
+      [69, ['marcatoUp']],
+      [71, []],
+      [72, []],
+      [72, dry],
+      [74, dry],
+      [76, dry],
+      [77, dry],
+      [79, []],
+    ])
+  })
+
+  it('is empty on every note of every score that marks none', () => {
+    for (const { name, expected } of CASES) {
+      if (name === 'articulation') continue
+      const timeline = ExpectedTimelineSchema.parse(JSON.parse(expected))
+      expect(timeline.notes.every((note) => note.articulation.length === 0), name).toBe(true)
     }
   })
 })

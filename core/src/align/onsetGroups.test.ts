@@ -181,6 +181,7 @@ function written(
     tied: false,
     optional: marks.optional ?? false,
     ornament: marks.ornament ?? null,
+    articulation: [],
     fermata: false,
   }
 }

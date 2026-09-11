@@ -384,6 +384,7 @@ function longTimeline(bars: number, chord = 3): ExpectedTimeline {
           tied: false,
           optional: false,
           ornament: null,
+          articulation: [],
           fermata: false,
         })
       }
@@ -621,6 +622,7 @@ describe('an optional pitch forgives only a surplus strike (ADR-0018)', () => {
       tied: false,
       optional: marks.optional ?? false,
       ornament: marks.ornament ?? null,
+      articulation: [],
       fermata: false,
     }
   }
@@ -803,6 +805,7 @@ describe('a long piece played only at its opening (ADR-0010)', () => {
           tied: false,
           optional: false,
           ornament: null,
+          articulation: [],
           fermata: false,
         })
       }

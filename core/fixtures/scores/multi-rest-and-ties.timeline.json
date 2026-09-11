@@ -11,6 +11,7 @@
       "tied": true,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     },
     {
@@ -23,6 +24,7 @@
       "tied": false,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     },
     {
@@ -35,6 +37,7 @@
       "tied": true,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     },
     {
@@ -47,6 +50,7 @@
       "tied": false,
       "optional": false,
       "ornament": null,
+      "articulation": [],
       "fermata": false
     }
   ],

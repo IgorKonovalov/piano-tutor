@@ -115,6 +115,7 @@ function repeatedTimeline(): ExpectedTimeline {
       tied: false,
       optional: false,
       ornament: null,
+      articulation: [],
       fermata: false,
     }))
   )
