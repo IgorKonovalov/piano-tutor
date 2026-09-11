@@ -847,13 +847,24 @@ section names cannot happen.
 | 6 — The music gets louder and softer | dev | done | 97175f8 |
 | 7 — The music breathes | dev | done | 22b1067 |
 | 8 — Short notes are short | dev | done | 242c8ab |
-| 9 — The report says where the score asked | dev | done | committed with this row |
+| 9 — The report says where the score asked | dev | done | 5b16cba |
 | 10 — At the piano | human | not started | |
 
 ### Measurements
 
-_(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note which
-`ContinuousTempoType` values Phase 7 reads, and the taste constants Phases 7 and 8 chose.)_
+No new NFR row is claimed. The three this plan must leave unchanged, re-reported at Phase 9:
+
+- **NFR 12:** `[nfr 12] stop to a coloured score, in the app: 6 ms`, logged by
+  `e2e/practice.spec.ts` on its fixture take, in a practice and player spec run after the
+  Phase 9 gate. That is not the row's 10-minute, 200-bar case, which was not measured here.
+- **NFR 13, the property:** the Phase 9 gate's 38 of 38 e2e include every `player.spec.ts` case
+  asserting nothing sounding after playback, stop and window close. Every schedule the unit suite
+  builds is asserted ordered and balanced, including the tempo-changes, fermata and articulation
+  fixtures at several tempos. The onset-error milliseconds were not measured in this plan.
+- **NFR 14:** the tests under "timing is judged against the bars around it" in
+  `core/src/align/report.test.ts` pass unedited. Phase 9 adds a half-speed take against an
+  Allegro-marked score that reports no bar in `timing`, and a report identical to the one
+  against the unmarked score.
 
 - **Phase 7's taste constants, starting values**, in `core/src/player/tempoMap.ts`:
   `RAMP_CHANGE` 0.2 and `FERMATA_HOLD` 2.
@@ -1145,10 +1156,17 @@ only one OSMD resolves correctly here is the metronome mark.** Whether a plain I
 
 ### Close triggers
 
-- **What shipped:** _(feature / fix-only / docs-chore-only)_
-- **User-visible docs touched:** _
-- **Full gate at the last phase:** _
-- **Outstanding `human` phases:** _
+- **What shipped:** feature. Two fixes: an empty carrier bar plays, and a symbol ornament costs
+  nothing to play. Playback now sounds the page's pedal, dynamics, tempo, ramps, fermatas and
+  articulation, and the report labels a tempo observation where the score asks for it.
+- **User-visible docs touched:** none. The transport's "bpm, as written" label and the annotated
+  sentence are UI text.
+- **Full gate at the last phase:** `npm run gate` on Phase 9's tree, first run, exit 0:
+  `npm run typecheck` 0, `npm run lint` 0, `npm test` 0 (819 of 819),
+  `node scripts/check-pins.mjs` 0, `node scripts/check-doc-links.mjs` 0, `npm run test:e2e` 0
+  (38 of 38).
+- **Outstanding `human` phases:** Phase 10, "At the piano", not started. It is a blocker on the
+  close.
 
 ## Followups (after this lands)
 
