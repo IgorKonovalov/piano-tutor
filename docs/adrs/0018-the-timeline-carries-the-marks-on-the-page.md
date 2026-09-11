@@ -1,7 +1,8 @@
 # ADR-0018 — The timeline carries the marks on the page, as OSMD reads them
 
 > **Status:** proposed
-> **Date:** 2026-09-11
+> **Date:** 2026-09-11; revised the same day, while still proposed, after Plan 0010's Phase 3
+> stopped on OSMD's ornament realiser (route 1 and two alternatives)
 > **Related plan(s):** Plan [0010](../plans/0010-the-timeline-tells-the-truth-about-the-page.md)
 > **See also:** [ADR-0021](0021-expression-belongs-to-playback-scoring-only-describes-it.md), which
 > decides *who may act* on what this ADR extracts. The two were written together and neither is
@@ -48,7 +49,7 @@ easy to get wrong:
 
 | Mark | Where | What OSMD already decides for us |
 |---|---|---|
-| Ornaments | `voiceEntry.OrnamentContainer` | `createVoiceEntriesForOrnament(entry, activeKey)` **realises the turn into notes**, with the active key and the ornament's own accidentals applied |
+| Ornaments | `voiceEntry.OrnamentContainer` | `createVoiceEntriesForOrnament(entry, activeKey)` **realises the turn into notes**, with the active key applied, plus a trill's above-accidental (a below-accidental is drawn and never played) |
 | Pedal | `MultiExpression.PedalStart` / `.PedalEnd` | start and end, at an `AbsoluteTimestamp` |
 | Dynamics | `MultiExpression.InstantaneousDynamic` | `MidiVolume` and `Volume` — **the pp-to-ff mapping already exists** (`dynamicToRelativeVolumeDict`) |
 | Hairpins | `MultiExpression.StartingContinuousDynamic` / `.EndingContinuousDynamic` | the span, and its end dynamic |
@@ -79,6 +80,29 @@ scoring path — `scoredNotes` excludes them, `onsetGroups` attaches them to the
 while staying distinguishable in the data. Playing the ornament costs nothing, leaving it out costs
 nothing, and the demonstration plays it. This route exists because realising a turn is a *judgement*
 with more than one defensible answer, and a judgement must be made once, by one party, at one time.
+
+Four refinements come from running the realiser against a real fixture (Plan 0010, Phase 3):
+
+- **OSMD's rhythm is captured as it is made.** In OSMD 2.1.2 every branch except the trill passes
+  one `Fraction` by reference into each entry it builds and then mutates it, so the returned
+  timestamps, and for some kinds the lengths, all read the final value. The values are correct at
+  the moment each entry is built. The extractor wraps the two private builders on the one
+  `VoiceEntry` for the duration of the call and records them there. The pitches, their order and
+  their rhythm all stay OSMD's; only the moment we read them changes.
+- **The principal stays scored and is sounded by its realisation.** It keeps `optional: false`
+  and its written length, and it carries the ornament's kind. Every OSMD realisation re-emits the
+  principal's pitch, so sounding the principal as well would restrike a key that is already held.
+- **This amends ADR-0009's subtraction.** ADR-0009 removes optional pitches from what was played
+  before comparing. Because a realisation re-emits the principal's pitch, that would remove the
+  principal the player struck and report it `missing`. An optional pitch now forgives only a
+  **surplus** strike: the scored pitches come out of the struck set first, and only what is left
+  over may be excused. Wherever optional and scored pitches are disjoint this is identical to
+  ADR-0009. Where they are not, it is what ADR-0009's own decision says, "nothing when the player
+  strikes it and nothing when they do not", and the literal mechanism was not. That also closes a
+  latent case the rule always had: a grace note repeating a chord tone.
+- **A realised note attaches backwards.** It sounds within its principal, after that note's onset,
+  so it joins the last group at or before its own onset. A grace note keeps ADR-0009's forward
+  rule, because it anticipates its principal.
 
 **2. Marks that are properties of a note ride the note.** `articulation: Articulation[]` and
 `fermata: boolean` are fields on `ExpectedNote`, because a staccato dot and a fermata sit over a
@@ -155,6 +179,14 @@ into per-note numbers at extraction.
   is where this plan's real risk sits.
 - **A zero-length bar stays a trap for anything that later divides.** Nothing does today; the named
   check in `barTableProblems` reports rather than refuses.
+- **The ornament extraction leans on two private OSMD methods** keeping their names and call order.
+  The exact pin means only a deliberate upgrade can break it. The extractor declines to expand an
+  ornament whose captured and returned entries disagree, so a break shows as an unexpanded
+  ornament and a failing fixture property, never as a wrong rhythm.
+- **Some of OSMD's choices here are arguably mistakes rather than interpretations.** Its reader
+  maps MusicXML's `<mordent>` (the sign with the vertical line, conventionally the lower mordent)
+  to a realisation that goes up. Inheriting that costs the scorer as well as the demonstration: a
+  player who follows the page strikes a lower auxiliary that is not optional.
 
 ### Neutral
 
@@ -196,6 +228,26 @@ extraction otherwise alone.
 Rejected on the user's explicit ask. It also buys the smaller half of the fix at nearly the price of
 the larger: the demonstration would still play every piece stripped to a uniform 72, and the
 amendment to ADR-0005 would still be owed the first time anything else read the page.
+
+### Alternative D — transcribe OSMD's intended ornament rhythm into a table of ours
+
+Take only the pitches from `createVoiceEntriesForOrnament` and lay them out with per-kind fractions
+copied from its source (trill 8 x 1/8, turn 4 x 1/4, mordent 1/4 1/4 1/2, and so on). It needs no
+private method.
+
+Rejected because it is the realiser this ADR refuses to own, reached by copying rather than by
+writing. The table would silently disagree with the library the day OSMD changes a rhythm, while
+the captured values follow it.
+
+### Alternative E — keep ADR-0009's subtraction and leave the principal's pitch out of the optional set
+
+Make the optional pitches the realisation minus the principal's pitch, so a plain strike of the
+principal is never subtracted.
+
+Rejected because it fails the other take. A turn played in full strikes the principal's pitch
+twice, and with no optional copy to absorb the second strike it is charged `extra`. The two correct
+performances ADR-0009 protects, the ornament taken and the ornament left out, can only both come
+out clean if forgiveness is limited to the surplus.
 
 ## Notes
 

@@ -2,6 +2,8 @@
 
 > **Status:** in-progress 2026-09-11
 > **Created:** 2026-09-11
+> **Amended:** 2026-09-11, after Phase 3 stopped: the old Phase 3 is now Phases 3 and 4, and the
+> later phases renumber by one. See the amendment at the end of `## Decision`.
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0018](../adrs/0018-the-timeline-carries-the-marks-on-the-page.md) (proposed)
 > decides what the timeline extracts and in what shape;
@@ -11,11 +13,12 @@
 > [0005](../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (accepted),
 > which stays the rule that there is one parse and OSMD owns it.
 > [0009](../adrs/0009-an-ornament-is-optional-a-grace-note-is-scored-neither-way.md) (accepted) is
-> the scoring mechanism this plan gives a second producer;
+> the scoring mechanism this plan gives a second producer, and whose subtraction ADR-0018 now
+> narrows so that an optional pitch forgives only a surplus strike;
 > [0007](../adrs/0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md)
 > (accepted) owns the schedule that all of it reaches the instrument through;
 > [0014](../adrs/0014-timing-is-judged-against-a-local-tempo-not-one-line-through-the-take.md)
-> (accepted) is what Phase 8's annotation labels and must not disturb
+> (accepted) is what Phase 9's annotation labels and must not disturb
 > **NFRs claimed:** none new. NFR 12, 13 and **14** must be unchanged, and are re-reported — NFR 14
 > in particular, because this plan is the one that could break tempo-freedom.
 > **Depends on:** nothing in flight. It touches `ExpectedTimeline`, which Plan
@@ -78,7 +81,7 @@ and ADR-0018 turns on it:
 
 | Mark | Where | What OSMD decides for us |
 |---|---|---|
-| Ornaments | `voiceEntry.OrnamentContainer` | `createVoiceEntriesForOrnament` realises it, key and accidentals applied |
+| Ornaments | `voiceEntry.OrnamentContainer` | `createVoiceEntriesForOrnament` realises it with the key applied, and a trill's above-accidental; its timestamps are aliased and are captured (Phase 4) |
 | Pedal | `MultiExpression.PedalStart` / `.PedalEnd` | start and end at an `AbsoluteTimestamp` |
 | Dynamics | `MultiExpression.InstantaneousDynamic` | `MidiVolume` — the pp-to-ff mapping already exists |
 | Hairpins | `.StartingContinuousDynamic` / `.EndingContinuousDynamic` | the span and its end dynamic |
@@ -137,6 +140,36 @@ CK88's velocity curve rather than the playing.
 
 Fingering stays out: OSMD draws it, and it changes neither what is played nor how it is judged.
 
+**Amended 2026-09-11, after Phase 3 stopped.** `dev` found that OSMD 2.1.2's
+`createVoiceEntriesForOrnament` returns aliased timestamps and, for the mordent, aliased lengths,
+and that its realisation always re-emits the principal's pitch. Reading the aligner turned up two
+more faults in the phase as written. Five rulings follow, and the user took the first and the
+last:
+
+1. **The rhythm is captured, not repaired.** OSMD's values are correct at the moment each
+   generated entry is built; the aliasing corrupts them afterwards. The extractor wraps the two
+   builders on the one `VoiceEntry` for the duration of the call and records each entry's
+   timestamp and length as numbers when they are made. All seven kinds come out as OSMD intended,
+   and we choose no rhythm. Transcribing OSMD's intended fractions into a table of ours was
+   rejected, because it is the realiser ADR-0018 refuses to own.
+2. **An optional pitch forgives only a surplus strike.** ADR-0009 subtracts optional pitches from
+   what was played *before* the comparison. That is sound only while an ornament shares no pitch
+   with its group, and an OSMD realisation always shares one: a turn on A4 makes A4 optional, and a
+   player who plays the A4 plainly has it subtracted and reported `missing`. The rule becomes:
+   subtract the scored pitches first, then forgive what is left over only where it is optional.
+   The result is identical to today whenever optional and scored pitches are disjoint, and it
+   fixes a latent ADR-0009 defect on the way: a grace note that repeats a chord tone.
+3. **A realised note attaches backwards.** A grace note anticipates its principal, so it joins the
+   first group at or after it (ADR-0009). A realised ornament note sounds *within* its principal,
+   after that note's onset, so it joins the last group at or before its own onset. Otherwise it
+   would be forgiven on the next beat.
+4. **The principal stays scored and stops sounding.** It keeps `optional: false` and its written
+   length, and it carries the ornament's kind. Playback and the take generator sound its
+   realisation in its place. Sounding both would restrike a key that is already held.
+5. **The old Phase 3 is split in two.** Phase 3 is the rename and the two scoring rules, proven on
+   hand-built timelines. Phase 4 is the extraction, the playback and the fixture-level
+   behavioural claim.
+
 ## Architecture diagram
 
 ```mermaid
@@ -191,7 +224,7 @@ flowchart TB
   (`<accidental-mark>`), because `OrnamentContainer.AccidentalBelow` is a property this plan will
   later have to honour and a fixture that never exercises it proves nothing. Keep the rest of the
   bar plain. Commit the timeline it produces **as it is today**, wrong: one note per ornament. That
-  committed file is the before-picture, and Phase 3 is what changes it. The e2e case follows
+  committed file is the before-picture, and Phase 4 is what changes it. The e2e case follows
   "each fixture score imports and draws" exactly.
 - **Done when:** `ornaments.musicxml` imports and draws in the app like every other fixture, and
   the committed `ornaments.timeline.json` shows **one** expected note under each of the three
@@ -221,40 +254,123 @@ flowchart TB
   spanning the empty bar plays the notes on both sides of it, where today `player:play` is refused.
   `npm run gate` is green.
 
-### Phase 3 — A turn is played, and costs nothing to play
+### Phase 3 — An ornament costs nothing, whatever pitch it shares
+- **Owner skill:** dev
+- **What:** The rename, the `ornament` field, and the two scoring rules a realised ornament needs,
+  proven on hand-built timelines before any OSMD code is written. A latent ADR-0009 defect is
+  fixed on the way: a grace note that repeats a pitch its group already scores.
+- **Files touched:** `shared/score.ts`, `core/src/score/timeline.ts`,
+  `core/src/score/timeline.test.ts`, `core/src/score/timelineFromMidi.ts`,
+  `core/src/align/onsetGroups.ts`, `core/src/align/onsetGroups.test.ts`, `core/src/align/align.ts`,
+  `core/src/align/align.test.ts`, `core/src/align/report.ts`, `core/src/align/report.test.ts`,
+  `core/src/align/restarts.test.ts`, `core/src/midi/generate.ts`, `core/src/player/schedule.ts`,
+  `core/src/player/schedule.test.ts`, `renderer/score/timelineFromOsmd.ts`,
+  `renderer/score/timelineFromOsmd.test.ts`, `renderer/hooks/usePracticeReport.test.ts`,
+  `electron/score/midiImport.test.ts`, `core/fixtures/scores/*.timeline.json`,
+  `core/fixtures/playback/sampler.timeline.json`, `e2e/score.spec.ts`. The list is every file
+  `git grep grace` found on 2026-09-11; a site outside it is a stop, as usual.
+- **Notes for the implementer:** Three changes, in this order.
+  **The rename.** `grace: boolean` becomes `optional: boolean`, and a sibling
+  `ornament: OrnamentKind | null` is added. The field is `null` everywhere in this phase, because
+  nothing expands yet. `graceNotes` becomes `optionalNotes`; `scoredNotes` filters on
+  `!note.optional`. In `schedule.ts` and `generate.ts` the change is the rename and nothing else,
+  because their behaviour for a realised ornament is Phase 4's. Regenerate every committed timeline.
+  **The forgiveness rule** (amendment item 2). An optional pitch forgives a struck pitch only once
+  the group's scored pitches have been taken out of the struck set, so it can excuse a surplus
+  strike and never a scored one. Every site that computes what was *heard* for accounting uses
+  the new rule: `ornamentAwareDifference` and `matchSharesNothing` in `align.ts`, and `heard` at
+  `report.ts:150`. Two sites keep the plain subtraction on purpose, because they ask whether a
+  played group is *nothing but ornament*: the roll-cost count at `align.ts:256` and
+  `arrivalTime`. A trill's repeated principal counts as ornament for the roll cost. The fallback in
+  `arrivalTime` already yields the first group of a realised run, which is on the beat. Comment the
+  split where it happens.
+  **The attachment rule** (amendment item 3). A note with `ornament` set joins the last group at or
+  before its own onset. A grace note (`ornament: null`) keeps ADR-0009's forward rule unchanged.
+  Build every ornament test below by hand, in the test file. Phase 4 produces the same shapes from
+  a real score.
+- **Done when:**
+  1. **The rename is mechanical.** Every committed timeline (the seven scores and
+     `sampler.timeline.json`) differs from its previous version only by `grace` becoming `optional`
+     and an added `ornament: null`, and the e2e case "the committed timelines still match what the
+     app extracts" proves it.
+  2. **The latent defect, written failing first.** A group scoring C4-E4-G4 with a grace E4 attached
+     reports clean both when the chord is played plainly and when the grace is struck ahead of it.
+     Under the old rule the plain chord reports E4 `missing`.
+  3. **A hand-built turn.** The principal A4 has `optional: false` and `ornament: 'turn'`, with a
+     length of one quarter. B4, A4, G4 and A4 follow at +0, +0.25, +0.5 and +0.75, each
+     `optional: true`, `ornament: 'turn'`, a quarter of a quarter long. Then a plain C5. All four
+     realised pitches attach to the principal's group and none to C5's. The realisation played in
+     full, each strike its own played group, reports clean. The principal alone reports clean.
+     **B4 alone where A4 is written reports A4 `missing`**, and B4 reaches no verdict. That last
+     case proves the rule excuses the ornament and not the note.
+  4. **A hand-built trill.** A G4 principal and eight realised notes, alternating G4 and A#4 at
+     eighth-of-a-quarter steps, played in full with every strike its own group, reports clean.
+     That is OSMD's eight-note trill exactly at the aligner's absorb bound
+     (`MAX_ABSORBED_GROUPS`).
+  5. **Nothing else moved.** Every existing test in `core/src/align/` passes with no edit beyond
+     the rename. The existing `withoutOrnaments` cases, where optional and scored pitches are
+     disjoint, are the proof that the new rule matches the old one there. Nothing this phase adds
+     to `core/src/align/` reads a played note's time (NFR 14).
+  6. `npm run gate` is green.
+
+### Phase 4 — A turn is played, and costs nothing to play
 - **Owner skill:** dev
 - **What:** Ornaments expand at extraction into optional notes, so the demonstration plays them and
   the scorer charges nobody for them.
-- **Files touched:** `shared/score.ts`, `renderer/score/timelineFromOsmd.ts`,
-  `renderer/score/timelineFromOsmd.test.ts`, `core/src/score/timeline.ts`,
-  `core/src/score/timeline.test.ts`, `core/src/align/onsetGroups.ts`,
-  `core/src/align/onsetGroups.test.ts`, `core/src/align/report.test.ts`,
-  `core/src/score/timelineFromMidi.ts`, `core/fixtures/scores/*.timeline.json`,
-  `core/fixtures/playback/sampler.timeline.json`, `e2e/score.spec.ts`
-- **Notes for the implementer:** Two changes, in this order. **First the rename**: `grace: boolean`
-  becomes `optional: boolean`, and a sibling `ornament: OrnamentKind | null` is added, `null` for a
-  written-out grace note. Regenerate all six committed timelines; the e2e case "the committed
-  timelines still match what the app extracts" is what proves the regeneration was mechanical.
-  `graceNotes` becomes `optionalNotes` and `scoredNotes` filters on `!note.optional` — the split
-  itself does not move, and `onsetGroups` keeps attaching optional pitches to the group they
-  decorate exactly as it does now (ADR-0009). **Then the expansion**: read
-  `voiceEntry.OrnamentContainer`, and when it is present call OSMD's own
-  `VoiceEntry.createVoiceEntriesForOrnament(entry, activeKey)` rather than realising the ornament
-  yourself — ADR-0018 is explicit that the realisation belongs to the library that owns the parse.
-  The active key is available from the measure's key instruction the extractor already walks. The
-  principal note keeps `optional: false`; everything the expansion adds is `optional: true` with the
-  kind set. `timelineFromMidi.ts` has no ornaments to read and only needs the field rename.
-  **Do not touch `report.ts`**: if this works, it works because `scoredNotes` never saw the notes.
-- **Done when:** For `ornaments.musicxml`, the timeline holds the realised pitches of the trill, the
-  turn and the mordent, the principal notes are `optional: false` and every added note is
-  `optional: true` with its `ornament` kind set. **The behavioural claim, asserted over the
-  aligner:** a generated take that plays the turn out in full and a generated take that plays only
-  the principal note both report that bar clean — no `extra`, no `missing` — which is the bug in
-  `## Context & problem` stated as a test. The accidental under the mordent reaches the realised
-  pitch, so `AccidentalBelow` is exercised rather than assumed. All six previously committed
-  timelines differ **only** by the field rename. `npm run gate` is green.
+- **Files touched:** `renderer/score/timelineFromOsmd.ts`, `renderer/score/timelineFromOsmd.test.ts`,
+  `core/fixtures/scores/ornaments.musicxml`, `core/fixtures/scores/ornaments.timeline.json`,
+  `core/src/player/schedule.ts`, `core/src/player/schedule.test.ts`, `core/src/midi/generate.ts`,
+  `core/src/midi/generate.test.ts`, `core/src/align/report.test.ts`, `e2e/score.spec.ts`
+- **Notes for the implementer:** **The extraction** (amendment item 1). When
+  `voiceEntry.OrnamentContainer` is present, call OSMD's own
+  `createVoiceEntriesForOrnament(entry, activeKey)`, but first wrap its two private builders,
+  `createBaseVoiceEntry` and `createAlteratedVoiceEntry`, **on that instance only**, for that one
+  call. Each wrapper records the timestamp and the length it was handed, as numbers, and then
+  calls through. Restore them in a `finally`. Never patch `VoiceEntry.prototype`. The typings
+  declare both methods `private`, so reach them through one narrow cast, and name OSMD 2.1.2 and
+  the aliasing in the comment above it. Pair the i-th record with the i-th returned entry's pitch.
+  Convert timestamps to quarters with the same arithmetic the extractor already applies to note
+  onsets; do not write a second conversion. The principal is `notes[0]` of the entry, the note OSMD
+  realises; any other notes of that chord stay plain. **If the capture count differs from the
+  returned count, or the captured notes do not tile the principal exactly, do not expand that
+  ornament**, and leave its principal as a plain note with `ornament: null`. Never write a partial
+  realisation. **The principal** (amendment item 4) keeps `optional: false` and its written onset
+  and length, and takes the ornament's kind.
+  **The fixture** gains a bar of its own, before the final bar, holding the four kinds it lacks:
+  `<inverted-turn>`, `<delayed-turn>`, `<delayed-inverted-turn>` and `<inverted-mordent>`, one per
+  quarter and with no accidentals. The capture claims all seven kinds, and a claim over kinds no
+  fixture holds is the blind spot this plan was written against. The delayed turns are the case
+  that proves the capture, since their first length is aliased as well.
+  **Playback** does not sound a note whose `ornament` is set and which is not optional, because its
+  realisation sounds in its place. It sounds each realised note at its own onset and length. The
+  short grace length stays reserved for `optional && ornament === null`. **The generator**, when
+  asked to take ornaments, replaces such a principal with its realisation at the realised onsets;
+  a grace note keeps its lead. When ornaments are skipped, nothing changes.
+- **Done when:**
+  1. **The realisation is OSMD's, captured.** For `ornaments.musicxml`, every principal is
+     `optional: false` with its kind, every realised note is `optional: true` with its kind, and
+     every other note is `ornament: null`. Relative to the principal's onset: the trill on G4 is
+     eight notes, alternating G4 and A#4, 0.125 quarters apart; the turn on A4 is B4, A4, G4, A4,
+     0.25 apart; the mordent on B4 is B4, C5, B4 at +0, +0.25 and +0.5, with lengths 0.25, 0.25
+     and 0.5. **For every ornament in the fixture, all seven kinds, the realised notes are
+     contiguous from the principal's onset and end exactly at its end.** That property is what
+     shows the capture read OSMD's intent rather than its aliased result.
+  2. **The accidentals, as OSMD 2.1.2 treats them.** The trill's above-accidental reaches the
+     sounding pitch (A#4, 70); the mordent's below-accidental does not (C5, 72). Both are asserted
+     as the library's behaviour, the ruling taken at Phase 1.
+  3. **The behavioural claim, over the aligner.** Generated takes of `ornaments.musicxml`, one with
+     the ornaments taken and one with them skipped, both report every bar clean: no `extra`, no
+     `missing`. That is the bug in `## Context & problem` stated as a test. **The same taken take
+     against a copy of the timeline with its optional notes removed reports extras in the
+     ornamented bars.** That is what shows the take really contains the ornaments and the first
+     claim is not vacuous.
+  4. **Playback plays the ornament, not the note under it.** The schedule's note-ons for the turn
+     are B4, A4, G4 and A4 at the realised times, with no A4 held for the whole quarter. No pitch is
+     struck while it is still sounding. The schedule stays ordered and balanced (ADR-0007).
+  5. No committed timeline other than `ornaments.timeline.json` changes in this phase.
+  6. `npm run gate` is green.
 
-### Phase 4 — The pedal goes down
+### Phase 5 — The pedal goes down
 - **Owner skill:** dev
 - **What:** The timeline carries pedal marks and playback sends CC 64 from them.
 - **Files touched:** `shared/score.ts`, `renderer/score/timelineFromOsmd.ts`,
@@ -280,7 +396,7 @@ flowchart TB
   `player:event` stream. NFR 13's property is unchanged — nothing dropped, nothing reordered,
   nothing left sounding. `npm run gate` is green.
 
-### Phase 5 — The music gets louder and softer
+### Phase 6 — The music gets louder and softer
 - **Owner skill:** dev
 - **What:** Dynamics and hairpins reach the instrument. The end of velocity 72.
 - **Files touched:** `shared/score.ts`, `renderer/score/timelineFromOsmd.ts`,
@@ -289,7 +405,7 @@ flowchart TB
   `core/fixtures/scores/dynamics.timeline.json`, `e2e/player.spec.ts`
 - **Notes for the implementer:** `dynamics: DynamicMark[]` on the timeline, each
   `{ at, velocity, label, staff, until, endVelocity }` with the last two set only for a hairpin.
-  Read them from the **same `MultiExpression` walk Phase 4 already wrote** for pedal —
+  Read them from the **same `MultiExpression` walk Phase 5 already wrote** for pedal —
   `InstantaneousDynamic` for a step, `StartingContinuousDynamic` / `EndingContinuousDynamic` for a
   hairpin — rather than a second traversal. **Take OSMD's `MidiVolume` and do not build a
   pp-to-velocity table**; ADR-0018 is explicit that the mapping belongs to the library. Resolution
@@ -305,7 +421,7 @@ flowchart TB
   note at 72, unchanged from today. A dynamic on staff 1 does not alter staff 0's velocities.
   `npm run gate` is green.
 
-### Phase 6 — The music breathes
+### Phase 7 — The music breathes
 - **Owner skill:** dev
 - **What:** Tempo marks, rit. and accel., and the fermata — the phase that makes a demonstration
   phrase rather than march.
@@ -328,7 +444,7 @@ flowchart TB
   transport shows the written tempo as the starting value so the player sees what the piece asks
   for. A **fermata** is `fermata: boolean` on `ExpectedNote`, read from `voiceEntry.Articulations`;
   `scheduleFromTimeline` lengthens that note and delays everything after it. Pick a hold factor,
-  put it in a named constant with a comment, and expect Phase 9 to change it — it is a taste
+  put it in a named constant with a comment, and expect Phase 10 to change it — it is a taste
   number and no test should pin it to a musical claim.
 - **Done when:** For `tempo-changes.musicxml`, a marked tempo sets the default and the transport
   shows it; a written *ritardando* makes the gaps between consecutive note-ons **grow monotonically
@@ -339,7 +455,7 @@ flowchart TB
   everything after it shifts by the same amount. A score with no tempo marks behaves exactly as
   today. NFR 13's property is unchanged. `npm run gate` is green.
 
-### Phase 7 — Short notes are short
+### Phase 8 — Short notes are short
 - **Owner skill:** dev
 - **What:** Articulation: staccato shortens, tenuto sustains, accent bites.
 - **Files touched:** `shared/score.ts`, `renderer/score/timelineFromOsmd.ts`,
@@ -353,7 +469,7 @@ flowchart TB
   rest rather than modelling them. `scheduleFromTimeline` turns them into **duration and velocity
   changes only**: a staccato note's note-off comes earlier, an accent raises its velocity above
   whatever the dynamic gave it. **Every factor is a named constant with a comment**, for the same
-  reason as the fermata's: these are taste, Phase 9 may move them, and no test should assert that a
+  reason as the fermata's: these are taste, Phase 10 may move them, and no test should assert that a
   particular fraction is musically right. **Shortening must never reorder the event list** — a
   note-off that moves earlier still has to sit after its own note-on, including on a note already
   shorter than the staccato factor.
@@ -364,7 +480,7 @@ flowchart TB
   every schedule the suite builds. A note shorter than the staccato factor still ends after it
   starts. `npm run gate` is green.
 
-### Phase 8 — The report says where the score asked
+### Phase 9 — The report says where the score asked
 - **Owner skill:** dev
 - **What:** ADR-0021's annotation, and the test that proves the aligner did not learn anything.
 - **Files touched:** `core/src/align/report.ts`, `core/src/align/report.test.ts`,
@@ -376,8 +492,9 @@ flowchart TB
   never creates one** — no observation, no sentence, even where a rit. is written.
   **It never changes a verdict, a count or a colour**; compute the bar's state first and do not
   revisit it. **It never reports absence** — "you did not slow where the score asks" is a judgement
-  and is out of scope. `align.ts` is not touched **at all**, and that is the phase's real
-  deliverable: if a diff to `core/src/align/align.ts` appears, the phase has gone wrong. Consider a
+  and is out of scope. This phase does not touch `align.ts` **at all**, and that is its real
+  deliverable: if this phase's commit carries a diff to `core/src/align/align.ts`, the phase has
+  gone wrong. Phase 3's forgiveness rule is the only change this plan makes to that file. Consider a
   mechanical guard — ADR-0021 suggests a lint or dependency rule stopping `core/src/align/` from
   importing whatever resolves marks — and if you add one, say so in the log.
 - **Done when:** A take that slows where a *rit.* is written gets the annotated sentence; **the same
@@ -389,9 +506,9 @@ flowchart TB
   at half speed against a score marked *Allegro* still reports zero bars in `timing`. `npm run gate`
   is green.
 
-### Phase 9 — At the piano
+### Phase 10 — At the piano
 - **Owner skill:** human
-- **What:** Whether it sounds like music. Nothing in the eight phases above can answer that, and
+- **What:** Whether it sounds like music. Nothing in the nine phases above can answer that, and
   most of their constants are guesses waiting for this phase.
 - **Files touched:** the plan's implementation log
 - **Done when:** all of the following are recorded in the log:
@@ -404,17 +521,21 @@ flowchart TB
   3. **The ornament, judged as music.** OSMD picks one realisation — how many notes a trill gets,
      whether a turn starts on the note or above. Good enough to demonstrate from, or misleading? A
      "no" for a specific kind is a finding, and ADR-0018's named response is to stop expanding
-     **that kind**, never to write our own realiser.
+     **that kind**, never to write our own realiser. **Judge the mordent first:** OSMD realises
+     `<mordent>` upwards (B4-C5-B4), and MusicXML's `<mordent>` is the sign with the vertical line,
+     which convention reads as the lower mordent (see `## Risks & open questions`).
   4. Play the ornamented bar yourself, once realising the ornament and once plainly, and confirm the
-     bar reads clean both ways — the Phase 3 assertion, felt rather than generated.
+     bar reads clean both ways — the Phase 4 assertion, felt rather than generated. Play a trill
+     longer than eight strikes as well: eight is the aligner's absorb bound, so a longer trill is
+     expected to show extras, and how often a real trill exceeds it is the finding.
   5. **The dynamics, judged.** Does a marked piece sound shaped, or does it lurch? OSMD's
      `MidiVolume` mapping is inherited and may be too wide or too narrow on this instrument. A
      range that is wrong is a finding with a number attached, not a re-design.
   6. **The tempo, judged — the most likely to be wrong.** Does a written rit. sound like a
      rit. or like a stumble? Does the override still feel like the same piece slower? Play a
      passage at half the written tempo and say whether the shape survived.
-  7. **The fermata and the staccato constants.** Both are taste numbers chosen blind in Phases 6
-     and 7. Say whether they are close, and in which direction if not.
+  7. **The fermata and the staccato constants.** Both are taste numbers chosen blind in Phases 7
+     and 8. Say whether they are close, and in which direction if not.
   8. **The whole point, in one judgement.** Put a piece with real expression on the stand, press
      Play, and say whether it sounds like music being played or like a file being read aloud. That
      is the sentence this plan exists to earn, and a "not yet" with a reason is worth more than
@@ -446,8 +567,11 @@ type ExpectedNote = {
   /** Scored neither way (ADR-0009). Was `grace`; now also every note an
    *  ornament expanded into. */
   optional: boolean
-  /** Which symbol produced this note, or null for a written-out grace note
-   *  and for every ordinary note. */
+  /** The ornament this note carries or was realised from. On a principal
+   *  (optional: false) it means "sounded by its realisation, scored as
+   *  written"; on a realised note (optional: true), "one of those notes". Null
+   *  for a written-out grace note and for every ordinary note. A principal
+   *  carries a kind only when its realisation exists. */
   ornament: OrnamentKind | null
   /** Marks that belong to this notehead and to nothing else. Playback reads
    *  them; scoring does not (ADR-0021). */
@@ -476,7 +600,7 @@ type DynamicMark = {
 }
 
 /** A word, a metronome mark, or a ramp. `until`/`endBpm` are set for a ramp.
- *  `label` is what the page printed, which is what Phase 8 quotes. */
+ *  `label` is what the page printed, which is what Phase 9 quotes. */
 type TempoMark = {
   at: number
   bpm: number
@@ -503,44 +627,65 @@ type ExpectedTimeline = {
 - **This plan's real risk is that it makes the app play the wrong thing rather than crash.**
   `scheduleFromTimeline` goes from arithmetic over onsets to the place that decides how a piece
   sounds. A velocity or a tempo bug is silent to every gate and audible to a human, which is why
-  Phase 9 has eight items and why the taste constants are named and commented rather than inlined.
-- **Tempo-freedom is the thing that could be lost here**, and losing it would be quiet. Phase 8's
+  Phase 10 has eight items and why the taste constants are named and commented rather than inlined.
+- **Tempo-freedom is the thing that could be lost here**, and losing it would be quiet. Phase 9's
   done-when is written as the guard — the same take against the same score with the tempo track
   emptied must produce identical verdicts, counts and colours — and ADR-0021 suggests a mechanical
-  import rule as well. A reviewer should read `git diff core/src/align/` first and expect nothing.
+  import rule as well. A reviewer should read `git diff core/src/align/` first and expect exactly
+  one thing there: Phase 3's forgiveness and attachment rules, which compare pitches and onsets in
+  quarters and read no played time.
 - **The tempo override is the subtlest arithmetic in the plan.** Scaling a written rit. by the
   player's chosen tempo has an obvious wrong implementation (flatten the curve, apply the box) that
-  passes a naive test. Phase 6's done-when asserts the **ratio** between the span's first and last
+  passes a naive test. Phase 7's done-when asserts the **ratio** between the span's first and last
   gap is preserved, which is what catches it.
 - **OSMD's interpretation may be musically wrong**, for an ornament's realisation, for
   `MidiVolume`'s range, or for `getInterpolatedTempo`'s curve. Inherited by decision (ADR-0018).
-  Phase 9 items 3, 5 and 6 are the checks, and the response is to stop reading that mark rather
+  Phase 10 items 3, 5 and 6 are the checks, and the response is to stop reading that mark rather
   than to start second-guessing the library.
-- **`createVoiceEntriesForOrnament` may behave differently than its signature suggests** — it is an
-  instance method on `VoiceEntry` in OSMD 2.1.2's typings and its use inside OSMD is for playback,
-  not for our extraction path. If it throws, returns empty, or needs state the extractor does not
-  have, **Phase 3 stops and says so**: the fallback is to mark the principal note's group as
-  accepting surplus without expanding, which fixes the scoring bug and not the demonstration, and
-  that is a design change for the architect rather than an improvisation.
+- **`createVoiceEntriesForOrnament` did behave differently than its signature suggests**, and the
+  original Phase 3 stopped on it: aliased timestamps for every kind except the trill, and an
+  aliased length for the mordent and both delayed turns. The capture in Phase 4 depends on two
+  **private** OSMD methods keeping their names and their call order. The exact pin (NFR 9) means
+  that can only change when someone upgrades OSMD on purpose, and the tiling property in Phase 4's
+  done-when then fails loudly. The extractor's refusal to expand when capture and result disagree
+  keeps a silent partial realisation out of the data. **Check this first when upgrading OSMD**, and
+  if the library has fixed the aliasing, drop the capture.
+- **OSMD realises `<mordent>` upwards, and the page probably means downwards.** MusicXML 4.0
+  defines `<mordent>` as "the sign with the vertical line", which convention reads as the lower
+  mordent (principal, lower, principal). OSMD's reader maps it to `OrnamentEnum.Mordent`, whose
+  realiser goes up a step, and `<inverted-mordent>` goes down, so the two look swapped. This was
+  read from OSMD's source and the W3C reference on 2026-09-11 and has not been heard at the
+  instrument. **The price is not only the demonstration.** A player who plays B4-A#4-B4 under a
+  `<mordent>` strikes an A#4 that is not optional, and it is charged as `extra`. Phase 4 asserts
+  OSMD's direction as the library's behaviour, the same stance Phase 1 took on the accidentals.
+  Phase 10 item 3 judges it first. ADR-0018's named response is to stop expanding that kind; the
+  alternative, swapping the two mordent kinds at extraction, would be a correction to the
+  library's mapping and needs its own ruling.
+- **Real trills outrun the absorb bound.** OSMD writes eight notes for every trill, and
+  `MAX_ABSORBED_GROUPS` is eight, so the generated take fits exactly. A player's trill on a long
+  note can have twelve strikes, and the surplus beyond eight is charged as `extra`. Phase 10
+  item 4 measures how often that happens. Raising the bound is an aligner change with its own cost
+  under NFR 12, and it is not this plan's.
 - **`ContinuousTempoType` has fifteen values and not all are ramps.** `rubato` in particular is a
-  direction to a human. Phase 6 reads a subset and records which; a mark ignored is better than one
+  direction to a human. Phase 7 reads a subset and records which; a mark ignored is better than one
   guessed at.
-- **The field rename collides with Plan 0009 if both are in flight.** That plan is parked and works
-  in `core/src/align/`, which reads `scoredNotes` rather than the field; the collision is one
-  identifier, not a design conflict. Whichever lands second rebases over the rename. **Do not run
+- **Phase 3 collides with Plan 0009 if both are in flight.** That plan is parked and works in
+  `core/src/align/`. Since the amendment, the collision is the rename plus the forgiveness rule in
+  `align.ts` and `report.ts`. That is still not a design conflict, but it is more than one
+  identifier. Whichever lands second rebases over Phase 3. **Do not run
   these two in parallel worktrees** without agreeing that first.
 - **The practice path still validates nothing.** This plan fixes the defect that asymmetry hid; it
   does not fix the asymmetry. A timeline built in the renderer for practice is still unchecked, so
   the next extractor bug will again surface on one path out of two. A followup, because parsing on
   the practice path costs NFR 12 turnaround and wants its own measurement.
-- **Fixture churn hides regressions if it is not mechanical.** Six committed timelines change in
-  Phase 3 and gain fields in Phases 5 to 7. The e2e case that pins them is the guard, and Phase 3's
+- **Fixture churn hides regressions if it is not mechanical.** Every committed timeline changes in
+  Phase 3 and gains fields in Phases 6 to 8. The e2e case that pins them is the guard, and Phase 3's
   done-when says its diff must be *only* the rename — a timeline whose onsets moved during a rename
   is a bug, not a regeneration.
-- **This is nine phases, which is long for one plan.** It is one plan by decision, because every
+- **This is ten phases, which is long for one plan.** It is one plan by decision, because every
   phase amends the same schema and a second pass would mean a second fixture migration and a second
-  e2e timeline-pinning update. The natural stopping point if it has to be split is **after Phase 4**:
-  the two live defects and pedal are fixed, and Phases 5 to 9 are the expressive layer.
+  e2e timeline-pinning update. The natural stopping point if it has to be split is **after Phase 5**:
+  the two live defects and pedal are fixed, and Phases 6 to 10 are the expressive layer.
 - **Offline and latency are untouched.** No new dependency (NFR 9), no network, nothing added to
   the MIDI-in path. NFR 12, 13 and 14 are re-reported from the gate run.
 
@@ -576,18 +721,19 @@ section names cannot happen.
 |---|---|---|---|
 | 1 — A score with a turn in it, and the bug on screen | dev | done | 3788e72 |
 | 2 — A bar may be empty | dev | done | committed with this row |
-| 3 — A turn is played, and costs nothing to play | dev | not started — stopped, see Notes | |
-| 4 — The pedal goes down | dev | not started | |
-| 5 — The music gets louder and softer | dev | not started | |
-| 6 — The music breathes | dev | not started | |
-| 7 — Short notes are short | dev | not started | |
-| 8 — The report says where the score asked | dev | not started | |
-| 9 — At the piano | human | not started | |
+| 3 — An ornament costs nothing, whatever pitch it shares | dev | not started (the old Phase 3 stopped, see Notes; re-cut by the amendment) | |
+| 4 — A turn is played, and costs nothing to play | dev | not started | |
+| 5 — The pedal goes down | dev | not started | |
+| 6 — The music gets louder and softer | dev | not started | |
+| 7 — The music breathes | dev | not started | |
+| 8 — Short notes are short | dev | not started | |
+| 9 — The report says where the score asked | dev | not started | |
+| 10 — At the piano | human | not started | |
 
 ### Measurements
 
 _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note which
-`ContinuousTempoType` values Phase 6 reads, and the taste constants Phases 6 and 7 chose.)_
+`ContinuousTempoType` values Phase 7 reads, and the taste constants Phases 7 and 8 chose.)_
 
 ### Notes
 
@@ -680,13 +826,13 @@ recording: `AccidentalEnum.NONE` is `2`, so an unset ornament accidental reads `
 
 - **Judging expression**, as its own plan and interview. ADR-0021's Alternative A names what it
   would have to reopen; Plan 0001 Phase 7's measured velocity range is where it should start.
-- **Describing dynamics**, if Phase 9 item 5 suggests the player wants to be told about them. It
+- **Describing dynamics**, if Phase 10 item 5 suggests the player wants to be told about them. It
   needs an observation for the annotation to attach to, which today does not exist.
 - **Validate the timeline on the practice path too**, or decide deliberately that it stays unchecked
   there. The asymmetry that hid the zero-beats bug is still present.
-- **A trill's realisation as a setting**, if Phase 9 item 3 finds OSMD's choice misleading for one
+- **A trill's realisation as a setting**, if Phase 10 item 3 finds OSMD's choice misleading for one
   kind rather than all of them.
-- **The taste constants as settings**, if Phase 9 item 7 finds the fermata hold or the staccato
+- **The taste constants as settings**, if Phase 10 item 7 finds the fermata hold or the staccato
   factor wrong in a way that is a matter of preference rather than of correctness.
 - **Slurs and phrasing**, which this plan cut and which is the largest remaining expressive gap.
 - **Over-pedalling as an observation.** The timeline now knows where the pedal should lift; a take
