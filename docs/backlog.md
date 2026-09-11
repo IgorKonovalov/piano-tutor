@@ -192,3 +192,29 @@ own interview:
     that draws neither. Nothing new is needed but a size and a home for it.
   - **The score list on the left folds away**, so a piece can have the width. Pure layout, and the
     one of these three with no dependency on anything.
+- **The instrument can be unplugged and plugged back in.** Measured at the CK88 on 2026-09-11
+  (Plan [0004](plans/0004-the-app-plays-the-piece.md) Phase 7 item 5d). Pulling the USB cable
+  mid-chord leaves **no stuck note**, which is the property that phase existed to check. What
+  fails is everything after: playback does not resume on replug, and the console floods with
+  `MidiOutWinMM::sendMessage: error sending MIDI message.`, one line per event.
+  - **The flood has a cause worth recording, because it defeats a guard that looks correct.**
+    `RtMidiSink.write` already wraps `sendMessage` in a `try`/`catch` with a one-shot `warned`
+    flag. It never fires: RtMidi's C++ layer prints that line to stderr and **returns**, so the
+    failure never becomes a JavaScript exception. A `send` that fails is indistinguishable, inside
+    the process, from one that succeeded.
+  - **So the sink believes it is open when it is not.** `this.output` stays non-null and
+    `openPortIndex` stays set. Nothing in main learns the device left.
+  - **Noticing is possible without a new mechanism.** The output list is already polled every two
+    seconds and listing opens no handle (ADR-0006), so a port whose index stops being enumerated
+    is the signal. Whether that belongs in the sink, in a handler, or as a `player:*` push to the
+    renderer is the design question, and whether `MidiSink.send` should be able to report failure
+    at all is an ADR-0007 question rather than a patch.
+  - **Coming back wants the port matched by name, not index** — already a followup on Plan 0004,
+    and its Risks section already named a stale `out:<index>` as the hazard. This is that hazard,
+    observed.
+  - **Falling back to the computer is half-built and would not have sounded anyway.** `usePlayer`
+    derives `outputOpen` from the poll, so an unplugged CK88 does flip the *default* target to
+    `computer` — but `Synth` is only constructed inside `play()`, so mid-playback there is no
+    voice to switch to, and an explicit choice in the dropdown pins the target so the default
+    never moves. Creating an `AudioContext` mid-schedule is also outside the click that started
+    it, which ADR-0008 relies on; likely fine in Electron after a gesture, not certain.
