@@ -49,7 +49,13 @@ const noOutput = new NullSink()
  */
 const sendToWindow = (channel: string, payload: unknown): void => {
   if (mainWindow === null || mainWindow.isDestroyed()) return
-  mainWindow.webContents.send(channel, payload)
+  try {
+    mainWindow.webContents.send(channel, payload)
+  } catch {
+    // The window can go between that check and this call. On the shutdown
+    // path that race runs at the same moment the player is pushing its last
+    // note-offs, and a throw escaping here would strand them.
+  }
 }
 
 const player = new Player({

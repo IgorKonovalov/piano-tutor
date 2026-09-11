@@ -150,11 +150,15 @@ let sink: RecordingSink
 let events: MidiEvent[]
 let states: PlayerState[]
 let player: Player
+/** Set to make every push to the renderer throw, as a dead window does. */
+let rendererRefuses = false
 
 beforeEach(() => {
   // The onset-error line is a measurement for a human at the instrument
   // (NFR 13), not test output.
   vi.spyOn(console, 'info').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  rendererRefuses = false
   midi.state.written = []
   midi.state.closes = 0
   clock = new TestClock()
@@ -164,7 +168,10 @@ beforeEach(() => {
   player = new Player({
     sink,
     clock,
-    onEvent: (event) => events.push(event),
+    onEvent: (event) => {
+      if (rendererRefuses) throw new Error('the window has gone')
+      events.push(event)
+    },
     onState: (state) => states.push(state),
   })
 })
@@ -500,6 +507,25 @@ describe('stop always stops, and the instrument hears it', () => {
     // The throw propagates -- a scheduler that silently swallows its own bugs
     // is worse than one that stops -- but not before the release has gone out.
     expect(() => clock.advance(TICK_MS + 1)).toThrow(/tick/)
+
+    expect(midi.state.written).toEqual([
+      ...PLAYER_RELEASE,
+      [0xb0, CC_ALL_NOTES_OFF, 0],
+      [0xb0, CC_SUSTAIN, 0],
+      [0xb3, CC_ALL_NOTES_OFF, 0],
+      [0xb3, CC_SUSTAIN, 0],
+    ])
+    expect(player.playing).toBe(false)
+  })
+
+  it('even when every push to the renderer throws', async () => {
+    await sounding()
+    // The window going is not a reason for the instrument to keep sounding.
+    // `webContents.send` can fail on exactly the path that carries the last
+    // note-offs, so the release must not depend on the renderer accepting it.
+    rendererRefuses = true
+
+    player.stop()
 
     expect(midi.state.written).toEqual([
       ...PLAYER_RELEASE,

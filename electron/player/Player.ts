@@ -100,6 +100,8 @@ export class Player {
   private channelsTouched = new Set<number>()
   private onsetErrors: number[] = []
   private lastOnsetError: OnsetError | null = null
+  /** Reported once per schedule; a dead window would otherwise flood the log. */
+  private warnedOnEvent = false
 
   constructor(private readonly deps: PlayerDeps) {
     this.clock = deps.clock ?? systemPlayerClock
@@ -135,6 +137,7 @@ export class Player {
     this.schedule = schedule
     this.nextIndex = 0
     this.onsetErrors = []
+    this.warnedOnEvent = false
     this.startedAt = this.clock.now()
     this.lastStateAt = 0
     this.tickHandle = this.clock.setInterval(this.tick, TICK_MS)
@@ -225,7 +228,21 @@ export class Player {
     this.held = reduceHeldNotes(this.held, event)
     if (event.kind !== 'unknown') this.channelsTouched.add(event.ch)
     this.sink.send(event)
-    this.deps.onEvent(event)
+    // The sink was made incapable of throwing because a throw on this line
+    // strands a note on the instrument. The push to the renderer sits on the
+    // same path and needs the same promise: it reaches `webContents.send`,
+    // which can fail if the window goes between the check and the call — and
+    // the shutdown path is precisely when that race runs *and* when the last
+    // note-offs are going out. One throw here would abandon the rest of the
+    // release and skip the sink's own panic with a chord still sounding.
+    try {
+      this.deps.onEvent(event)
+    } catch (err) {
+      if (!this.warnedOnEvent) {
+        this.warnedOnEvent = true
+        console.warn(`Player: the renderer refused an event: ${(err as Error).message}`)
+      }
+    }
   }
 
   /**
