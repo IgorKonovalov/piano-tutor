@@ -386,14 +386,15 @@ interface MidiSink {
 | 4 — A take plays back out to the instrument | dev | done | `cd71382` |
 | 5 — You can hear it with nothing plugged in | dev | done | `94cde15` |
 | 6 — Stop always stops | dev | done | `f227397` |
-| 7 — At the piano | human | **outstanding** | |
+| 7 — At the piano | human | done | 2026-09-11, at the CK88 |
 
 ### Measurements
 
-**NFR 13's milliseconds are not measured yet, and cannot be by a `dev` phase.** They are a
-measurement of a real schedule reaching a real device, which is Phase 7 item 4 at the CK88.
+**NFR 13's milliseconds were measured at the CK88 on 2026-09-11** (Phase 7 item 4), on a real
+schedule reaching a real device with the output port open. No `dev` phase could have produced
+them.
 
-Where the figure comes from when it is taken: `Player` accumulates the onset error of every
+Where the figure comes from: `Player` accumulates the onset error of every
 note-on and prints one line to **main's console** when a schedule ends or is stopped —
 
 ```
@@ -405,7 +406,23 @@ it, which is what that row's "reported, not asserted" means.
 
 | NFR | figure | machine | phase |
 |---|---|---|---|
-| 13 | _(not yet measured)_ | | 7 |
+| 13 | onset error over **1286 note-ons**, p50 -0.3 ms, p95 **0.6 ms**, max **1.4 ms** | the development machine, Windows 10, CK88 on USB TO HOST, output port open | 7 |
+
+Against the row's target of p95 ≤ 10 ms and max ≤ 25 ms, over a schedule two and a half times the
+500 events it asks for. **The row's named hazard did not materialise:** Windows' default 15.6 ms
+timer granularity never showed up in 1286 events, and no ADR revising NFR 13 is owed.
+
+Two things in the distribution that the headline figure hides, recorded because the run produced
+them:
+
+- **One earlier run broke the max target**: `over 29 note-ons — p50 -0.8 ms, p95 0.1 ms, max
+  80.7 ms`. Every other run of the session sat between 0.3 and 2.0 ms, so it is an outlier and not
+  the shape of the thing — but 80.7 ms against a 25 ms ceiling happened on this machine, and on a
+  dense passage it would be an audible hiccup. Cause unknown; a GC pause or a window operation
+  stalling the timer are the obvious candidates and neither was confirmed.
+- **The p50 is consistently slightly negative**, between -0.1 and -0.8 ms across all 35 runs of the
+  session. Note-ons dispatch a hair early rather than late. Harmless at this scale and not worth
+  chasing, but the error is not centred on zero and a future reader should not assume it is.
 
 ### Notes
 
@@ -678,6 +695,82 @@ the transport's bar inputs are bounded by the score rather than by where its not
 **Phase 7 is untouched by all of this and remains outstanding.** NFR 13 still has no measurement,
 and ADRs 0007 and 0008 are still `proposed`.
 
+### Phase 7 at the piano, 2026-09-11
+
+The CK88 on USB TO HOST, the app run from source, the user at the instrument and `dev` reading
+main's console. All six items answered.
+
+**Item 1 — the two halves of one device, at once. Yes.** The CK88 appears in the output list and
+opens while its input port is already open, in one process. The measurement from Plan 0001 Phase 7
+that an input port is not exclusive *across* processes now has its counterpart: the input and
+output halves of one USB device are independent within a process too.
+
+**Item 2 — the instrument sounds what is sent, on channel 1. Yes.** No channel selector is owed;
+the fallback named in the item and in ADR-0007 is not needed.
+
+**Item 3 — a piece plays through and sounds musically right. Yes, and the item's other half is
+mis-specified.** A score plays through and the user judged it musically right, which is what the
+row exists for.
+
+But the item also asks for it "with the sustain pedal messages included", and **a score cannot
+carry pedal**: `scheduleFromTimeline` emits only `noteOn` and `noteOff`, and `ExpectedTimeline`
+has no pedal concept at all (ADR-0005), so there is nowhere for a pedal mark to live. Pedal
+messages **do** reach the instrument, proven by a recorded take played out, which carries the
+CC 64 the player actually pressed.
+
+The user reported hearing pedal work from a score as well. The likeliest explanation is their own
+foot: the CK88's pedal is wired to its own sound engine, so it sustains whatever the instrument is
+sounding, including notes the app just sent it — no MIDI pedal message involved. **That
+explanation was not tested.** The discriminating run is a score played with the foot off the
+pedal; it is a minute's work and is not done. Recorded as unresolved rather than settled by
+argument.
+
+**Item 4 — NFR 13 measured.** See `### Measurements`. Passes, with two caveats recorded there.
+
+**Item 5 — no stuck note, all four ways. Clean.** Stop mid-chord, the window closed mid-chord, the
+app quit mid-chord, and **the USB cable pulled mid-chord** each left the instrument silent. This is
+the property the whole plan was built around and the one no test could stand in for.
+
+**What fails is the recovery, not the silence.** After a replug, playback does not resume and
+main's console floods with `MidiOutWinMM::sendMessage: error sending MIDI message.`, one line per
+event. `RtMidiSink.write` already has a one-shot `warned` guard for exactly this, and it never
+fires: RtMidi's C++ layer prints that line to stderr and returns, so a failed send never becomes a
+JavaScript exception and is indistinguishable inside the process from a successful one. The sink
+therefore believes it is open when it is not — `this.output` stays non-null, `openPortIndex` stays
+set — and on replug Windows may hand out a different index, leaving the old handle dead.
+
+Carried to [`../backlog.md`](../backlog.md) rather than fixed here: it wants a way to notice the
+port died (the two-second enumeration poll already running is the cheap signal, ADR-0006 making it
+free to ask), a name-matched reopen — already this plan's own followup, and its Risks section
+already named a stale `out:<index>` as the hazard — and a fallback that can actually sound, which
+today it cannot, because `Synth` is only constructed inside `play()`. Whether `MidiSink.send`
+should be able to report failure at all is an ADR-0007 question.
+
+**Item 6 — the synthesised fallback. Keep it.** The user's judgement: tolerable as a reference
+tone. ADR-0008 reversed a project-wide "the app never makes sound" premise to get it, and that
+reversal is judged worth its price. No superseding ADR is owed.
+
+**A defect found during the phase, not on the checklist.** `player:play` was refused by Zod for
+BWV 555: `bars[25].beats` is `0` and `ExpectedTimelineSchema` demands `z.number().positive()`.
+Inspecting the file, measure index 25 contains only an `<attributes>` element — no notes, no rests
+— the carrier bar where the Prelude ends and the Fugue begins and the metre changes. OSMD reports
+`Duration.RealValue` of 0 and `timelineFromOsmd.ts` maps it straight through.
+
+Two things make it worth more than one score. **`barTableProblems` cannot catch it**: it checks
+only that `onset + beats` equals the next bar's onset, and a zero-length bar is perfectly
+contiguous. And **the timeline is schema-checked only when it crosses IPC for playback** — the
+practice path runs it in the renderer and validates nothing — so this score practises fine and
+only fails to play, which is why it survived until a piece was played at the instrument.
+
+Not fixed here. Relaxing `beats` to non-negative changes `ExpectedTimelineSchema`, which is
+ADR-0005's seam and is shared by alignment, the practice report and playback; dropping or merging
+the empty bar instead would break the "indexed 0 to 97 as the score was parsed" contract that
+bar-clicking depends on. An architect call.
+
+Also seen once and not explained: `Could not parse MusicXML, no valid partwise element found`,
+twice in one second. All four of the user's BWV files are valid `score-partwise`, so it was not
+them; what was handed to OSMD at that moment is not known.
+
 ### Close triggers
 
 - **What shipped:** feature. A `player:*` IPC domain, a `MidiSink` seam with two implementations,
@@ -693,12 +786,18 @@ and ADRs 0007 and 0008 are still `proposed`.
   `### The full gate, at the last dev phase`. **Re-run green after the three pre-Phase-7 fixes**
   (`### Pre-Phase-7 fixes, 2026-09-11`): 717 unit tests and 33 end-to-end, exit 0 throughout. That
   later run is the one describing the current tree.
-- **Outstanding `human` phases:** **Phase 7, all six items.** Nothing in the plan can close until
-  the CK88 is plugged in: the output port opening beside the input, the channel the instrument
-  responds on, the musical judgement, **NFR 13's milliseconds** (which no `dev` phase can produce),
-  the stuck-note checks including the unplugged cable, and the product call on whether the
-  synthesised tone was worth the reversal ADR-0008 made.
-- **ADRs awaiting acceptance:** 0007 and 0008, both still `proposed`.
+- **Outstanding `human` phases:** **none.** Phase 7 ran at the CK88 on 2026-09-11 and all six items
+  are answered in `### Phase 7 at the piano`. NFR 13 is measured, the stuck-note checks are clean
+  including the unplugged cable, and the product call on the synthesised tone is *keep it*.
+- **Not settled by the phase, and the architect's to place:** item 3's pedal half is
+  mis-specified (a score cannot carry pedal at all) and the user's contrary observation is
+  recorded as unexplained rather than resolved; `bars[].beats` of `0` from an attributes-only
+  measure refuses `player:play` on a real score, and the fix is a change to `ExpectedTimelineSchema`
+  under ADR-0005; and an unplug is survived but a replug is not recovered from, carried to the
+  backlog.
+- **ADRs awaiting acceptance:** 0007 and 0008, both still `proposed`. Both are now measured
+  against: ADR-0007's lookahead clock met NFR 13 by a wide margin and its panic path held on all
+  four interruptions, and ADR-0008's reversal was judged worth its price at the instrument.
 
 ## Followups (after this lands)
 
