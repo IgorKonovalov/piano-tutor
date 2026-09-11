@@ -576,7 +576,7 @@ section names cannot happen.
 |---|---|---|---|
 | 1 — A score with a turn in it, and the bug on screen | dev | done | 3788e72 |
 | 2 — A bar may be empty | dev | done | committed with this row |
-| 3 — A turn is played, and costs nothing to play | dev | not started | |
+| 3 — A turn is played, and costs nothing to play | dev | not started — stopped, see Notes | |
 | 4 — The pedal goes down | dev | not started | |
 | 5 — The music gets louder and softer | dev | not started | |
 | 6 — The music breathes | dev | not started | |
@@ -622,6 +622,52 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
 - The Phase 2 end-to-end test was **run against the unrelaxed schema to confirm it bites**: with
   `beats: z.number().positive()` restored, the transport never leaves `idle` because `player:play`
   is refused on receive. That is the BWV 555 failure, reproduced and then fixed.
+
+### Phase 3 stopped: `createVoiceEntriesForOrnament` misbehaves, and it is a design question
+
+The run stopped **before any Phase 3 code landed**; the tree is clean at Phase 2's commit and the
+rename was reverted rather than half-applied. This is the escalation `## Risks & open questions`
+names for this method. It does not throw and does not return empty: it returns **wrong
+timestamps**, for two of the three kinds, and the plan's chosen response ("stop expanding that
+kind") costs the plan its headline defect.
+
+Measured against `ornaments.musicxml` under OSMD 2.1.2, timestamps measure-relative in whole
+notes, with the principal's own entry timestamp beside each:
+
+| Ornament | Realised timestamps | Lengths | Reading |
+|---|---|---|---|
+| Trill on G4 (entry at 0) | `0, .03125, .0625, … .21875` | all `.03125` | correct; eight notes alternating G4 / A#4, filling the principal's quarter exactly |
+| Turn on A4 (entry at .25) | `.4375` four times | all `.0625` | timestamps aliased; four notes on one instant, a cluster rather than a turn |
+| Mordent on B4 (entry at .5) | `.5625, .5625, .625` | all `.125` | timestamps **and** lengths aliased; three notes totalling 1.5 quarters inside a 1-quarter note |
+
+The cause is object aliasing inside the method. The `Turn` and `Mordent` branches pass one
+`Fraction` by reference into every entry they generate and then mutate it, so each entry reads the
+final value; `Mordent` additionally mutates the shared `Length` fraction's denominator after two
+entries already hold it. The `Trill` branch builds a fresh `Fraction` per note and is unaffected.
+It is the library's bug rather than a misuse: the method exists for OSMD's own playback.
+
+How far a faithful repair can go **differs by kind**, which is what makes this the architect's:
+
+- **Trill** needs nothing.
+- **Turn**'s four lengths are sound and only the shared timestamp is corrupt, so laying the four
+  consecutively from the principal's onset reproduces what the library intended. That is repairing
+  an aliasing bug, not choosing a rhythm.
+- **Mordent**'s lengths are corrupt too, so making it sound right means **deciding its durations**,
+  which is the interpreter ADR-0018 refuses to own. Its named response, stop expanding that kind,
+  leaves a realised mordent still charged as extra notes — which is the very defect Phase 3 exists
+  to close, surviving for one ornament in three.
+
+**A second finding, independent of the aliasing.** `createVoiceEntriesForOrnament` re-emits the
+**principal's own pitch** as part of the realisation: four of the trill's eight notes are G4. The
+plan keeps the principal in `notes[]` at its full written length and adds every realised note
+beside it, so playback would sound G4 as a held quarter *and* as four eighths over it. Scoring is
+unaffected. Nothing in the data distinguishes an expanded principal from an ordinary note, because
+`## Data shapes` gives the principal `ornament: null`, so playback has no way to skip it.
+
+**Two facts Phase 1's fixture settled, both as the plan expected.** The trill's `AccidentalAbove`
+does reach the sounding pitch — the realised upper note is A#4, halfTone 70, not A4 — and the
+mordent's `AccidentalBelow` is ignored, its upper note arriving as C5 natural. Also worth
+recording: `AccidentalEnum.NONE` is `2`, so an unset ornament accidental reads `2` and not `0`.
 
 ### Close triggers
 
