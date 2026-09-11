@@ -16,16 +16,22 @@ import { TakeIdSchema, TakeReplayRequestSchema } from './take'
  */
 
 /**
- * The three things a score does not state and playback has to supply
- * (ADR-0005: the timeline is tempo-free and carries no dynamics). They are
+ * What playback supplies where a score states nothing: a tempo, and a velocity
+ * for a passage with no dynamic marked (ADR-0005 keeps the timeline's onsets
+ * tempo-free; ADR-0018 adds the page's own marks beside them). They are
  * constants here rather than choices made somewhere in the code, because a
- * score quietly acquiring a tempo it never had is the failure mode.
+ * score quietly acquiring a tempo or a loudness it never had is the failure
+ * mode.
  */
 export const DEFAULT_BPM = 80
 export const MIN_BPM = 30
 export const MAX_BPM = 240
 
-/** One velocity for every note. The timeline has no dynamics to read. */
+/**
+ * The velocity of a passage the page says nothing about: a staff with no
+ * dynamic marked, or the notes before its first one. Where the page does mark
+ * one, `scheduleFromTimeline` plays that instead (ADR-0018).
+ */
 export const PLAYBACK_VELOCITY = 72
 
 /**

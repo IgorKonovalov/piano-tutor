@@ -43,6 +43,7 @@ function piece(bars: number): ExpectedTimeline {
     notes,
     bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 4, beats: 4 })),
     pedal: [],
+    dynamics: [],
   }
 }
 

@@ -316,6 +316,31 @@ test('stopping inside a pedalled span still lifts the pedal', async () => {
   expect(Number(await attribute(page, 'transport', 'data-sounding'))).toBe(0)
 })
 
+test('the page\'s dynamics reach the player:event stream as velocities', async () => {
+  test.setTimeout(120_000)
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView(launched)
+  await importScore(launched, 'dynamics.musicxml')
+  await collectPlayerEvents(page)
+
+  await page.getByTestId('transport-bpm').fill(String(TEST_BPM))
+  await play(page)
+  await waitForIdle(page)
+
+  const struck = (await collected(page)).filter((e) => e.kind === 'noteOn') as (Collected & {
+    velocity: number
+  })[]
+  const velocityOf = (note: number) => struck.find((e) => e.note === note)?.velocity
+  // C5 opens bar 1 under pp; C6 is first struck at the end of the crescendo;
+  // G2 is the left hand, which has its own mf.
+  expect(velocityOf(72)).toBe(12)
+  expect(velocityOf(43)).toBe(76)
+  expect(velocityOf(84) ?? 0).toBeGreaterThan(velocityOf(72) ?? 0)
+  expect(new Set(struck.map((e) => e.velocity)).size).toBeGreaterThan(3)
+  expect(Number(await attribute(page, 'transport', 'data-sounding'))).toBe(0)
+})
+
 test('the highlight walks the bars and lands on the last one chosen', async () => {
   test.setTimeout(120_000)
   launched = await launchApp()

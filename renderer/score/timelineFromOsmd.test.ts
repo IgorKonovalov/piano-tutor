@@ -55,6 +55,7 @@ afterEach(() => {
 
 it('has a committed timeline for every fixture score', () => {
   expect(CASES.map((c) => c.name).sort()).toEqual([
+    'dynamics',
     'empty-carrier-bar',
     'grace-note',
     'key-and-time-change',
@@ -200,6 +201,40 @@ describe('pedal marks, read off the staff-linked expressions (ADR-0018)', () => 
     for (const { name, expected } of CASES) {
       if (name === 'pedal') continue
       expect(ExpectedTimelineSchema.parse(JSON.parse(expected)).pedal, name).toEqual([])
+    }
+  })
+})
+
+describe('dynamics, read off the same expressions (ADR-0018)', () => {
+  it('holds the step marks and the hairpin, with the hairpin running to its written target', async () => {
+    const fixture = CASES.find((c) => c.name === 'dynamics')
+    if (fixture === undefined) throw new Error('the dynamics fixture is missing')
+    const osmd = new OpenSheetMusicDisplay(host, { autoResize: false, backend: 'svg' })
+    await osmd.load(fixture.xml)
+
+    const step = (at: number, velocity: number, label: string, staff: number) => ({
+      at,
+      velocity,
+      label,
+      staff,
+      until: null,
+      endVelocity: null,
+    })
+    // Every velocity is OSMD's MidiVolume for its mark: pp 12, mf 76, ff 122,
+    // p 28. The crescendo's ends are the pp in force and the ff it ends on.
+    expect(timelineFromOsmd(osmd.Sheet, '0'.repeat(32)).dynamics).toEqual([
+      step(0, 12, 'pp', 0),
+      step(0, 76, 'mf', 1),
+      { at: 4, velocity: 12, label: 'crescendo', staff: 0, until: 8, endVelocity: 122 },
+      step(8, 122, 'ff', 0),
+      step(12, 28, 'p', 0),
+    ])
+  })
+
+  it('is empty for every score that marks no dynamic', () => {
+    for (const { name, expected } of CASES) {
+      if (name === 'dynamics') continue
+      expect(ExpectedTimelineSchema.parse(JSON.parse(expected)).dynamics, name).toEqual([])
     }
   })
 })

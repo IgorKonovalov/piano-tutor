@@ -723,8 +723,8 @@ section names cannot happen.
 | 2 — A bar may be empty | dev | done | b2bd3a7 |
 | 3 — An ornament costs nothing, whatever pitch it shares | dev | done | 2f01d0f |
 | 4 — A turn is played, and costs nothing to play | dev | done | b3db5b8 |
-| 5 — The pedal goes down | dev | done | committed with this row |
-| 6 — The music gets louder and softer | dev | not started | |
+| 5 — The pedal goes down | dev | done | d182ad6 |
+| 6 — The music gets louder and softer | dev | done | committed with this row |
 | 7 — The music breathes | dev | not started | |
 | 8 — Short notes are short | dev | not started | |
 | 9 — The report says where the score asked | dev | not started | |
@@ -838,6 +838,27 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
   alone, and the full e2e rerun passed 36 of 36. The assertion reads the attribute once without
   waiting. Whether the sounding count can lag the state by a frame was not established.
   Followup, not acted on.
+- **Phase 6: OSMD 2.1.2 reads a hairpin's span and never its volumes, and the user ruled on it
+  before any code was written.** `ContinuousDynamicExpression.StartVolume` and `EndVolume` are
+  -1 from the constructor, and nothing in the bundle assigns them. The ruling: a hairpin's
+  `velocity` is the level in force at its start, and its `endVelocity` is the first step mark at
+  or after `until` on its staff, no later than the next hairpin there. Both numbers are OSMD's
+  `MidiVolume`. A hairpin with no written target stays level. Where no level is in force at its
+  start, `PLAYBACK_VELOCITY` stands in. That resolution is done in the extractor, in
+  `resolveHairpins`.
+- **Phase 6 reads only the level dynamics, pppppp to ffffff, on a second ruling from the user.**
+  OSMD maps sf, sff, sfp, sfpp, fp, rf, rfz, sfz, sffz and fz all to half volume (velocity 64).
+  `other` maps to nothing. All of these are skipped.
+- OSMD's package root exports neither `DynamicEnum` nor `ContDynamicEnum`, so the extractor
+  mirrors their names in declaration order. The jsdom test asserts the labels (`pp`, `mf`, `ff`,
+  `p`, `crescendo`) from the real parse.
+- Soft-accent hairpins (`IsStartOfSoftAccent`) are not read. OSMD synthesises them from an
+  articulation.
+- The scheduler's existing `velocity` option still overrides the page when a caller passes it.
+  None does.
+- Phase 6 touched `shared/player.ts` for `PLAYBACK_VELOCITY`'s comment, as the phase asks, and
+  also rewrote that file's block comment, which said the timeline "carries no dynamics".
+- **Phase 6's full gate:** 777 unit tests and 37 of 37 e2e, first run.
 
 ### Phase 3 stopped: `createVoiceEntriesForOrnament` misbehaves, and it is a design question
 

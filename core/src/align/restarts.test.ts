@@ -122,5 +122,6 @@ function repeatedTimeline(): ExpectedTimeline {
     notes,
     bars: [0, 1, 2].map((index) => ({ index, onset: index * 4, beats: 4 })),
     pedal: [],
+    dynamics: [],
   })
 }

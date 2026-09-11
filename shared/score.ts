@@ -176,6 +176,32 @@ export const PedalMarkSchema = z.object({
 })
 export type PedalMark = z.infer<typeof PedalMarkSchema>
 
+const velocity = z.number().int().min(1).max(127)
+
+/**
+ * A dynamic where the page writes one (ADR-0018): what the page says, not a
+ * velocity per note. `velocity` is OSMD's own `MidiVolume` for the mark, never
+ * a table of ours; `scheduleFromTimeline` is what resolves a note's velocity
+ * from these, and scoring never reads them (ADR-0021).
+ *
+ * A step mark (`p`, `ff`) has `until` and `endVelocity` null. A hairpin has
+ * both: it runs from `at` to `until`, from the level in force at its start to
+ * the level written at its end. OSMD reads the span but not the end level, so
+ * the end is the dynamic written at or after `until` on the same staff, and a
+ * hairpin with no written target stays level.
+ */
+export const DynamicMarkSchema = z.object({
+  at: z.number().nonnegative(),
+  velocity,
+  /** What the page printed -- `ff`, `crescendo` -- for prose; never parsed back. */
+  label: z.string(),
+  /** A dynamic belongs to the staff it is written on and to no other. */
+  staff: z.number().int().nonnegative(),
+  until: z.number().nonnegative().nullable(),
+  endVelocity: velocity.nullable(),
+})
+export type DynamicMark = z.infer<typeof DynamicMarkSchema>
+
 export const ExpectedTimelineSchema = z.object({
   scoreId: scoreId,
   /** Ordered by onset, then pitch. */
@@ -184,6 +210,8 @@ export const ExpectedTimelineSchema = z.object({
   bars: z.array(ExpectedBarSchema),
   /** Ordered by `at`, a lift ahead of a press at the same instant. */
   pedal: z.array(PedalMarkSchema),
+  /** Ordered by `at`, a step mark ahead of a hairpin at the same instant. */
+  dynamics: z.array(DynamicMarkSchema),
 })
 export type ExpectedTimeline = z.infer<typeof ExpectedTimelineSchema>
 

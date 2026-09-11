@@ -8,14 +8,21 @@ import {
   type Tie,
   type VoiceEntry,
 } from 'opensheetmusicdisplay'
+import { PLAYBACK_VELOCITY } from '../../shared/player'
 import type {
+  DynamicMark,
   ExpectedBar,
   ExpectedNote,
   ExpectedTimeline,
   OrnamentKind,
   PedalMark,
 } from '../../shared/score'
-import { comparePedalMarks, compareNotes, roundQuarters } from '../../core/src/score/timeline'
+import {
+  compareDynamicMarks,
+  comparePedalMarks,
+  compareNotes,
+  roundQuarters,
+} from '../../core/src/score/timeline'
 
 /**
  * The one place a MusicXML file becomes an `ExpectedTimeline` (ADR-0005).
@@ -47,7 +54,7 @@ function quarters(whole: number): number {
 export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTimeline {
   const notes: ExpectedNote[] = []
   const bars: ExpectedBar[] = []
-  const pedal: PedalMark[] = []
+  const found: StaffMarks = { pedal: [], steps: [], hairpins: [] }
   // The key in force on each staff. A measure carries a key instruction only
   // where one is written, so this is carried forward from the last one seen.
   const keys = new Map<number, KeyInstruction>()
@@ -68,7 +75,7 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
       beats: quarters(measure.Duration.RealValue),
     })
 
-    readStaffExpressions(measure, pedal)
+    readStaffExpressions(measure, found)
 
     for (const container of measure.VerticalSourceStaffEntryContainers) {
       for (const entry of container.StaffEntries) {
@@ -140,8 +147,10 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
 
   notes.sort(compareNotes)
   bars.sort((a, b) => a.index - b.index)
-  pedal.sort(comparePedalMarks)
-  return { scoreId, notes, bars, pedal }
+  const pedal = [...found.pedal].sort(comparePedalMarks)
+  const steps = [...found.steps].sort(compareDynamicMarks)
+  const dynamics = [...steps, ...resolveHairpins(steps, found.hairpins)].sort(compareDynamicMarks)
+  return { scoreId, notes, bars, pedal, dynamics }
 }
 
 /**
@@ -154,16 +163,115 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
  * same timestamp -- so both are read from every expression, and the sort puts
  * the lift first.
  */
-function readStaffExpressions(measure: SourceMeasure, pedal: PedalMark[]): void {
+function readStaffExpressions(measure: SourceMeasure, found: StaffMarks): void {
   measure.StaffLinkedExpressions.forEach((expressions, staff) => {
     for (const expression of expressions) {
       const at = quarters(expression.AbsoluteTimestamp.RealValue)
       if (expression.PedalEnd !== undefined && expression.PedalEnd !== null) {
-        pedal.push({ at, down: false, staff })
+        found.pedal.push({ at, down: false, staff })
       }
       if (expression.PedalStart !== undefined && expression.PedalStart !== null) {
-        pedal.push({ at, down: true, staff })
+        found.pedal.push({ at, down: true, staff })
       }
+
+      const step = expression.InstantaneousDynamic
+      if (step !== undefined && step !== null && step.DynEnum < LEVEL_COUNT) {
+        found.steps.push({
+          at,
+          velocity: Math.min(127, Math.max(1, Math.round(step.MidiVolume))),
+          label: DYNAMIC_NAMES[step.DynEnum] ?? '',
+          staff,
+          until: null,
+          endVelocity: null,
+        })
+      }
+
+      // A soft accent is an articulation OSMD models as a crescendo and a
+      // diminuendo on one expression; it is not a hairpin on the page.
+      const hairpin = expression.StartingContinuousDynamic
+      if (hairpin !== undefined && hairpin !== null && hairpin.IsStartOfSoftAccent !== true) {
+        // With no written end, OSMD's own interpolation runs the hairpin to
+        // the end of the measure it starts in; so does this.
+        const end =
+          hairpin.EndMultiExpression?.AbsoluteTimestamp.RealValue ??
+          measure.AbsoluteTimestamp.RealValue + measure.Duration.RealValue
+        const until = quarters(end)
+        if (until > at) {
+          found.hairpins.push({
+            at,
+            until,
+            staff,
+            label:
+              hairpin.Label !== '' ? hairpin.Label : (HAIRPIN_NAMES[hairpin.DynamicType] ?? ''),
+          })
+        }
+      }
+    }
+  })
+}
+
+/**
+ * OSMD's `DynamicEnum` and `ContDynamicEnum` by value, in their declaration
+ * order. The package root exports neither, so there is no runtime value to
+ * import; these are names only, and every number stays OSMD's.
+ *
+ * Only the levels, pppppp to ffffff (the first fourteen), are read. The
+ * sforzando family after them (sf, sfz, fz, rf, fp, ...) is left out: OSMD
+ * gives every one of them half volume, which read as a level would drop a *ff*
+ * passage to 64 from the first accent onwards. `other` has no volume at all. A
+ * mark ignored beats one guessed at.
+ */
+const DYNAMIC_NAMES = [
+  'pppppp', 'ppppp', 'pppp', 'ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff', 'ffff', 'fffff',
+  'ffffff', 'sf', 'sff', 'sfp', 'sfpp', 'fp', 'rf', 'rfz', 'sfz', 'sffz', 'fz', 'other',
+] as const
+const LEVEL_COUNT = DYNAMIC_NAMES.indexOf('ffffff') + 1
+const HAIRPIN_NAMES = ['crescendo', 'diminuendo'] as const
+
+interface Hairpin {
+  at: number
+  until: number
+  staff: number
+  label: string
+}
+
+interface StaffMarks {
+  pedal: PedalMark[]
+  steps: DynamicMark[]
+  hairpins: Hairpin[]
+}
+
+/**
+ * A hairpin as the page reads it: from the level in force where it starts to
+ * the level written where it ends, on its own staff.
+ *
+ * OSMD 2.1.2 reads a hairpin's span and never its volumes -- `StartVolume` and
+ * `EndVolume` stay at -1 -- so both ends are taken from the step marks around
+ * it, each OSMD's own `MidiVolume`. The end is the first step written at or
+ * after `until` and no later than the next hairpin on the staff. With none,
+ * the hairpin stays level rather than guessing how far a crescendo goes; with
+ * no level in force at its start, it starts from the fallback every unmarked
+ * passage plays at.
+ */
+function resolveHairpins(steps: readonly DynamicMark[], hairpins: readonly Hairpin[]): DynamicMark[] {
+  return hairpins.map((hairpin) => {
+    const onStaff = steps.filter((step) => step.staff === hairpin.staff)
+    const inForce = onStaff.filter((step) => step.at <= hairpin.at).at(-1)
+    const nextHairpin = Math.min(
+      ...hairpins
+        .filter((other) => other.staff === hairpin.staff && other.at > hairpin.at)
+        .map((other) => other.at),
+      Number.POSITIVE_INFINITY
+    )
+    const target = onStaff.find((step) => step.at >= hairpin.until && step.at <= nextHairpin)
+    const velocity = inForce?.velocity ?? PLAYBACK_VELOCITY
+    return {
+      at: hairpin.at,
+      velocity,
+      label: hairpin.label,
+      staff: hairpin.staff,
+      until: hairpin.until,
+      endVelocity: target?.velocity ?? velocity,
     }
   })
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import samplerJson from '../../fixtures/playback/sampler.timeline.json'
 import ornamentsJson from '../../fixtures/scores/ornaments.timeline.json'
 import pedalJson from '../../fixtures/scores/pedal.timeline.json'
+import dynamicsJson from '../../fixtures/scores/dynamics.timeline.json'
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
 import {
   DEFAULT_BPM,
@@ -13,7 +14,7 @@ import {
   type PlaybackSource,
   RELEASE_GAP_MS,
 } from '../../../shared/player'
-import { ExpectedTimelineSchema } from '../../../shared/score'
+import { ExpectedTimelineSchema, type ExpectedTimeline } from '../../../shared/score'
 import { findScenarioById } from '../midi/generate'
 import { barTableProblems, noteBarProblems } from '../score/timeline'
 import {
@@ -37,6 +38,9 @@ const ornaments = ExpectedTimelineSchema.parse(ornamentsJson)
 
 /** A press, a change and a lift, in a four-bar line (bars 1 and 2 pedalled). */
 const pedalled = ExpectedTimelineSchema.parse(pedalJson)
+
+/** pp, a crescendo to ff, and p in the right hand; one mf in the left. */
+const dynamics = ExpectedTimelineSchema.parse(dynamicsJson)
 
 function struck(schedule: PlaybackSchedule) {
   return schedule.events.filter((e) => e.event.kind === 'noteOn')
@@ -486,6 +490,69 @@ describe('the pedal goes down where the page says (ADR-0018)', () => {
         [...schedule.events.map((e) => e.at)].sort((a, b) => a - b)
       )
     }
+  })
+})
+
+describe('the music gets louder and softer where the page says (ADR-0018)', () => {
+  /** Note-on velocities for one staff, in onset order, as [midi, velocity]. */
+  function velocities(timeline: ExpectedTimeline, staff: number): [number, number][] {
+    const onStaff = new Set(timeline.notes.filter((n) => n.staff === staff).map((n) => n.onset))
+    return struck(scheduleFromTimeline(timeline, { bpm: 120 }))
+      .filter((e) => onStaff.has(e.at / 500) && staffOf(timeline, e) === staff)
+      .map((e) => [(e.event as { note: number }).note, (e.event as { velocity: number }).velocity])
+  }
+
+  function staffOf(timeline: ExpectedTimeline, e: { at: number; event: MidiEvent }): number {
+    const note = (e.event as { note: number }).note
+    return timeline.notes.find((n) => n.midi === note && n.onset === e.at / 500)?.staff ?? -1
+  }
+
+  it('plays a note under ff louder than one under pp', () => {
+    const right = velocities(dynamics, 0)
+    const underPp = right[0]?.[1] ?? 0
+    const underFf = right[8]?.[1] ?? 0
+    expect(underPp).toBeLessThan(underFf)
+    // OSMD's own MidiVolume for each mark, carried through untouched.
+    expect(right.slice(0, 4).map(([, v]) => v)).toEqual([12, 12, 12, 12])
+    expect(right.slice(8, 12).map(([, v]) => v)).toEqual([122, 122, 122, 122])
+    expect(right[12]?.[1]).toBe(28)
+  })
+
+  it('rises through a written crescendo, note by note', () => {
+    // Bar 2: from pp's 12 towards ff's 122, strictly increasing.
+    const cresc = velocities(dynamics, 0).slice(4, 8).map(([, v]) => v)
+    for (let k = 1; k < cresc.length; k++) {
+      expect(cresc[k] ?? 0).toBeGreaterThan(cresc[k - 1] ?? 0)
+    }
+    expect(cresc[0]).toBe(12)
+    expect(cresc.at(-1) ?? 0).toBeLessThan(122)
+  })
+
+  it('keeps each staff to its own marks', () => {
+    // The left hand's mf is its own; the right hand's levels do not move for it.
+    expect(velocities(dynamics, 1).map(([, v]) => v)).toEqual([76, 76, 76, 76])
+    const withoutLeftMarks: ExpectedTimeline = {
+      ...dynamics,
+      dynamics: dynamics.dynamics.filter((mark) => mark.staff !== 1),
+    }
+    expect(velocities(withoutLeftMarks, 0)).toEqual(velocities(dynamics, 0))
+    // And a staff the page marks nothing on plays at the fallback.
+    expect(velocities(withoutLeftMarks, 1).map(([, v]) => v)).toEqual([72, 72, 72, 72])
+  })
+
+  it('plays every note at the fallback for a score with no dynamics, as before', () => {
+    const schedule = scheduleFromTimeline(sampler, { bpm: 120 })
+    expect(struck(schedule).every((e) => (e.event as { velocity: number }).velocity === 72)).toBe(
+      true
+    )
+    expect(PLAYBACK_VELOCITY).toBe(72)
+  })
+
+  it('lets an explicit velocity override the page', () => {
+    const schedule = scheduleFromTimeline(dynamics, { bpm: 120, velocity: 90 })
+    expect(struck(schedule).every((e) => (e.event as { velocity: number }).velocity === 90)).toBe(
+      true
+    )
   })
 })
 

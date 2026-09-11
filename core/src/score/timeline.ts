@@ -1,4 +1,10 @@
-import type { ExpectedBar, ExpectedNote, ExpectedTimeline, PedalMark } from '../../../shared/score'
+import type {
+  DynamicMark,
+  ExpectedBar,
+  ExpectedNote,
+  ExpectedTimeline,
+  PedalMark,
+} from '../../../shared/score'
 
 /**
  * The expected-note timeline and the pure functions over it. `core/` owns
@@ -10,7 +16,12 @@ import type { ExpectedBar, ExpectedNote, ExpectedTimeline, PedalMark } from '../
  * reads a clock, and nothing here knows a tempo.
  */
 
-export type { ExpectedBar, ExpectedNote, ExpectedTimeline, PedalMark }
+export type { DynamicMark, ExpectedBar, ExpectedNote, ExpectedTimeline, PedalMark }
+
+/** By position, and at one position a step mark ahead of a hairpin, then by staff. */
+export function compareDynamicMarks(a: DynamicMark, b: DynamicMark): number {
+  return a.at - b.at || Number(a.until !== null) - Number(b.until !== null) || a.staff - b.staff
+}
 
 /**
  * Pedal marks in the order playback needs them: by position, and at one
@@ -151,7 +162,15 @@ export function canonicalTimeline(timeline: ExpectedTimeline): string {
     down: mark.down,
     staff: mark.staff,
   }))
-  return `${JSON.stringify({ scoreId: timeline.scoreId, notes, bars, pedal }, null, 2)}\n`
+  const dynamics = timeline.dynamics.map((mark) => ({
+    at: roundQuarters(mark.at),
+    velocity: mark.velocity,
+    label: mark.label,
+    staff: mark.staff,
+    until: mark.until === null ? null : roundQuarters(mark.until),
+    endVelocity: mark.endVelocity,
+  }))
+  return `${JSON.stringify({ scoreId: timeline.scoreId, notes, bars, pedal, dynamics }, null, 2)}\n`
 }
 
 /**

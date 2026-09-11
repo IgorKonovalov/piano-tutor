@@ -393,6 +393,7 @@ function longTimeline(bars: number, chord = 3): ExpectedTimeline {
     notes,
     bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 4, beats: 4 })),
     pedal: [],
+    dynamics: [],
   }
 }
 
@@ -627,6 +628,7 @@ describe('an optional pitch forgives only a surplus strike (ADR-0018)', () => {
       notes,
       bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 2, beats: 2 })),
       pedal: [],
+      dynamics: [],
     })
   }
 
@@ -805,6 +807,7 @@ describe('a long piece played only at its opening (ADR-0010)', () => {
       notes,
       bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 4, beats: 4 })),
       pedal: [],
+      dynamics: [],
     }
   }
 

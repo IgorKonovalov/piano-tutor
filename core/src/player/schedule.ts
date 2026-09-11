@@ -16,7 +16,7 @@ import {
   type ScheduledEvent,
   clampBpm,
 } from '../../../shared/player'
-import type { ExpectedTimeline } from '../../../shared/score'
+import type { DynamicMark, ExpectedTimeline } from '../../../shared/score'
 
 /**
  * A schedule is the whole of playback that can be got wrong without a device
@@ -209,6 +209,7 @@ export function scheduleFromEvents(
 export interface TimelineScheduleOptions {
   /** Quarter notes per minute. Clamped; the timeline states none (ADR-0005). */
   bpm?: number
+  /** One velocity for every note, in place of the page's dynamics. */
   velocity?: number
   /** Inclusive, in OSMD's own bar numbering. Defaults to the whole piece. */
   fromBar?: number
@@ -234,7 +235,8 @@ export function scheduleFromTimeline(
   options: TimelineScheduleOptions = {}
 ): PlaybackSchedule {
   const bpm = clampBpm(options.bpm ?? DEFAULT_BPM)
-  const velocity = options.velocity ?? PLAYBACK_VELOCITY
+  const fixed = options.velocity
+  const velocityOf = fixed === undefined ? pageVelocity(timeline) : () => fixed
   const msPerQuarter = 60000 / bpm
 
   const first = options.fromBar ?? timeline.bars[0]?.index ?? 0
@@ -267,7 +269,13 @@ export function scheduleFromTimeline(
 
     events.push({
       at,
-      event: { kind: 'noteOn', t: at, ch: PLAYBACK_CHANNEL, note: note.midi, velocity },
+      event: {
+        kind: 'noteOn',
+        t: at,
+        ch: PLAYBACK_CHANNEL,
+        note: note.midi,
+        velocity: velocityOf(note.staff, note.onset),
+      },
     })
     events.push({
       at: offAt,
@@ -286,6 +294,42 @@ export function scheduleFromTimeline(
     bars,
     durationMs: (endQuarters - originQuarters) * msPerQuarter,
   })
+}
+
+/**
+ * The velocity the page asks for, per staff and position (ADR-0018): the one
+ * place a dynamic becomes a number a note is struck at.
+ *
+ * A step mark sets the level from its position on. Inside a hairpin the level
+ * runs linearly from the hairpin's start velocity to its end velocity, and
+ * after it the end velocity holds until the next mark. A dynamic belongs to
+ * the staff it is written on, so a staff with no marks at all plays at
+ * `PLAYBACK_VELOCITY` whatever the other staff is doing, as does any passage
+ * before a staff's first mark.
+ */
+function pageVelocity(timeline: ExpectedTimeline): (staff: number, onset: number) => number {
+  const byStaff = new Map<number, DynamicMark[]>()
+  for (const mark of timeline.dynamics) {
+    const marks = byStaff.get(mark.staff)
+    if (marks === undefined) byStaff.set(mark.staff, [mark])
+    else marks.push(mark)
+  }
+
+  return (staff, onset) => {
+    let level = PLAYBACK_VELOCITY
+    for (const mark of byStaff.get(staff) ?? []) {
+      if (mark.at > onset) break
+      if (mark.until === null || mark.endVelocity === null) {
+        level = mark.velocity
+      } else if (onset < mark.until) {
+        const through = (onset - mark.at) / (mark.until - mark.at)
+        level = mark.velocity + (mark.endVelocity - mark.velocity) * through
+      } else {
+        level = mark.endVelocity
+      }
+    }
+    return Math.min(127, Math.max(1, Math.round(level)))
+  }
 }
 
 /** CC 64 at the two values every instrument reads as fully down and fully up. */
