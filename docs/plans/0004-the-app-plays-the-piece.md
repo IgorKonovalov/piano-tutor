@@ -609,7 +609,7 @@ The end-to-end run closes the window mid-chord and asserts the process exits wit
 
 `NullSink`'s instance in `main.ts` was renamed `noOutput`; `silence` is now the imported function.
 
-### The full gate, on this tree
+### The full gate, at the last `dev` phase
 
 - `npm run typecheck` — exit 0
 - `npm run lint` — exit 0
@@ -622,6 +622,62 @@ Reported by the suite on this machine, unchanged by this plan and recorded becau
 produced them: NFR 11 frames p50 1 / p95 1 / max 1 and ms p50 3.7 / p95 6.6 / max 14.3 over 500
 note-ons; NFR 4 startup 1071 ms; NFR 12 alignment turnaround 10 ms.
 
+### Pre-Phase-7 fixes, 2026-09-11
+
+Three defects the close review found in shipped code, fixed before Phase 7 runs on the user's
+decision at the review. No phase was reopened and no phase block changed; the plan's
+`### Raised by the close review, 2026-09-11` is where each one is argued.
+
+| finding | commit |
+|---|---|
+| 2 — a port says it is open in a field, not in its label | `a93c9e4` |
+| 4 — the renderer cannot derail the panic path | `b30bbb7` |
+| 5 — a range with no notes says so instead of playing nothing | `ae87379` |
+
+**Finding 2.** `MidiPortSchema` gained `open: z.boolean().default(false)`. Because `z.infer` is the
+output type, the field is required of every `MidiPort` literal, which is what turned the three
+construction sites explicit rather than optional: `RtMidiSink` and `RtMidiSource` set it beside the
+`detail: 'Open'` they already wrote, and `listVirtualPorts` sets `false`, a generated port being
+listed but never held.
+
+**The input side was changed with the output side, which is one file past what the finding named.**
+`MidiPort` is a single shape serving both halves, and `RtMidiSource` writes the same literal; a
+half-populated field on a shared schema would have been a fresh trap of exactly the kind being
+removed.
+
+`renderer/audio/synth.test.ts`'s `outputs` fixture was a hand-written structural literal, which is
+how it agreed with the production code by coincidence rather than by schema. It is typed
+`MidiPort[]` now. Both port tests assert `open` beside `detail`, so the two cannot drift apart
+unnoticed.
+
+**Finding 4.** `emit()` wraps the push to the renderer and warns once per schedule; `sendToWindow`
+in `main.ts` catches the `webContents.send` race at its source. Both, because they are different
+failures — the first is any dep that throws, the second is the one that is known to.
+
+The new case was **run against the unguarded code first and fails there**: without the wrap the
+release stops at the first note-off and the faked `Output` never sees CC 123. On this path a guard
+whose test passes either way would have been worth nothing.
+
+**Finding 5.** The handler refuses an empty schedule with a message naming what was asked for,
+which is the pattern it already used for an unknown scenario id, and `Player.play` pushes idle on
+that path so the class keeps its own contract whoever calls it. The end-to-end case drives bars 1
+to 4 of `multi-rest-and-ties`, which are rests — reachable through the ordinary controls, because
+the transport's bar inputs are bounded by the score rather than by where its notes are.
+
+**The full gate after all three**, on this tree:
+
+- `npm run typecheck` — exit 0
+- `npm run lint` — exit 0
+- `npm test` — exit 0, 717 tests in 31 files (715 before; the two added are finding 4's refused
+  push and finding 5's empty schedule)
+- `node scripts/check-pins.mjs` — exit 0
+- `node scripts/check-doc-links.mjs` — exit 0, 44 files
+- `npm run test:e2e` — exit 0, 33 tests in 3.0 minutes (32 before; the one added is finding 5's
+  range of rests)
+
+**Phase 7 is untouched by all of this and remains outstanding.** NFR 13 still has no measurement,
+and ADRs 0007 and 0008 are still `proposed`.
+
 ### Close triggers
 
 - **What shipped:** feature. A `player:*` IPC domain, a `MidiSink` seam with two implementations,
@@ -629,10 +685,14 @@ note-ons; NFR 4 startup 1071 ms; NFR 12 alignment turnaround 10 ms.
   the Score and Takes views, a second verb on a take, and a synthesised fallback voice in the
   renderer. New runtime surface: five invokes and two push channels; one new `core/` module; one
   new renderer module. No new dependency (NFR 9) and no change to install size.
-- **User-visible docs touched:** none. `docs/nfr.md` already carries NFR 13 and the ADR-0008
-  revision to the audio non-requirement, both written when the ADRs were drafted.
-- **Full gate at the last phase:** all six commands green on the finished tree; the commands and
-  exit codes are listed under `### Notes`, Phase 6.
+- **User-visible docs touched:** none by `dev`. `docs/nfr.md` already carries NFR 13 and the
+  ADR-0008 revision to the audio non-requirement, both written when the ADRs were drafted.
+  **The close review found this bullet wrong** for `README.md` and `CLAUDE.md`, neither of which
+  mentions playback; that sweep is architect-owned and is part of the close.
+- **Full gate at the last phase:** all six commands green on the finished tree, listed under
+  `### The full gate, at the last dev phase`. **Re-run green after the three pre-Phase-7 fixes**
+  (`### Pre-Phase-7 fixes, 2026-09-11`): 717 unit tests and 33 end-to-end, exit 0 throughout. That
+  later run is the one describing the current tree.
 - **Outstanding `human` phases:** **Phase 7, all six items.** Nothing in the plan can close until
   the CK88 is plugged in: the output port opening beside the input, the channel the instrument
   responds on, the musical judgement, **NFR 13's milliseconds** (which no `dev` phase can produce),
