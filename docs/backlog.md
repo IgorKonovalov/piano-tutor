@@ -138,7 +138,8 @@ Each becomes an ADR when the plan that needs it is drafted. None should be answe
 
 ## Not from the pedagogy interview
 
-Longer-standing ideas, each needing its own interview, carried over from the roadmap's tail:
+Longer-standing ideas carried over from the roadmap's tail, and later additions. Each needs its
+own interview:
 
 - **Score following**, so the app can accompany the player rather than only demonstrate to them.
   Cut from [Plan 0004](plans/0004-the-app-plays-the-piece.md) deliberately.
@@ -148,3 +149,29 @@ Longer-standing ideas, each needing its own interview, carried over from the roa
   [ADR-0003](adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md)
   Alternative C.
 - **A tablet port of the renderer.**
+- **A travelling line on the score, at note resolution.** Raised by the user on 2026-09-11, on
+  seeing playback work. [Plan 0004](plans/0004-the-app-plays-the-piece.md) highlights the **bar**
+  the app is sounding; this is the finer thing — a line that moves through the bar and says
+  exactly which notes are sounding at this instant. Three observations from the shipped code,
+  because they decide how big it is:
+  - **During playback the position is already exact and needs no alignment.** A `PlaybackSchedule`
+    holds every event's `at` in milliseconds and `player:state` carries `positionMs`. That is the
+    whole difference from **score following** above, where the position has to be inferred from
+    what the player is doing. The playback line is the cheap half of what looks like one feature.
+  - **What is missing is a coordinate, not a time.** Turning a note's onset into an x on OSMD's
+    engraving is the `sourceNote`-to-SVG mapping that
+    [Plan 0007](plans/0007-what-you-played-drawn-on-the-score.md) exists to resolve, and its
+    riskiest fact is settled in that plan's first phase. This wants that work underneath it and is
+    a second consumer of it.
+  - **`player:state` must not be made a hot channel to feed it.** It is pushed about ten times a
+    second deliberately (`STATE_INTERVAL_MS` in `Player.ts`); the per-event traffic is
+    `player:event`, which the recorder never sees. A smooth line interpolates between state pushes
+    on `requestAnimationFrame`, the way [Plan 0006](plans/0006-the-metronome-and-the-score-follows.md)
+    Phase 3 drives its bar cursor from the grid rather than from a per-beat timer.
+
+  System and stave breaks are the real work: the line has to jump to the next system and down the
+  staves OSMD drew, which is more than advancing one x. It overlaps Plan 0006 Phase 3 without
+  being it — that cursor is bar-level and driven by the click, this one is note-level and driven
+  by the schedule. **Whether they end up one mechanism with two position sources or two separate
+  ones is the first question an interview should settle**, and the answer decides whether this is
+  a phase on Plan 0006 or a plan of its own.
