@@ -175,3 +175,20 @@ own interview:
   by the schedule. **Whether they end up one mechanism with two position sources or two separate
   ones is the first question an interview should settle**, and the answer decides whether this is
   a phase on Plan 0006 or a plan of its own.
+- **The score scrolls to keep up with playback.** Raised by the user on 2026-09-11 at the
+  instrument, beside the travelling line above, and **much cheaper than it** — worth separating
+  for that reason alone. It needs only bar resolution, and both halves already exist:
+  `player:state` carries the sounding `bar`, and Plan 0002 already maps a bar to the box OSMD drew
+  for it (the `bar-mark` overlay, asserted in `e2e/score.spec.ts`). Scrolling that box into view
+  is close to the whole feature. The judgement calls are when to scroll — per system rather than
+  per bar, or a page turn — and leaving the player's own scrolling alone while they are reading.
+  **Do this before the travelling line**, which needs Plan 0007's coordinate work underneath it
+  and this does not.
+- **The Score view's furniture: a keyboard in the corner, and a panel that folds away.** Raised by
+  the user on 2026-09-11 at the instrument, after using the view on a real piece.
+  - **A small keyboard somewhere in a corner of the Score view, hidden or shown at will.** The
+    `Keyboard` component already takes `held` and `playback` separately, so it can show the
+    player's hands and the app's playing side by side; the Score view is currently the one view
+    that draws neither. Nothing new is needed but a size and a home for it.
+  - **The score list on the left folds away**, so a piece can have the width. Pure layout, and the
+    one of these three with no dependency on anything.
