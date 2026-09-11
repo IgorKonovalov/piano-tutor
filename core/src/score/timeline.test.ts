@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ExpectedBarSchema,
   ExpectedTimelineSchema,
   type ExpectedNote,
   type ExpectedTimeline,
 } from '../../../shared/score'
+import emptyCarrier from '../../fixtures/scores/empty-carrier-bar.timeline.json'
 import grace from '../../fixtures/scores/grace-note.timeline.json'
 import keyAndTime from '../../fixtures/scores/key-and-time-change.timeline.json'
 import multiRest from '../../fixtures/scores/multi-rest-and-ties.timeline.json'
@@ -35,11 +37,18 @@ const FIXTURES: Record<string, ExpectedTimeline> = {
   'key-and-time-change': ExpectedTimelineSchema.parse(keyAndTime),
   'multi-rest-and-ties': ExpectedTimelineSchema.parse(multiRest),
   'grace-note': ExpectedTimelineSchema.parse(grace),
+  'empty-carrier-bar': ExpectedTimelineSchema.parse(emptyCarrier),
 }
 
 describe.each(Object.entries(FIXTURES))('%s', (_name, timeline) => {
   it('has a bar table with no gap and no skipped index', () => {
-    expect(barTableProblems(timeline)).toEqual([])
+    // A zero-length carrier bar is *named* by this function and is not a gap
+    // (ADR-0018), so it is the one report a well-formed table may carry. Stated
+    // as the exact expected list rather than as a filter, so that a real
+    // contiguity break in a fixture that also has an empty bar still fails.
+    expect(barTableProblems(timeline)).toEqual(
+      timeline.bars.filter((bar) => bar.beats === 0).map((bar) => `bar ${bar.index} has no length`)
+    )
   })
 
   it('puts every note inside the bar it names', () => {
@@ -162,6 +171,55 @@ describe('multi-rest-and-ties', () => {
 
     // Four key presses in a piece that writes six noteheads.
     expect(timeline.notes).toHaveLength(4)
+  })
+})
+
+describe('empty-carrier-bar', () => {
+  const timeline = FIXTURES['empty-carrier-bar'] as ExpectedTimeline
+
+  it('keeps the attributes-only measure as a bar of no length, at its own index', () => {
+    // The shape BWV 555 has and every fixture before this one hid: a real bar,
+    // indexed where the engraver put it, with nothing in it and no duration.
+    expect(timeline.bars.map((bar) => bar.index)).toEqual([0, 1, 2])
+    expect(timeline.bars.map((bar) => bar.beats)).toEqual([4, 0, 3])
+    expect(timeline.bars.map((bar) => bar.onset)).toEqual([0, 4, 4])
+    expect(notesInBar(timeline, 1)).toEqual([])
+  })
+
+  it('parses, where `positive()` refused the whole timeline', () => {
+    // The defect itself: this is what `player:play` did to BWV 555. The
+    // practice path built the same timeline in the renderer and validated
+    // nothing, so the score practised and would not play.
+    expect(() => ExpectedTimelineSchema.parse(emptyCarrier)).not.toThrow()
+    expect(ExpectedBarSchema.safeParse({ index: 1, onset: 4, beats: 0 }).success).toBe(true)
+    expect(ExpectedBarSchema.safeParse({ index: 1, onset: 4, beats: -1 }).success).toBe(false)
+  })
+
+  it('names the empty bar and reports no contiguity break', () => {
+    // A report, not a refusal (ADR-0018). The bar stays legal and stops being
+    // invisible: `onset + beats` of bar 0 reaches bar 1 and bar 1 reaches bar
+    // 2, so the check that exists could never have seen this one.
+    expect(barTableProblems(timeline)).toEqual(['bar 1 has no length'])
+  })
+
+  it('spans the empty bar without losing a beat either side of it', () => {
+    expect(totalQuarters(timeline)).toBe(7)
+    expect(notesInBar(timeline, 0).map((note) => note.midi)).toEqual([60, 62, 64, 65])
+    expect(notesInBar(timeline, 2).map((note) => note.midi)).toEqual([67, 69, 71])
+    expect(noteBarProblems(timeline)).toEqual([])
+  })
+
+  it('still flags a note that claims the bar of no length', () => {
+    // `noteBarProblems` needs no change to catch this: the note fails
+    // `onset < bar.onset + bar.beats` for every zero-length bar, whatever its
+    // onset, so nothing can hide inside one.
+    const firstNote = timeline.notes[0]
+    if (firstNote === undefined) throw new Error('fixture has no notes')
+    const misplaced: ExpectedTimeline = {
+      ...timeline,
+      notes: [...timeline.notes, { ...firstNote, midi: 67, onset: 4, bar: 1 }],
+    }
+    expect(noteBarProblems(misplaced)).toEqual(['note at 4 is outside bar 1'])
   })
 })
 

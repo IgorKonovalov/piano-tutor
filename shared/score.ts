@@ -123,8 +123,17 @@ export const ExpectedBarSchema = z.object({
    * The bar's own length in quarter notes, which is not always the metre: an
    * anacrusis is as long as what is written in it. Bars are contiguous, so
    * `onset + beats` of one bar is the `onset` of the next.
+   *
+   * **May be zero** (ADR-0018). An attributes-only measure -- the carrier bar
+   * where the metre changes, holding no note and no rest -- is a real bar with
+   * no length, and it keeps its index, because "indexed 0 to N as the score was
+   * parsed, with no index skipped" is what bar-clicking and every take's bar
+   * numbers depend on. Refusing it here is what stopped BWV 555 playing at all
+   * while it practised fine. Every reader uses this additively, as
+   * `onset + beats`; `barTableProblems` names a zero-length bar rather than
+   * rejecting it, and anything that later divides by it has a trap to avoid.
    */
-  beats: z.number().positive(),
+  beats: z.number().nonnegative(),
 })
 export type ExpectedBar = z.infer<typeof ExpectedBarSchema>
 

@@ -44,6 +44,7 @@ const FIXTURE_SCORES = [
   { file: 'multi-rest-and-ties.musicxml', title: 'Multi-rest and ties', bars: 7 },
   { file: 'grace-note.musicxml', title: 'Grace note', bars: 3 },
   { file: 'ornaments.musicxml', title: 'Ornaments', bars: 3 },
+  { file: 'empty-carrier-bar.musicxml', title: 'Empty carrier bar', bars: 3 },
 ]
 
 /** `scripts/regen-score-timelines.md` is the procedure this flag belongs to. */

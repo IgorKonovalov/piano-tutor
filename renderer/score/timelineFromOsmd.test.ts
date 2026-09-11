@@ -55,6 +55,7 @@ afterEach(() => {
 
 it('has a committed timeline for every fixture score', () => {
   expect(CASES.map((c) => c.name).sort()).toEqual([
+    'empty-carrier-bar',
     'grace-note',
     'key-and-time-change',
     'multi-rest-and-ties',

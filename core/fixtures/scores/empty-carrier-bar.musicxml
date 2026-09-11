@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A bar with no length, which is a real thing a real engraver writes.
+
+     Measure 2 holds an <attributes> element and nothing else: no note, no
+     rest. It is the carrier bar where the metre changes, and it is how BWV 555
+     ends its Prelude and begins its Fugue. OSMD reports Duration.RealValue of
+     0 for it, the adapter passes that straight through, and until ADR-0018
+     relaxed the schema `beats: z.number().positive()` refused the whole
+     timeline. The score practised fine and would not play, because the
+     practice path builds its timeline in the renderer and validates nothing
+     while `player:play` parses; that asymmetry is why the defect survived
+     until a real piece was played at the piano.
+
+     barTableProblems could not catch it either. It checks that one bar's
+     `onset + beats` reaches the next bar's `onset`, and a zero-length bar is
+     perfectly contiguous. It now names one instead, as a report rather than a
+     refusal.
+
+     Four quarters of 4/4, the empty carrier, then three quarters of 3/4. -->
+<score-partwise version="3.1">
+  <work>
+    <work-title>Empty carrier bar</work-title>
+  </work>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Piano</part-name>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <attributes>
+        <time><beats>3</beats><beat-type>4</beat-type></time>
+      </attributes>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type></note>
+      <barline location="right"><bar-style>light-heavy</bar-style></barline>
+    </measure>
+  </part>
+</score-partwise>

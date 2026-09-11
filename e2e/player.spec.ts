@@ -194,6 +194,36 @@ test('a range of rests says so instead of playing nothing', async () => {
   expect(Number(await attribute(page, 'transport', 'data-notes'))).toBe(0)
 })
 
+test('a bar range spanning a bar of no length plays both sides of it', async () => {
+  test.setTimeout(120_000)
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView(launched)
+
+  // The defect Plan 0004 Phase 7 found at the instrument, in its minimal form.
+  // Bar 1 is an attributes-only carrier measure, `beats: 0`; until ADR-0018
+  // relaxed `ExpectedBarSchema` this request was refused by Zod on receive and
+  // the whole score would not play, while practising against it worked. The
+  // range is chosen to span the empty bar rather than to avoid it.
+  await importScore(launched, 'empty-carrier-bar.musicxml')
+  await page.getByTestId('transport-from').fill('0')
+  await page.getByTestId('transport-to').fill('2')
+  await page.getByTestId('transport-bpm').fill(String(TEST_BPM))
+
+  await play(page)
+  await waitForIdle(page)
+
+  // Four notes before the carrier bar and three after it; the bar in the
+  // middle contributes none and costs none.
+  const expected = fixtureNotes('empty-carrier-bar.musicxml', 0, 2)
+  expect(expected).toBe(7)
+  expect(Number(await attribute(page, 'transport', 'data-notes'))).toBe(expected)
+  await expect(page.getByTestId('transport-error')).toHaveCount(0)
+
+  expect(Number(await attribute(page, 'transport', 'data-sounding'))).toBe(0)
+  expect(launched.networkRequests).toEqual([])
+})
+
 test('the highlight walks the bars and lands on the last one chosen', async () => {
   test.setTimeout(120_000)
   launched = await launchApp()

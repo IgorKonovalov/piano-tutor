@@ -574,8 +574,8 @@ section names cannot happen.
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — A score with a turn in it, and the bug on screen | dev | done | committed with this row |
-| 2 — A bar may be empty | dev | not started | |
+| 1 — A score with a turn in it, and the bug on screen | dev | done | 3788e72 |
+| 2 — A bar may be empty | dev | done | committed with this row |
 | 3 — A turn is played, and costs nothing to play | dev | not started | |
 | 4 — The pedal goes down | dev | not started | |
 | 5 — The music gets louder and softer | dev | not started | |
@@ -608,6 +608,20 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
   explicit name rather than by glob.
 - An XML comment may not contain `--`; the first draft of `ornaments.musicxml` had two, and OSMD
   reported it as "not a valid partwise MusicXML" rather than as a comment error.
+- **Phase 2's `beats` check, run before the schema was relaxed, as the phase asked.** Seven read
+  sites, all additive as `onset + beats`: `core/src/midi/perturb.ts:284` and `:301`,
+  `core/src/player/schedule.ts:249`, `core/src/score/timeline.ts:65`, `:85` and `:100`, and
+  `:127` which only rounds it through. Nothing divides by it. `core/src/align/` does not contain
+  the identifier. `core/src/score/timelineFromMidi.ts:89` writes the field and guards its source
+  `> 0` at `:63`, so the MIDI adapter cannot produce a zero-length bar.
+- **Phase 2 touched the same two files outside its list as Phase 1**, for the same reason and on
+  the same approval: adding a seventh fixture needs its name in `e2e/score.spec.ts`'s
+  `FIXTURE_SCORES` (so the committed timeline is regenerated and pinned) and in
+  `renderer/score/timelineFromOsmd.test.ts`'s glob assertion. `e2e/score.spec.ts` is in Phase 1's
+  list, not Phase 2's.
+- The Phase 2 end-to-end test was **run against the unrelaxed schema to confirm it bites**: with
+  `beats: z.number().positive()` restored, the transport never leaves `idle` because `player:play`
+  is refused on receive. That is the BWV 555 failure, reproduced and then fixed.
 
 ### Close triggers
 

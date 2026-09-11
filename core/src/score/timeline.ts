@@ -73,12 +73,21 @@ export function totalQuarters(timeline: ExpectedTimeline): number {
  * Both are the failure ADR-0005 exists to prevent, in the form it actually
  * takes: a multi-measure rest drawn as one object, or a pickup counted as a
  * whole bar, shows up here as a gap rather than as a colour on the wrong bar.
+ *
+ * A **zero-length bar is named but not refused** (ADR-0018). An attributes-only
+ * measure is a legal bar with no length, so it stays in the table and keeps its
+ * index; what it must stop doing is passing silently, which it did, because a
+ * bar of no length is perfectly contiguous with both its neighbours and the
+ * contiguity check below can never see one.
  */
 export function barTableProblems(timeline: ExpectedTimeline): string[] {
   const problems: string[] = []
   timeline.bars.forEach((bar, position) => {
     if (bar.index !== position) {
       problems.push(`bar at position ${position} is indexed ${bar.index}`)
+    }
+    if (bar.beats === 0) {
+      problems.push(`bar ${bar.index} has no length`)
     }
     const previous = timeline.bars[position - 1]
     if (previous === undefined) return
