@@ -724,8 +724,8 @@ section names cannot happen.
 | 3 — An ornament costs nothing, whatever pitch it shares | dev | done | 2f01d0f |
 | 4 — A turn is played, and costs nothing to play | dev | done | b3db5b8 |
 | 5 — The pedal goes down | dev | done | d182ad6 |
-| 6 — The music gets louder and softer | dev | done | committed with this row |
-| 7 — The music breathes | dev | not started | |
+| 6 — The music gets louder and softer | dev | done | 97175f8 |
+| 7 — The music breathes | dev | not started (stopped, see "Phase 7 stopped" below) | |
 | 8 — Short notes are short | dev | not started | |
 | 9 — The report says where the score asked | dev | not started | |
 | 10 — At the piano | human | not started | |
@@ -905,6 +905,49 @@ unaffected. Nothing in the data distinguishes an expanded principal from an ordi
 does reach the sounding pitch — the realised upper note is A#4, halfTone 70, not A4 — and the
 mordent's `AccidentalBelow` is ignored, its upper note arriving as C5 natural. Also worth
 recording: `AccidentalEnum.NONE` is `2`, so an unset ornament accidental reads `2` and not `0`.
+
+### Phase 7 stopped: OSMD 2.1.2 does not read tempo words as tempo (resume scaffolding)
+
+The run stopped inside Phase 7, at the user's request to stop there, and on a finding that needs
+an architect ruling. **Phase 7's code is uncommitted in the working tree at the stop.**
+
+- **Done, uncommitted.** The schema gained `tempo: TempoMark[]` and `ExpectedNote.fermata`.
+  The mechanical sites gained `fermata: false` and `tempo: []`: the MIDI adapter, the
+  hand-built test timelines and every committed timeline, all regenerated. `canonicalTimeline`
+  emits both. The extractor gained `hasFermata` (upright and inverted) and `readTempo`. The
+  fixture `tempo-changes.musicxml` was added to `FIXTURE_SCORES` and to the jsdom glob list.
+- **Not done.** The scheduler's tempo map and fermata hold, the `FERMATA_HOLD` constant, the
+  transport showing the written tempo, and every Phase 7 test.
+- **Known defect in the uncommitted code.** A metronome mark has `Label` undefined in OSMD, so
+  `readTempo` writes a mark with no `label` and the regenerated `tempo-changes.timeline.json`
+  fails its schema.
+
+**What OSMD 2.1.2 holds for `tempo-changes.musicxml`**, read by a throwaway jsdom probe that was
+since deleted:
+
+| Page mark | OSMD's reading |
+|---|---|
+| quarter = 120 | `InstantaneousTempo`, `TempoInBpm` 120, `isMetronomeMark`, `Label` undefined, `beatUnit` `quarter` |
+| `rit.` | an **instantaneous** tempo with `TempoInBpm` **0**, not a `ContinuousTempo` |
+| `a tempo` | instantaneous, `TempoInBpm` **0** |
+| `accel.` | `ContinuousTempo`, `TempoType` undefined, `StartTempo` 0, `EndTempo` 0, end at the next tempo mark |
+
+`TemposCalculator` carries the running tempo from each instantaneous mark's `TempoInBpm`, so the
+0 from `rit.` zeroes every tempo after it. Separately, and before the probe, the user ruled on
+OSMD's `getTempoFactor()`, a stub returning 1 that makes every ramp speed up: keep OSMD's size and
+span, and take the direction from the ramp's type. The probe shows that ruling does not reach
+the common case, because `rit.` never becomes a ramp at all. **Of the marks Phase 7 claims, the
+only one OSMD resolves correctly here is the metronome mark.** Whether a plain Italian word
+(`Allegro`) gets OSMD's default value was not tested.
+
+**Options for the architect**, with no recommendation from this lane:
+
+- Read metronome marks, and the tempo words OSMD resolves to a positive tempo, plus fermatas.
+  Read no ramps. Phase 7's rit. and accel. done-when is recorded unmet, and the override is
+  tested on a step change.
+- Read `rit.` and `accel.` from their labels with a curve of our own. That is the interpreter
+  ADR-0018 refuses to own.
+- Something else, in a revision of ADR-0018.
 
 ### Close triggers
 
