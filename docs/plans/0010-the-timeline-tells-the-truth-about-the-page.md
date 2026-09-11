@@ -1,6 +1,6 @@
 # 0010 — The timeline tells the truth about the page
 
-> **Status:** approved 2026-09-11
+> **Status:** in-progress 2026-09-11
 > **Created:** 2026-09-11
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0018](../adrs/0018-the-timeline-carries-the-marks-on-the-page.md) (proposed)
@@ -569,11 +569,12 @@ type ExpectedTimeline = {
 > Observations, never conclusions. A deviation from the plan or an unmet done-when is always
 > disclosed. Stays shorter than `## Implementation phases`.
 
-**Lane:** _(`main` directly, or the worktree path plus its branch)_
+**Lane:** `main` directly. Plan 0009 is parked, so the `grace`/`optional` collision its risk
+section names cannot happen.
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — A score with a turn in it, and the bug on screen | dev | not started | |
+| 1 — A score with a turn in it, and the bug on screen | dev | done | committed with this row |
 | 2 — A bar may be empty | dev | not started | |
 | 3 — A turn is played, and costs nothing to play | dev | not started | |
 | 4 — The pedal goes down | dev | not started | |
@@ -590,7 +591,23 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
 
 ### Notes
 
-_(deviations, unmet done-whens, followups noticed and not acted on; one line each)_
+- **Phase 3's done-when cannot be met as written, and the user ruled on it before Phase 1 was
+  cut.** Read in OSMD 2.1.2's bundled source: `createVoiceEntriesForOrnament` consults
+  `AccidentalAbove`, and only in the `Trill` branch; `AccidentalBelow` occurs in exactly two
+  places, the XML reader that sets it and the VexFlow path that draws it. `Turn` and `Mordent`
+  take their alteration from `activeKey.getAlterationForPitch` and read neither. So "the
+  accidental under the mordent reaches the realised pitch" is not reachable. Decision taken at
+  Phase 1: the fixture carries **both** accidentals, an above on the trill and a below on the
+  mordent, and Phase 3 asserts which of the two reaches the sounding pitch. ADR-0018's phrase
+  "the ornament's own accidentals applied" is true for a trill's upper note only.
+- **Phase 1 touched a file outside its list**, with approval asked and given before the edit:
+  `renderer/score/timelineFromOsmd.test.ts` globs every fixture `.musicxml` and asserts a
+  hard-coded list of names, so a sixth fixture fails `npm test` — which Phase 1's own done-when
+  requires green. One string added to that sorted list, nothing else in the file. The file is in
+  Phase 3's list. `core/src/score/timeline.test.ts` needed no change: it imports fixtures by
+  explicit name rather than by glob.
+- An XML comment may not contain `--`; the first draft of `ornaments.musicxml` had two, and OSMD
+  reported it as "not a valid partwise MusicXML" rather than as a comment error.
 
 ### Close triggers
 

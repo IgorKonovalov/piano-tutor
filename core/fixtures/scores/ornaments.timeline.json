@@ -1,0 +1,132 @@
+{
+  "scoreId": "243029f1be6a7b3ffed15560f85aa390",
+  "notes": [
+    {
+      "midi": 60,
+      "onset": 0,
+      "duration": 1,
+      "bar": 0,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 62,
+      "onset": 1,
+      "duration": 1,
+      "bar": 0,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 64,
+      "onset": 2,
+      "duration": 1,
+      "bar": 0,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 65,
+      "onset": 3,
+      "duration": 1,
+      "bar": 0,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 67,
+      "onset": 4,
+      "duration": 1,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 69,
+      "onset": 5,
+      "duration": 1,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 71,
+      "onset": 6,
+      "duration": 1,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 72,
+      "onset": 7,
+      "duration": 1,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 74,
+      "onset": 8,
+      "duration": 1,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 76,
+      "onset": 9,
+      "duration": 1,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    },
+    {
+      "midi": 77,
+      "onset": 10,
+      "duration": 2,
+      "bar": 2,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "grace": false
+    }
+  ],
+  "bars": [
+    {
+      "index": 0,
+      "onset": 0,
+      "beats": 4
+    },
+    {
+      "index": 1,
+      "onset": 4,
+      "beats": 4
+    },
+    {
+      "index": 2,
+      "onset": 8,
+      "beats": 4
+    }
+  ]
+}

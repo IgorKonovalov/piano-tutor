@@ -58,6 +58,7 @@ it('has a committed timeline for every fixture score', () => {
     'grace-note',
     'key-and-time-change',
     'multi-rest-and-ties',
+    'ornaments',
     'pickup-two-hands',
     'scale-c-major',
   ])
