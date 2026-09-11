@@ -172,6 +172,28 @@ test('a range of bars plays exactly the notes the score holds for it', async () 
   expect(launched.networkRequests).toEqual([])
 })
 
+test('a range of rests says so instead of playing nothing', async () => {
+  test.setTimeout(120_000)
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView(launched)
+  // Bars 1 to 4 of this fixture are rests, so this is a range a player can
+  // land on by accident through the ordinary controls.
+  await importScore(launched, 'multi-rest-and-ties.musicxml')
+  expect(fixtureNotes('multi-rest-and-ties.musicxml', 1, 4)).toBe(0)
+
+  await page.getByTestId('transport-from').fill('1')
+  await page.getByTestId('transport-to').fill('4')
+  await page.getByTestId('transport-play').click()
+
+  // Silent and still would be indistinguishable from the app being broken.
+  await expect(page.getByTestId('transport-error')).toContainText(
+    'Bars 1 to 4 have no notes to play.'
+  )
+  expect(await attribute(page, 'transport', 'data-state')).toBe('idle')
+  expect(Number(await attribute(page, 'transport', 'data-notes'))).toBe(0)
+})
+
 test('the highlight walks the bars and lands on the last one chosen', async () => {
   test.setTimeout(120_000)
   launched = await launchApp()

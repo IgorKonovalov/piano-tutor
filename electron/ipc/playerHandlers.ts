@@ -57,7 +57,12 @@ export function registerPlayerHandlers(deps: PlayerHandlerDeps): void {
 
   ipcMain.handle(IPC_CHANNELS.PLAYER_PLAY, async (_event, payload: unknown) => {
     const request = PlayRequestSchema.parse(payload)
-    deps.player.play(buildSchedule(request, deps))
+    const schedule = buildSchedule(request, deps)
+    // A range of rests is a real thing to ask for by accident, and playing it
+    // is indistinguishable from the app being broken: no sound, no movement,
+    // no message. It is reported the way the unknown-scenario case already is.
+    if (schedule.events.length === 0) throw new Error(nothingToPlay(request))
+    deps.player.play(schedule)
   })
 
   ipcMain.handle(IPC_CHANNELS.PLAYER_STOP, async () => {
@@ -71,6 +76,20 @@ export function cleanupPlayerHandlers(): void {
   ipcMain.removeHandler(IPC_CHANNELS.PLAYER_CLOSE_OUTPUT)
   ipcMain.removeHandler(IPC_CHANNELS.PLAYER_PLAY)
   ipcMain.removeHandler(IPC_CHANNELS.PLAYER_STOP)
+}
+
+/** Said in terms of what the player asked for, not of the empty schedule. */
+function nothingToPlay(request: PlayRequest): string {
+  switch (request.kind) {
+    case 'timeline':
+      return request.fromBar === request.toBar
+        ? `Bar ${request.fromBar} has no notes to play.`
+        : `Bars ${request.fromBar} to ${request.toBar} have no notes to play.`
+    case 'take':
+      return 'That take has no notes to play.'
+    case 'scenario':
+      return `${request.id} has no notes to play.`
+  }
 }
 
 function buildSchedule(request: PlayRequest, deps: PlayerHandlerDeps): PlaybackSchedule {

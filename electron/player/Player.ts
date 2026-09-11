@@ -132,7 +132,15 @@ export class Player {
     // A second play over a running one is a stop and a start, not two
     // schedules interleaved on one instrument.
     this.stop()
-    if (schedule.events.length === 0) return
+    if (schedule.events.length === 0) {
+      // A play that plays nothing still owes a state. Without this the class
+      // accepts a call and reports nothing at all, so a transport keeps
+      // whatever reading it had and anything waiting on a push waits forever.
+      // The handler refuses an empty schedule before it gets here; this is the
+      // class keeping its own contract rather than relying on that.
+      this.pushState()
+      return
+    }
 
     this.schedule = schedule
     this.nextIndex = 0

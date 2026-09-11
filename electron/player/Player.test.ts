@@ -301,6 +301,16 @@ describe('stop always stops', () => {
     ])
   })
 
+  it('reports idle when handed a schedule with nothing in it', () => {
+    // Silence is a legitimate answer; saying nothing at all is not. A caller
+    // waiting for a state push after play() would otherwise wait forever.
+    player.play(scheduleFromEvents([], SOURCE))
+
+    expect(player.playing).toBe(false)
+    expect(states).toEqual([{ state: 'idle' }])
+    expect(events).toEqual([])
+  })
+
   it('is safe to stop when nothing is playing', () => {
     expect(() => player.stop()).not.toThrow()
     expect(events).toEqual([])
