@@ -56,8 +56,8 @@ docs/  .githooks/  .claude/
 | Install exactly the lockfile | `npm ci` |
 | Run with hot reload (Vite + esbuild watch + Electron) | `npm run dev` |
 | Build the three bundles | `npm run build` |
-| **Per-phase gate** | `npm run typecheck && npm run lint && npm test && node scripts/check-pins.mjs && node scripts/check-doc-links.mjs` |
-| **Once per plan, last phase and close** | `npm run test:e2e` |
+| **Per-phase gate** (ADR-0022) | `npm run gate:fast` (typecheck, lint, test, both Node gates), plus each e2e spec the phase names: `npm run test:e2e -- e2e/<name>.spec.ts` |
+| **Once per plan, last `dev` phase and close** | `npm run gate`: the fast gate, then the whole `test:e2e` |
 | Package a portable zip | `npm run package` |
 
 `npm run typecheck` runs `tsc --noEmit` over all four tsconfigs in sequence. A Node type error in

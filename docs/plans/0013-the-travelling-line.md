@@ -132,7 +132,8 @@ flowchart TB
   within the drawn notehead's box for that note, and a position halfway between two notes draws
   between them — asserted end to end in the real app, since OSMD does not lay out under jsdom. A
   position in bar 0 of `pickup-two-hands` lands in the pickup, not in bar 1. The line spans the
-  staves of its system and stops there. `npm run gate` is green.
+  staves of its system and stops there. `npm run gate:fast` and
+  `npm run test:e2e -- e2e/score.spec.ts` are green.
 
 ### Phase 2 — It moves, and it turns the corner
 - **Owner skill:** dev
@@ -156,7 +157,7 @@ flowchart TB
   matches that note's box within a tolerance stated in the test as a property of the layout, not a
   pixel count tuned to one machine. Stopping clears it. Nothing is left animating after unmount.
   NFR 11 unchanged: frames p50/p95/max over 500 note-ons with the cursor running, reported into the
-  log.
+  log. `npm run gate:fast` and `npm run test:e2e -- e2e/player.spec.ts` are green.
 
 ### Phase 3 — Plan 0006's follow consumes the same cursor
 - **Owner skill:** dev

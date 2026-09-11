@@ -116,6 +116,12 @@ specific; vague plans get ignored.
   it. A vague list turns into a scope negotiation mid-phase.
 - **Tests are phrased as behavioural claims** ("C-E-G with E lowest names C/E"), not "the test
   passes". Mode 4 reads the assertion bodies against that wording.
+- **The gate line is scoped (ADR-0022).** Every phase but the last `dev` one ends with
+  `npm run gate:fast`, plus each e2e spec file its claim is asserted in, named:
+  `npm run test:e2e -- e2e/player.spec.ts`. Name a spec when the claim lives end to end
+  (anything OSMD lays out, anything across IPC or through the panic path). Name none when the
+  unit layer holds it. Only the last `dev` phase says `npm run gate`; a mid-plan phase that says
+  it runs the whole suite there, which is the cost the ADR removes.
 - **Leave the `## Implementation log` skeleton in place.** `dev` fills it as the phases land; it
   is how a finished lane describes itself to your fresh session.
 

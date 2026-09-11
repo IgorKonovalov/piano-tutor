@@ -77,13 +77,18 @@ Run from the repo root. Until Plan 0001 Phase 1 lands there is no `package.json`
 | Lint | `npm run lint` |
 | Unit tests (core, electron, renderer) | `npm test` |
 | End-to-end (Playwright, opens the app) | `npm run test:e2e` |
+| One e2e spec file | `npm run test:e2e -- e2e/<name>.spec.ts` |
+| The per-phase gate | `npm run gate:fast` |
+| The full gate (last `dev` phase, close) | `npm run gate` |
 | Doc links | `node scripts/check-doc-links.mjs` |
 | Exact pins | `node scripts/check-pins.mjs` |
 | Package a portable zip | `npm run package` |
 
-**The per-phase gate** is typecheck, lint, unit tests and the two Node gates. **The end-to-end run
-is owed once per plan**, at the last phase and again at the close, because it opens a window and
-is too slow to sit in a pre-push hook.
+**The per-phase gate** is `npm run gate:fast` (typecheck, lint, unit tests and the two Node
+gates, about 25 s), plus each e2e spec file the phase's done-when names. **The whole end-to-end
+suite is owed once per plan**, as `npm run gate`, at the last `dev` phase and again at the close
+(ADR-0022). It opens windows and takes minutes, which is too slow for every phase and for a
+pre-push hook.
 
 ## Non-functional requirements
 

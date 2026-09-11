@@ -51,6 +51,9 @@ call). The tag is machine-readable; `dev` branches on it. A missing tag fails Mo
   from where. Optional.
 - **Done when:** Concrete acceptance. For a speed claim, the NFR row and how it is measured. For a
   test, the behavioural claim it defends ("C-E-G with E lowest names C/E"), not "the test passes".
+  End with the gate line (ADR-0022): `npm run gate:fast` is green, plus each e2e spec file the
+  phase's claim is asserted in (`npm run test:e2e -- e2e/<name>.spec.ts`). **Only the last `dev`
+  phase says `npm run gate`**, which runs the whole suite.
 
 ### Phase 2 — <name>
 …
@@ -106,8 +109,8 @@ _(facts for architect to verify and decide from, no recommendations)_
 
 - **What shipped:** _(feature / fix-only / docs-chore-only)_
 - **User-visible docs touched:** _(`README.md`, `CLAUDE.md`, `docs/nfr.md`, or none)_
-- **Full gate at the last phase:** _(the commands as run — typecheck, lint, test, test:e2e — and
-  each exit code)_
+- **Full gate at the last phase:** _(`npm run gate` as run, its exit code, the e2e pass count and
+  wall time, and every case that went red and passed on a rerun, by name)_
 - **Outstanding `human` phases:** _(which, or none)_
 
 ## Followups (after this lands)

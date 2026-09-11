@@ -72,7 +72,8 @@ changes for you.
   from the user and move on. Do not do "the mechanical part". The plan's close block records the
   phase as outstanding, and the architect treats an outstanding `human` phase as a blocker on the
   close — so a deferred phase costs the plan's closure, never its code.
-- **Stop the entire run, and wait, on any of:** a red `npm run gate`, a done-when that cannot be
+- **Stop the entire run, and wait, on any of:** a red phase gate (`npm run gate:fast` and any spec
+  the phase names) or a red `npm run gate` at a plan's last `dev` phase, a done-when that cannot be
   met as written, a file you need that is outside the phase's list, or any escalation in *When
   the plan is wrong*. Do not skip the phase. Do not start the next plan. Do not lower a bar to
   keep the run alive — **a queue that stopped after two plans is the expected good outcome; a
@@ -134,12 +135,16 @@ For **each phase in order**:
    architect as a plan update. Silent scope expansion is how plans rot.
 3. **Validate at the boundary, trust inside.** Every IPC payload through its Zod schema on
    receive; every file read parsed; every coach reply parsed. Past the boundary, trust the type.
-4. **Run the phase's done-when before moving on.** The per-phase gate is
-   `npm run typecheck`, `npm run lint`, `npm test`, `node scripts/check-pins.mjs` and
-   `node scripts/check-doc-links.mjs`, plus whatever the phase names (a `npm run dev` smoke, a
-   measurement on the overlay). **The end-to-end run (`npm run test:e2e`) is owed once per plan,
-   at the last phase**, before the close block is written; a phase whose done-when names it runs
-   it regardless.
+4. **Run the phase's done-when before moving on.** The per-phase gate is `npm run gate:fast`
+   (typecheck, lint, unit tests, both Node gates; until Plan 0014 Phase 1 adds the script, run the
+   five commands it stands for), **plus every e2e spec file the done-when names**, run as
+   `npm run test:e2e -- e2e/<name>.spec.ts`, plus whatever else the phase names (a `npm run dev`
+   smoke, a measurement on the overlay). **The whole end-to-end suite is owed once per plan, at
+   the last `dev` phase**, as `npm run gate`, before the close block is written (ADR-0022). The
+   default narrows the run and never caps it: a phase that changes `e2e/harness.ts`,
+   `playwright.config.ts` or the launch path runs the whole suite, and you may always run more
+   than named. **A red that goes green on a rerun is logged** with the case's name and its error
+   line, never counted as a clean pass.
 
    **Tests are part of done-when, not adjacent to it.** When a phase names a test, "passes" is not
    a green exit code: **open the test and read the assertion body**. A test passes only if every
@@ -184,7 +189,7 @@ Rules that compound across phases:
 
 Once the final `dev` phase's done-when is verified and committed:
 
-0. **Run the full gate**: typecheck, lint, unit tests, both Node gates, and `npm run test:e2e`.
+0. **Run the full gate**: `npm run gate`, which is the fast gate and then the whole `test:e2e`.
    This happens **before** the close block is written, because the block records the result. If
    anything is red, you are not at Step 4.
 1. **Complete the close block in the plan's `## Implementation log` and commit it** as a

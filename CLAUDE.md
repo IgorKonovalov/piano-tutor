@@ -146,8 +146,9 @@ that harness there is nothing to run a night against.
 
 - **One "go" opens the whole queue**, given by the user with the plan numbers in order. Nothing
   else opens it. A plan not named in that go is not in the run.
-- **The gate after every phase is the stop signal.** `npm run gate` red, a done-when that cannot
-  be met as written, a needed file outside the phase's list, or any of the escalations in the
+- **The gate after every phase is the stop signal.** The phase's gate red (`npm run gate:fast`
+  plus any e2e spec the phase names, or the full `npm run gate` at a plan's last `dev` phase,
+  ADR-0022), a done-when that cannot be met as written, a needed file outside the phase's list, or any of the escalations in the
   `dev` skill: the run **stops there** and waits. It does not skip the phase, work around the
   plan, or move to the next plan. A stopped queue that got two plans in is the expected good
   outcome; a queue that finished by lowering a bar is the failure.

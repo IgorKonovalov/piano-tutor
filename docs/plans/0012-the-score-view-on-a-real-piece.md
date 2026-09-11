@@ -119,7 +119,8 @@ flowchart LR
   than by eye. A bar that is already visible causes **no** scroll. Scrolling by hand mid-playback
   stops the app from scrolling, by the rule the comment states, and the assertion names that rule.
   Nothing is left listening after unmount. NFR 11 unchanged: frames p50/p95/max over 500 note-ons
-  with a score open and following, reported into the log.
+  with a score open and following, reported into the log. `npm run gate:fast` and
+  `npm run test:e2e -- e2e/player.spec.ts` are green.
 
 ### Phase 2 — A keyboard in the corner
 - **Owner skill:** dev
@@ -138,7 +139,7 @@ flowchart LR
 - **Done when:** With a score open, the keyboard shows the notes the app is playing during
   playback and the notes the player presses during practice, distinguishably. It hides and shows on
   command and the choice survives a restart. Clicking a bar behind or beside it still marks that
-  bar. `npm run gate` is green.
+  bar. `npm run gate:fast` and `npm run test:e2e -- e2e/score.spec.ts` are green.
 
 ### Phase 3 — The list folds away
 - **Owner skill:** dev

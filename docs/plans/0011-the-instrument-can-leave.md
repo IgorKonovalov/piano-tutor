@@ -145,7 +145,8 @@ sequenceDiagram
   sustain-up on every channel used — the same assertion the other six panic paths already make,
   now for a seventh. `player:state` arrives at the renderer carrying the departure reason and the
   port's name, and the transport shows a message naming the instrument. A second Play after a
-  departure does not dispatch into the dead handle. `npm run gate` is green.
+  departure does not dispatch into the dead handle. `npm run gate:fast` and
+  `npm run test:e2e -- e2e/player.spec.ts` are green.
 
 ### Phase 2 — The flood stops, and the guard says what it is for
 - **Owner skill:** dev
@@ -161,7 +162,7 @@ sequenceDiagram
   `this.output` — assert it, so a close mid-tick cannot leak one more send.
 - **Done when:** A test asserts that a `send` after `close` is a no-op rather than a throw or a
   dispatch, and the comment beside the `warned` flag names ADR-0019 and the stderr behaviour it
-  cannot see. `npm run gate` is green.
+  cannot see. `npm run gate:fast` is green.
 
 ### Phase 3 — NFR 13 at the size the row claims
 - **Owner skill:** dev
