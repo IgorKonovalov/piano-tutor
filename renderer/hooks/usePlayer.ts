@@ -149,7 +149,9 @@ export function usePlayer(options: UsePlayerOptions = {}): PlayerStream {
       window.api.player
         .listOutputs()
         .then((ports) => {
-          if (!cancelled) setOutputOpen(ports.some((port) => port.detail === 'Open'))
+          // The field, never the label: `detail` is text for a person, and a
+          // reading that goes wrong here doubles every note (ADR-0008).
+          if (!cancelled) setOutputOpen(ports.some((port) => port.open))
         })
         .catch(() => {
           // The ports view owns reporting on the output list; here its absence

@@ -36,6 +36,17 @@ export const MidiPortSchema = z.object({
   name: z.string(),
   kind: MidiPortKindSchema,
   availability: MidiPortAvailabilitySchema,
+  /**
+   * True only for the port this source or sink is currently holding open.
+   *
+   * It is a field rather than a word in `detail` because something depends on
+   * it: the sound target defaults to the instrument whenever an output is
+   * open (ADR-0008), and if that reading is ever wrong the app sounds every
+   * note twice, a few milliseconds apart. `detail` is free text written for a
+   * person to read, so rewording it must not be able to change what the app
+   * does.
+   */
+  open: z.boolean().default(false),
   /** One line for the user when the port is not simply available. */
   detail: z.string().optional(),
 })

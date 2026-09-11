@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CC_SUSTAIN, type MidiEvent } from '../../shared/midi'
+import { CC_SUSTAIN, type MidiEvent, type MidiPort } from '../../shared/midi'
 import { usePlayer } from '../hooks/usePlayer'
 import { Synth, cutoffOf, decaySeconds, frequencyOf, peakGainOf } from './synth'
 
@@ -260,8 +260,10 @@ describe('disposal leaves nothing running', () => {
 describe('the view owns the audio device', () => {
   let listeners: ((event: MidiEvent) => void)[] = []
   let fake: FakeAudio
-  let outputs: { id: string; name: string; kind: string; availability: string; detail?: string }[] =
-    []
+  // `MidiPort`, not a shape written out here: the hook reads `open` off these
+  // rows, and a hand-rolled literal is exactly what let this test agree with
+  // the code by coincidence rather than by schema.
+  let outputs: MidiPort[] = []
 
   /** Mount the hook and hand back the stream, the way a view holds it. */
   async function mount(): Promise<{
@@ -389,7 +391,14 @@ describe('the view owns the audio device', () => {
 
   it('defaults to the instrument when an output is open, and opens no device', async () => {
     outputs = [
-      { id: 'out:0', name: 'CK Series-1', kind: 'hardware', availability: 'available', detail: 'Open' },
+      {
+        id: 'out:0',
+        name: 'CK Series-1',
+        kind: 'hardware',
+        availability: 'available',
+        open: true,
+        detail: 'Open',
+      },
     ]
     const view = await mount()
 
@@ -413,7 +422,14 @@ describe('the view owns the audio device', () => {
 
   it('lets an explicit choice override the default, in both directions', async () => {
     outputs = [
-      { id: 'out:0', name: 'CK Series-1', kind: 'hardware', availability: 'available', detail: 'Open' },
+      {
+        id: 'out:0',
+        name: 'CK Series-1',
+        kind: 'hardware',
+        availability: 'available',
+        open: true,
+        detail: 'Open',
+      },
     ]
     const view = await mount()
     expect(view.read().soundTarget).toBe('instrument')

@@ -79,8 +79,9 @@ export class RtMidiSink implements MidiSink {
       name: enumerator.getPortName(index),
       kind: 'hardware',
       availability: 'available',
+      open: false,
     }
-    if (this.openPortIndex === index) return { ...port, detail: 'Open' }
+    if (this.openPortIndex === index) return { ...port, open: true, detail: 'Open' }
 
     const failure = this.failures.get(id)
     if (failure !== undefined) return { ...port, availability: 'busy', detail: failure }

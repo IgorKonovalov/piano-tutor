@@ -245,6 +245,9 @@ export function listVirtualPorts(gate: HarnessGate): MidiPort[] {
     name: scenario.name,
     kind: 'virtual' as const,
     availability: 'available' as const,
+    // A generated port is listed, never held: `SyntheticSource` plays a
+    // scenario through and stops, and keeps no handle to report on.
+    open: false,
     detail: scenario.description,
   }))
 }

@@ -123,7 +123,11 @@ describe('listing does not touch the device', () => {
     const sink = new RtMidiSink()
     await sink.open('out:1')
     const rows = await sink.listPorts()
+    // The field is what the sound target reads (ADR-0008); the label is only
+    // what a person reads. Both, so the two cannot drift apart unnoticed.
+    expect(rows[1]?.open).toBe(true)
     expect(rows[1]?.detail).toBe('Open')
+    expect(rows[0]?.open).toBe(false)
     expect(rows[0]?.detail).toBeUndefined()
   })
 

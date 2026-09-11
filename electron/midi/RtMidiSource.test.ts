@@ -157,7 +157,9 @@ describe('busy is a memory of a refused open', () => {
     const source = new RtMidiSource(unpackaged)
     await source.open('hw:1')
     const rows = await hardware(source)
+    expect(rows[1]?.open).toBe(true)
     expect(rows[1]?.detail).toBe('Open')
+    expect(rows[0]?.open).toBe(false)
     expect(rows[0]?.detail).toBeUndefined()
   })
 
