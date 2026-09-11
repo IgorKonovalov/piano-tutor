@@ -1,6 +1,6 @@
 # 0010 — The timeline tells the truth about the page
 
-> **Status:** draft
+> **Status:** approved 2026-09-11
 > **Created:** 2026-09-11
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0018](../adrs/0018-the-timeline-carries-the-marks-on-the-page.md) (proposed)
