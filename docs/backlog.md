@@ -149,24 +149,24 @@ own interview:
   [ADR-0003](adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md)
   Alternative C.
 - **A tablet port of the renderer.**
-- **The marks on the page that change how a piece is played — the half that is left.** Raised by
-  the user on 2026-09-11 with a bar showing a turn, a fingering, a slur, an accidental under the
-  ornament and a hairpin: the app should read the signs that influence playing "for correct
-  reference". **Ornaments and pedal graduated** into Plan
+- **The marks on the page — what Plan 0010 still leaves.** Raised by the user on 2026-09-11 with a
+  bar showing a turn, a fingering, a slur, an accidental under the ornament and a hairpin: the app
+  should read the signs that influence playing "for correct reference". **Almost all of it
+  graduated** on 2026-09-11 into Plan
   [0010](plans/0010-the-timeline-tells-the-truth-about-the-page.md) and
-  [ADR-0018](adrs/0018-the-timeline-carries-the-page-ornaments-expanded-pedal-as-its-own-track.md),
-  which took the shape question once for the whole list as this row argued it should be. These
-  three did not, and each needs its own decision on top of that amendment:
-  - **Dynamics are excluded by decision, not by oversight.** ADR-0005 makes the timeline
-    tempo-free and dynamics-free; Plan 0004 fixes velocity at 72 and says in as many words that
-    inventing dynamics from OSMD's markings is a change to that extractor. A hairpin reaching
-    velocity therefore needs an ADR amending 0005, not a patch to the extractor — and it is the
-    first sign that would change a *number* rather than a set of notes, which is why ADR-0018
-    deliberately left it out.
-  - **Articulation — staccato, accent, slur — has no vocabulary to land in.** `VoiceEntry` exposes
-    them and Plan 0010 read none. They change how a note is *played*, and the model can currently
-    say only whether a note was played, so this wants a scoring idea before it wants an extractor
-    change.
+  [ADR-0018](adrs/0018-the-timeline-carries-the-marks-on-the-page.md) — ornaments, pedal, dynamics,
+  hairpins, tempo words, rit./accel., fermata and articulation, with
+  [ADR-0021](adrs/0021-expression-belongs-to-playback-scoring-only-describes-it.md) keeping all of
+  it away from the aligner. Two things did not:
+  - **Slurs and phrase marks**, cut from Plan 0010 deliberately. They are neither a property of one
+    note nor a span with a number attached, and playing a legato line convincingly is a synthesis
+    problem rather than an extraction one — note overlap, release shaping, and a judgement about
+    where a phrase breathes. The largest remaining expressive gap, and the one that needs a real
+    idea rather than another OSMD property.
   - **Fingering is the one that needs nothing.** OSMD already draws it — it is visible in the
     user's own screenshot — and it changes neither what is played nor how it is judged. It would
     only need to enter the data if the coach were ever to comment on it.
+  - **Judging expression** is the other direction, and it is ADR-0021's Alternative A rather than a
+    missing extraction: whether the app should say you played *mezzo-piano* where the page says
+    *forte*. Its own interview, and it starts with the fact that a MIDI velocity is the CK88's
+    curve and not the composer's intent.

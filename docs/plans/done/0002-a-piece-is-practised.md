@@ -943,7 +943,7 @@ attempted 35 bars and 11, and reported 1 and 0 missed notes rather than a tail o
 worth. [0005](../../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) and
 [0009](../../adrs/0009-an-ornament-is-optional-a-grace-note-is-scored-neither-way.md) were accepted
 earlier and are unchanged; ADR-0005 is now amended by
-[0018](../../adrs/0018-the-timeline-carries-the-page-ornaments-expanded-pedal-as-its-own-track.md),
+[0018](../../adrs/0018-the-timeline-carries-the-marks-on-the-page.md),
 and ADR-0009's mechanism gains a second producer there.
 
 **What survives this plan**, all of it already owned by a drafted plan and none of it blocking:

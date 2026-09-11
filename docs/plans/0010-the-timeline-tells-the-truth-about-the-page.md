@@ -3,39 +3,46 @@
 > **Status:** draft
 > **Created:** 2026-09-11
 > **Owner skill(s):** dev, human
-> **Related ADRs:** [0018](../adrs/0018-the-timeline-carries-the-page-ornaments-expanded-pedal-as-its-own-track.md)
-> (proposed) is this plan's whole design — it amends
+> **Related ADRs:** [0018](../adrs/0018-the-timeline-carries-the-marks-on-the-page.md) (proposed)
+> decides what the timeline extracts and in what shape;
+> [0021](../adrs/0021-expression-belongs-to-playback-scoring-only-describes-it.md) (proposed)
+> decides who may act on it and is what keeps the aligner tempo-free. Together they are this plan's
+> whole design, and they amend
 > [0005](../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (accepted),
-> which stays the rule that there is one parse and OSMD owns it;
+> which stays the rule that there is one parse and OSMD owns it.
 > [0009](../adrs/0009-an-ornament-is-optional-a-grace-note-is-scored-neither-way.md) (accepted) is
 > the scoring mechanism this plan gives a second producer;
 > [0007](../adrs/0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md)
-> (accepted) is what emits the pedal
-> **NFRs claimed:** none new. NFR 12 and 13 must be unchanged, and are re-reported.
+> (accepted) owns the schedule that all of it reaches the instrument through;
+> [0014](../adrs/0014-timing-is-judged-against-a-local-tempo-not-one-line-through-the-take.md)
+> (accepted) is what Phase 8's annotation labels and must not disturb
+> **NFRs claimed:** none new. NFR 12, 13 and **14** must be unchanged, and are re-reported — NFR 14
+> in particular, because this plan is the one that could break tempo-freedom.
 > **Depends on:** nothing in flight. It touches `ExpectedTimeline`, which Plan
 > [0009](0009-a-bar-is-judged-note-by-note.md) also reads — see `## Risks & open questions` for the
 > one field they could collide on.
 
 ## TL;DR
 
-Two things that are broken today stop being broken. A real score — BWV 555, where the Prelude ends
-and the Fugue begins on an empty carrier bar — can be played at all, instead of being refused by a
-schema that insists every bar has length. And a bar with a turn over it stops being marked **wrong
-for being played correctly**: the ornament is expanded into the notes it means, using OSMD's own
-realisation, and those notes are scored neither way, exactly as ADR-0009 already treats a grace
-note. On top of that the piece finally plays with its pedal, because the timeline gains somewhere
-for a pedal mark to live. The player's side of it: put a piece with ornaments on the stand, press
-Play, and hear the piece; then play it yourself, ornaments and all, and see green.
+The app stops reading the page and starts reading the music. Two things that are broken today stop
+being broken — a real score whose metre-change carrier bar has no length can be played at all, and
+a bar with a turn over it stops being marked **wrong for being played correctly**. And the
+demonstration stops being a MIDI file read aloud: a piece plays with its dynamics, its hairpins, its
+pedal, its ornaments, its fermatas and its changes of tempo, every one of them read from OSMD's own
+interpretation rather than invented here. Playback gets all of it; **the aligner gets none of it**,
+which is the line ADR-0021 draws and the reason practising a study at half speed is still playing it
+correctly. The one thing scoring gains is a better sentence: where the report already says you
+slowed, it may now say you slowed *where the score asks you to*.
 
 ## Context & problem
 
 Plan 0004's Phase 7 was the first time a real, un-fixtured piece went through the whole path at the
 instrument, and it found two defects that every fixture in this repository had agreed to hide.
 
-**`player:play` was refused by Zod for BWV 555.** `bars[25].beats` is `0`;
-`ExpectedBarSchema` demands `z.number().positive()`. Measure 25 contains only an `<attributes>`
-element — no notes, no rests — the carrier bar where the metre changes. OSMD reports
-`Duration.RealValue` of 0 and `renderer/score/timelineFromOsmd.ts:45` maps it straight through.
+**`player:play` was refused by Zod for BWV 555.** `bars[25].beats` is `0`; `ExpectedBarSchema`
+demands `z.number().positive()`. Measure 25 contains only an `<attributes>` element — no notes, no
+rests — the carrier bar where the metre changes. OSMD reports `Duration.RealValue` of 0 and
+`renderer/score/timelineFromOsmd.ts:45` maps it straight through.
 
 Two things make it worth more than one file. **`barTableProblems` cannot catch it**: it checks only
 that `onset + beats` equals the next bar's `onset`, and a zero-length bar is perfectly contiguous.
@@ -59,67 +66,114 @@ that file holds `<grace slash="yes"/>` — the case that was fixed. Its own head
 "real repertoire is full of ornaments"; the symbol form was never added, so this path is exercised
 by nothing, exactly as the grace path was not.
 
-**And Phase 7 item 3 asked for pedal that a score cannot carry.** The item wants a piece to play
-"with the sustain pedal messages included"; `ExpectedTimeline` has no pedal concept, so
-`scheduleFromTimeline` emits only `noteOn` and `noteOff`. The user reported hearing pedal work from
-a score anyway, and the likeliest explanation is their own foot — the CK88's pedal sustains whatever
-the instrument is sounding, including notes the app just sent it, with no MIDI pedal involved.
-**That explanation was never tested.** This plan tests it and then makes the item true as written.
+**And then the user asked for the rest of it.** On 2026-09-11, having watched playback work: the app
+should play the music *as written* — its dynamics, its changes of tempo, its ornaments — and send
+pedal if it can. Today **every note is velocity 72** and the tempo comes from a box in the transport.
+A demonstration of a nocturne and a demonstration of a scale exercise are, to the ear, the same
+performance at different pitches. Phase 7 item 3 of Plan 0004 had already asked for pedal the score
+could not carry; that item was mis-specified against a timeline with nowhere to put one.
+
+**The whole list is on OSMD's model, already interpreted.** This is what makes the plan affordable,
+and ADR-0018 turns on it:
+
+| Mark | Where | What OSMD decides for us |
+|---|---|---|
+| Ornaments | `voiceEntry.OrnamentContainer` | `createVoiceEntriesForOrnament` realises it, key and accidentals applied |
+| Pedal | `MultiExpression.PedalStart` / `.PedalEnd` | start and end at an `AbsoluteTimestamp` |
+| Dynamics | `MultiExpression.InstantaneousDynamic` | `MidiVolume` — the pp-to-ff mapping already exists |
+| Hairpins | `.StartingContinuousDynamic` / `.EndingContinuousDynamic` | the span and its end dynamic |
+| Tempo words | `MultiTempoExpression.InstantaneousTempo` | Larghissimo to Prestissimo, and metronome marks |
+| rit. / accel. | `MultiTempoExpression.ContinuousTempo` | 15 types, and `getInterpolatedTempo` — the curve |
+| Articulation, fermata | `voiceEntry.Articulations` | a 28-value enum including `staccato`, `tenuto`, `accent`, `fermata` |
+
+Pedal, dynamics and hairpins hang off the **same** `MultiExpression` objects, so they are one
+traversal rather than three. **We write no interpreter** — no turn-realiser, no pp-to-velocity
+table, no rit. curve.
+
+**The danger is entirely on the scoring side**, and it is not hypothetical. The aligner is
+tempo-free by construction and four ADRs protect that: ADR-0005 makes onsets quarter notes, ADR-0009
+refused to let a grace note consult a clock, ADR-0010 preserved it, ADR-0012 kept click-relative
+scoring strictly beside it, and ADR-0014 fits tempo from the take's own neighbours. NFR 14 states
+the property and `README.md` states it to the player. Let the page's tempo reach `align.ts` and a
+learner working a study at half speed — the correct way to work a study — opens the app to find
+every bar red. **ADR-0021 is the line, and this plan is where it is either held or lost.**
 
 ## Decision
 
-Extract what the page says, once, in the library that draws it — ADR-0018.
+Extract the marks once, in the library that draws them (ADR-0018); let playback use all of them and
+the aligner none of them (ADR-0021).
 
-A **bar may be empty**: `beats` relaxes to non-negative, a zero-length bar stays indexed where the
+**A bar may be empty.** `beats` relaxes to non-negative, a zero-length bar stays indexed where the
 score put it, and `barTableProblems` gains a line that names one rather than passing it silently.
-An **ornament is expanded at extraction** by OSMD's own `createVoiceEntriesForOrnament`, and what it
-expands into is flagged `optional` — the `grace` boolean generalises, so a realised trill and a
-written-out grace note share ADR-0009's one scoring path while staying distinguishable through a new
-`ornament` kind. **Pedal becomes its own track**, `pedal: PedalMark[]` read from OSMD's
-`PedalStart` / `PedalEnd` expressions, because a press happens between notes and over rests and the
-pedal-*up* belongs to no note at all; playback emits CC 64 from it and scoring ignores it entirely.
 
-We rejected a parallel `marks[]` array, because it makes two consumers each implement what a turn
-means — the shape of the bug being fixed — and we rejected pedal as a field on a note, because a
-press over a rest has nowhere to live and the lift would be lost.
+**Marks enter by one of three routes, decided by what kind of thing each is.** An **ornament** is
+note-generating and ambiguous, so it is expanded at extraction by OSMD's own realiser and flagged
+`optional` — the `grace` boolean generalises, so a realised trill and a written-out grace note share
+ADR-0009's one scoring path while staying distinguishable through a new `ornament` kind.
+**Articulation and fermata** are properties of a note and ride the note. **Pedal, dynamics,
+hairpins and tempo** span or sit between notes, so each gets its own track holding what the page
+says rather than a resolved number — a `DynamicMark` says "forte here", not "velocity 88 on these
+nineteen notes".
 
-Dynamics and fingering stay out, by ADR-0018 and by ADR-0005's still-standing tempo-free,
-dynamics-free premise.
+**The arithmetic happens once, in `core/`, at schedule time.** `scheduleFromTimeline` resolves a
+dynamic to a velocity, interpolates a hairpin, converts a tempo mark and a rit. curve into
+milliseconds, holds a fermata and shortens a staccato. It is a pure function with fixture tests and
+the only consumer of those tracks.
+
+**The written tempo is playback's default; the transport's box overrides it**, preserving the
+relative shape underneath, because "demonstrate this passage slowly" is the most useful thing a
+demonstration does and Plan 0005 depends on it.
+
+**Scoring reads none of it**, and may only annotate an observation it has already made: where the
+report says the player slowed and the page asks for a rallentando there, the prose may say so. It
+never creates an observation, never changes a verdict or a colour, and never reports the absence of
+observance.
+
+We rejected one undifferentiated `marks[]` array, because it makes each consumer re-derive what kind
+of thing a mark is and lets one silently ignore them; we rejected resolving dynamics and tempo to
+per-note numbers at extraction, because once *forte* is velocity 88 nothing can say the score asked
+for forte; and we rejected judging expression, which would put `align.ts` on a clock and grade the
+CK88's velocity curve rather than the playing.
+
+Fingering stays out: OSMD draws it, and it changes neither what is played nor how it is judged.
 
 ## Architecture diagram
 
 ```mermaid
 flowchart TB
-    subgraph score["the file"]
-        XML[MusicXML on disk]
-    end
-
-    subgraph renderer["renderer"]
-        OSMD["OSMD model<br/>SourceMeasures"]
-        ORN["voiceEntry.OrnamentContainer<br/>createVoiceEntriesForOrnament"]
-        PED["StaffLinkedExpressions<br/>PedalStart / PedalEnd"]
+    subgraph renderer["renderer - one parse, OSMD's reading"]
+        OSMD["OSMD model"]
+        ORN["voiceEntry.OrnamentContainer"]
+        ART["voiceEntry.Articulations"]
+        ME["StaffLinkedExpressions - one walk:<br/>pedal, dynamics, hairpins"]
+        TE["TempoExpressions:<br/>tempo words, rit., accel."]
         EX["timelineFromOsmd.ts"]
     end
 
-    subgraph shared["shared"]
-        SCHEMA["ExpectedTimelineSchema<br/>beats: nonnegative<br/>notes[].optional + .ornament<br/>pedal[]"]
+    subgraph shared["shared - what the page says"]
+        SCHEMA["ExpectedTimeline<br/>notes[] +optional +ornament +articulation +fermata<br/>bars[] beats: nonnegative<br/>pedal[] dynamics[] tempo[]"]
     end
 
     subgraph core["core (pure)"]
-        SCORED["scoredNotes / optionalNotes<br/>ADR-0009's split"]
-        SCHED["scheduleFromTimeline<br/>+ CC 64 from pedal[]"]
+        SCHED["scheduleFromTimeline<br/>the ONLY reader of the tracks:<br/>velocity, ms, CC 64, holds"]
+        ALIGN["align.ts<br/>reads NO mark (ADR-0021)"]
+        REPORT["report.ts<br/>may label an observation it already made"]
     end
 
-    XML --> OSMD
     OSMD --> ORN
-    OSMD --> PED
+    OSMD --> ART
+    OSMD --> ME
+    OSMD --> TE
     ORN --> EX
-    PED --> EX
+    ART --> EX
+    ME --> EX
+    TE --> EX
     EX --> SCHEMA
-    SCHEMA --> SCORED
-    SCHEMA --> SCHED
-    SCORED -->|"ornament notes cost nothing<br/>either way"| REPORT[report.ts]
-    SCHED -->|player:play| SINK["main: Player -> MidiSink"]
+    SCHEMA -->|"notes only"| ALIGN
+    SCHEMA -->|"everything"| SCHED
+    SCHEMA -.->|"tempo[], read-only, late"| REPORT
+    ALIGN --> REPORT
+    SCHED -->|player:play| SINK["main: Player -> MidiSink -> CK88"]
 ```
 
 ## Implementation phases
@@ -226,27 +280,145 @@ flowchart TB
   `player:event` stream. NFR 13's property is unchanged — nothing dropped, nothing reordered,
   nothing left sounding. `npm run gate` is green.
 
-### Phase 5 — At the piano
+### Phase 5 — The music gets louder and softer
+- **Owner skill:** dev
+- **What:** Dynamics and hairpins reach the instrument. The end of velocity 72.
+- **Files touched:** `shared/score.ts`, `renderer/score/timelineFromOsmd.ts`,
+  `renderer/score/timelineFromOsmd.test.ts`, `core/src/player/schedule.ts`,
+  `core/src/player/schedule.test.ts`, `core/fixtures/scores/dynamics.musicxml`,
+  `core/fixtures/scores/dynamics.timeline.json`, `e2e/player.spec.ts`
+- **Notes for the implementer:** `dynamics: DynamicMark[]` on the timeline, each
+  `{ at, velocity, label, staff, until, endVelocity }` with the last two set only for a hairpin.
+  Read them from the **same `MultiExpression` walk Phase 4 already wrote** for pedal —
+  `InstantaneousDynamic` for a step, `StartingContinuousDynamic` / `EndingContinuousDynamic` for a
+  hairpin — rather than a second traversal. **Take OSMD's `MidiVolume` and do not build a
+  pp-to-velocity table**; ADR-0018 is explicit that the mapping belongs to the library. Resolution
+  happens in `scheduleFromTimeline`, not in the extractor: a note takes the velocity in force at its
+  onset, and inside a hairpin it interpolates linearly between the span's ends. `PLAYBACK_VELOCITY`
+  (72) stops being the rule and becomes the fallback for a passage the page says nothing about —
+  keep the constant, change its comment. A dynamic on one staff applies to that staff; a piece that
+  marks only the left hand must not go quiet in the right.
+- **Done when:** For `dynamics.musicxml`, the timeline's `dynamics[]` carries the step marks and the
+  hairpin spans with their end dynamics, and `scheduleFromTimeline` gives **every note-on a velocity
+  that follows the page**: a note under *ff* is louder than one under *pp*, and consecutive notes
+  inside a written crescendo increase monotonically. A score with no dynamics at all produces every
+  note at 72, unchanged from today. A dynamic on staff 1 does not alter staff 0's velocities.
+  `npm run gate` is green.
+
+### Phase 6 — The music breathes
+- **Owner skill:** dev
+- **What:** Tempo marks, rit. and accel., and the fermata — the phase that makes a demonstration
+  phrase rather than march.
+- **Files touched:** `shared/score.ts`, `shared/player.ts`, `renderer/score/timelineFromOsmd.ts`,
+  `renderer/score/timelineFromOsmd.test.ts`, `core/src/player/schedule.ts`,
+  `core/src/player/schedule.test.ts`, `renderer/components/Transport.tsx`,
+  `renderer/views/Score.tsx`, `core/fixtures/scores/tempo-changes.musicxml`,
+  `core/fixtures/scores/tempo-changes.timeline.json`, `e2e/player.spec.ts`
+- **Notes for the implementer:** `tempo: TempoMark[]` read from `SourceMeasure.TempoExpressions`:
+  `InstantaneousTempo` for a word or a metronome mark, `ContinuousTempo` for a ramp, each at its
+  `AbsoluteTimestamp`. **Use `getInterpolatedTempo(timestamp)` for a ramp** rather than
+  interpolating yourself. `ContinuousTempoType` has fifteen values and not all are a speed ramp —
+  **`rubato` is a direction to a human, not a curve**. Read the subset that is unambiguously a ramp,
+  ignore the rest, and record in the log which you read; a mark this plan ignores is better than one
+  it guesses at.
+  **The override is the delicate part and the done-when is written around it.** The written tempo is
+  the default; when the player sets a bpm, theirs wins and **the relative shape is preserved**, so a
+  rit. at the player's tempo is still a rit. Scale the whole written tempo curve by
+  `chosen / writtenAtStart`; do not flatten it, and do not let the box mean "ignore the page". The
+  transport shows the written tempo as the starting value so the player sees what the piece asks
+  for. A **fermata** is `fermata: boolean` on `ExpectedNote`, read from `voiceEntry.Articulations`;
+  `scheduleFromTimeline` lengthens that note and delays everything after it. Pick a hold factor,
+  put it in a named constant with a comment, and expect Phase 9 to change it — it is a taste
+  number and no test should pin it to a musical claim.
+- **Done when:** For `tempo-changes.musicxml`, a marked tempo sets the default and the transport
+  shows it; a written *ritardando* makes the gaps between consecutive note-ons **grow monotonically
+  across its span** in the schedule, and an *accelerando* shrink them. Setting the bpm box to half
+  the written tempo doubles every gap **and leaves the ritardando still reading as a ritardando** —
+  the ratio between the span's first and last gap is preserved, which is the assertion that catches
+  a flattened curve. A note under a fermata is held longer than the same note without one and
+  everything after it shifts by the same amount. A score with no tempo marks behaves exactly as
+  today. NFR 13's property is unchanged. `npm run gate` is green.
+
+### Phase 7 — Short notes are short
+- **Owner skill:** dev
+- **What:** Articulation: staccato shortens, tenuto sustains, accent bites.
+- **Files touched:** `shared/score.ts`, `renderer/score/timelineFromOsmd.ts`,
+  `renderer/score/timelineFromOsmd.test.ts`, `core/src/player/schedule.ts`,
+  `core/src/player/schedule.test.ts`, `core/fixtures/scores/articulation.musicxml`,
+  `core/fixtures/scores/articulation.timeline.json`
+- **Notes for the implementer:** `articulation: Articulation[]` on `ExpectedNote`, from
+  `voiceEntry.Articulations`. `ArticulationEnum` has 28 values and most are irrelevant to a keyboard
+  (`upbow`, `snappizzicato`); read the keyboard subset — roughly `staccato`, `staccatissimo`,
+  `tenuto`, `accent`, `strongaccent`, `marcatoup`, `marcatodown`, `detachedlegato` — and drop the
+  rest rather than modelling them. `scheduleFromTimeline` turns them into **duration and velocity
+  changes only**: a staccato note's note-off comes earlier, an accent raises its velocity above
+  whatever the dynamic gave it. **Every factor is a named constant with a comment**, for the same
+  reason as the fermata's: these are taste, Phase 9 may move them, and no test should assert that a
+  particular fraction is musically right. **Shortening must never reorder the event list** — a
+  note-off that moves earlier still has to sit after its own note-on, including on a note already
+  shorter than the staccato factor.
+- **Done when:** For `articulation.musicxml`, a staccato note's sounding length in the schedule is
+  shorter than the same written note without the mark, a tenuto note's is not shortened, and an
+  accented note's velocity exceeds the dynamic in force around it. The schedule is still ordered and
+  still balanced — every note-on matched by a later note-off, the invariant ADR-0007 asserts on
+  every schedule the suite builds. A note shorter than the staccato factor still ends after it
+  starts. `npm run gate` is green.
+
+### Phase 8 — The report says where the score asked
+- **Owner skill:** dev
+- **What:** ADR-0021's annotation, and the test that proves the aligner did not learn anything.
+- **Files touched:** `core/src/align/report.ts`, `core/src/align/report.test.ts`,
+  `shared/score.ts`, `renderer/components/PracticeStats.tsx`, `e2e/practice.spec.ts`
+- **Notes for the implementer:** Read ADR-0021 before writing a line; its three rules are the
+  specification. The report already produces "You slowed 45% over bars 31 to 33" from the timing
+  model. This phase adds **only a label**: if a `tempo[]` entry of a ramp kind overlaps that bar
+  range, the sentence may say the score asks for it. **It annotates an existing observation and
+  never creates one** — no observation, no sentence, even where a rit. is written.
+  **It never changes a verdict, a count or a colour**; compute the bar's state first and do not
+  revisit it. **It never reports absence** — "you did not slow where the score asks" is a judgement
+  and is out of scope. `align.ts` is not touched **at all**, and that is the phase's real
+  deliverable: if a diff to `core/src/align/align.ts` appears, the phase has gone wrong. Consider a
+  mechanical guard — ADR-0021 suggests a lint or dependency rule stopping `core/src/align/` from
+  importing whatever resolves marks — and if you add one, say so in the log.
+- **Done when:** A take that slows where a *rit.* is written gets the annotated sentence; **the same
+  take against the same score with the tempo track emptied gets the plain sentence and the identical
+  verdict, counts and colours** — which is ADR-0021 stated as a test. A take that slows where
+  *nothing* is written gets the plain sentence. A take that holds a steady tempo through a written
+  rit. gets **no sentence about it at all**. **NFR 14 is re-asserted unchanged:** every existing
+  tempo-free test in `core/src/align/report.test.ts` passes without edit, and a take played evenly
+  at half speed against a score marked *Allegro* still reports zero bars in `timing`. `npm run gate`
+  is green.
+
+### Phase 9 — At the piano
 - **Owner skill:** human
-- **What:** The two answers no generated run can give: whether the expanded ornament sounds like
-  music, and whether a score's pedal messages actually reach the CK88.
+- **What:** Whether it sounds like music. Nothing in the eight phases above can answer that, and
+  most of their constants are guesses waiting for this phase.
 - **Files touched:** the plan's implementation log
 - **Done when:** all of the following are recorded in the log:
   1. **The discriminating pedal run, which Plan 0004 Phase 7 owed and did not do.** Play a score
      **with your foot off the pedal**, before and after this plan. Before: does it sustain? That
-     answers whether the sustain you heard on 2026-09-11 was the app or your own foot, and it is a
-     minute's work that has been carried as unexplained for a plan.
-  2. A score with pedal marks plays with them, foot off the pedal, and sounds musically right —
-     wet where the page says wet, dry where it says dry. The user's judgement; this is what the
-     item exists for.
-  3. **The ornament, judged as music.** A piece with a trill and a turn plays back. OSMD picks one
-     realisation — how many notes a trill gets, whether a turn starts on the note or above — and
-     ADR-0018 accepts inheriting that choice. Is the realisation good enough to demonstrate from,
-     or misleading? A "no" for a specific ornament kind is a finding to record, and the response
-     named in that ADR is to stop expanding **that kind**, never to write our own realiser.
-  4. Play the ornamented bar yourself, once realising the ornament and once plainly, and confirm
-     the bar reads clean both ways at the instrument — the Phase 3 assertion, felt rather than
-     generated.
+     answers whether the sustain heard on 2026-09-11 was the app or the player's own foot, and it
+     has been carried as unexplained for a plan.
+  2. A score with pedal marks plays with them, foot off the pedal, and sounds right — wet where the
+     page says wet, dry where it says dry.
+  3. **The ornament, judged as music.** OSMD picks one realisation — how many notes a trill gets,
+     whether a turn starts on the note or above. Good enough to demonstrate from, or misleading? A
+     "no" for a specific kind is a finding, and ADR-0018's named response is to stop expanding
+     **that kind**, never to write our own realiser.
+  4. Play the ornamented bar yourself, once realising the ornament and once plainly, and confirm the
+     bar reads clean both ways — the Phase 3 assertion, felt rather than generated.
+  5. **The dynamics, judged.** Does a marked piece sound shaped, or does it lurch? OSMD's
+     `MidiVolume` mapping is inherited and may be too wide or too narrow on this instrument. A
+     range that is wrong is a finding with a number attached, not a re-design.
+  6. **The tempo, judged — the most likely to be wrong.** Does a written rit. sound like a
+     rit. or like a stumble? Does the override still feel like the same piece slower? Play a
+     passage at half the written tempo and say whether the shape survived.
+  7. **The fermata and the staccato constants.** Both are taste numbers chosen blind in Phases 6
+     and 7. Say whether they are close, and in which direction if not.
+  8. **The whole point, in one judgement.** Put a piece with real expression on the stand, press
+     Play, and say whether it sounds like music being played or like a file being read aloud. That
+     is the sentence this plan exists to earn, and a "not yet" with a reason is worth more than
+     seven green checks above it.
 
 ## Data shapes
 
@@ -256,6 +428,12 @@ flowchart TB
 type OrnamentKind =
   | 'trill' | 'turn' | 'invertedTurn' | 'delayedTurn'
   | 'delayedInvertedTurn' | 'mordent' | 'invertedMordent'
+
+/** The keyboard-relevant subset of OSMD's 28-value ArticulationEnum. The rest
+ *  (upbow, snappizzicato, ...) is dropped rather than modelled. */
+type Articulation =
+  | 'staccato' | 'staccatissimo' | 'tenuto' | 'accent'
+  | 'strongaccent' | 'marcatoUp' | 'marcatoDown' | 'detachedLegato'
 
 type ExpectedNote = {
   midi: number
@@ -271,12 +449,42 @@ type ExpectedNote = {
   /** Which symbol produced this note, or null for a written-out grace note
    *  and for every ordinary note. */
   ornament: OrnamentKind | null
+  /** Marks that belong to this notehead and to nothing else. Playback reads
+   *  them; scoring does not (ADR-0021). */
+  articulation: Articulation[]
+  fermata: boolean
 }
 
-/** A sustain change at a point in the score. Not a note, and not a property
- *  of one: a press happens between notes and over rests, and the lift is the
- *  half that decides whether a chord blurs into the next. */
+// --- the three tracks. Each holds WHAT THE PAGE SAYS, never a resolved
+// --- number: scheduleFromTimeline is the only thing that turns them into
+// --- velocities and milliseconds (ADR-0018), and align.ts never reads one.
+
+/** A sustain change at a point in the score. Not a property of a note: a press
+ *  happens between notes and over rests, and the lift — the half that decides
+ *  whether a chord blurs into the next — belongs to no note at all. */
 type PedalMark = { at: number; down: boolean; staff: number }
+
+/** `until` and `endVelocity` are set for a hairpin and null for a step mark.
+ *  `velocity` is OSMD's own MidiVolume, not a table of ours. */
+type DynamicMark = {
+  at: number
+  velocity: number
+  label: string          // 'ff', 'mp' — for prose, never parsed back
+  staff: number
+  until: number | null
+  endVelocity: number | null
+}
+
+/** A word, a metronome mark, or a ramp. `until`/`endBpm` are set for a ramp.
+ *  `label` is what the page printed, which is what Phase 8 quotes. */
+type TempoMark = {
+  at: number
+  bpm: number
+  kind: 'word' | 'metronome' | 'ramp'
+  label: string          // 'Allegro', 'rit.'
+  until: number | null
+  endBpm: number | null
+}
 
 type ExpectedTimeline = {
   scoreId: string
@@ -285,46 +493,73 @@ type ExpectedTimeline = {
    *  length, and it keeps its index. */
   bars: ExpectedBar[]
   pedal: PedalMark[]
+  dynamics: DynamicMark[]
+  tempo: TempoMark[]
 }
 ```
 
 ## Risks & open questions
 
-- **OSMD's realisation may be musically wrong for a given ornament**, and we inherit it by
-  decision. Phase 5 item 3 is the check. The response is to stop expanding that kind, which is a
-  one-line filter, not to build a realiser — ADR-0018 is explicit and this plan does not reopen it.
-- **`createVoiceEntriesForOrnament` may behave differently than its signature suggests** — it is
-  an instance method on `VoiceEntry` in OSMD 2.1.2's typings and its use inside OSMD is for
-  playback, not for our extraction path. If it throws, returns empty, or needs state the extractor
-  does not have, **Phase 3 stops and says so**: the fallback is to mark the principal note's group
-  as accepting surplus without expanding, which fixes the scoring bug and not the demonstration,
-  and that is a design change for the architect rather than an improvisation.
+- **This plan's real risk is that it makes the app play the wrong thing rather than crash.**
+  `scheduleFromTimeline` goes from arithmetic over onsets to the place that decides how a piece
+  sounds. A velocity or a tempo bug is silent to every gate and audible to a human, which is why
+  Phase 9 has eight items and why the taste constants are named and commented rather than inlined.
+- **Tempo-freedom is the thing that could be lost here**, and losing it would be quiet. Phase 8's
+  done-when is written as the guard — the same take against the same score with the tempo track
+  emptied must produce identical verdicts, counts and colours — and ADR-0021 suggests a mechanical
+  import rule as well. A reviewer should read `git diff core/src/align/` first and expect nothing.
+- **The tempo override is the subtlest arithmetic in the plan.** Scaling a written rit. by the
+  player's chosen tempo has an obvious wrong implementation (flatten the curve, apply the box) that
+  passes a naive test. Phase 6's done-when asserts the **ratio** between the span's first and last
+  gap is preserved, which is what catches it.
+- **OSMD's interpretation may be musically wrong**, for an ornament's realisation, for
+  `MidiVolume`'s range, or for `getInterpolatedTempo`'s curve. Inherited by decision (ADR-0018).
+  Phase 9 items 3, 5 and 6 are the checks, and the response is to stop reading that mark rather
+  than to start second-guessing the library.
+- **`createVoiceEntriesForOrnament` may behave differently than its signature suggests** — it is an
+  instance method on `VoiceEntry` in OSMD 2.1.2's typings and its use inside OSMD is for playback,
+  not for our extraction path. If it throws, returns empty, or needs state the extractor does not
+  have, **Phase 3 stops and says so**: the fallback is to mark the principal note's group as
+  accepting surplus without expanding, which fixes the scoring bug and not the demonstration, and
+  that is a design change for the architect rather than an improvisation.
+- **`ContinuousTempoType` has fifteen values and not all are ramps.** `rubato` in particular is a
+  direction to a human. Phase 6 reads a subset and records which; a mark ignored is better than one
+  guessed at.
 - **The field rename collides with Plan 0009 if both are in flight.** That plan is parked and works
   in `core/src/align/`, which reads `scoredNotes` rather than the field; the collision is one
   identifier, not a design conflict. Whichever lands second rebases over the rename. **Do not run
   these two in parallel worktrees** without agreeing that first.
 - **The practice path still validates nothing.** This plan fixes the defect that asymmetry hid; it
   does not fix the asymmetry. A timeline built in the renderer for practice is still unchecked, so
-  the next extractor bug will again surface on one path out of two. Named as a followup rather than
-  widened into here, because parsing it on the practice path costs NFR 12 turnaround and wants its
-  own measurement.
+  the next extractor bug will again surface on one path out of two. A followup, because parsing on
+  the practice path costs NFR 12 turnaround and wants its own measurement.
 - **Fixture churn hides regressions if it is not mechanical.** Six committed timelines change in
-  Phase 3. The e2e case that pins them is the guard, and the done-when says the diff must be *only*
-  the rename — a timeline whose onsets moved during a rename is a bug, not a regeneration.
+  Phase 3 and gain fields in Phases 5 to 7. The e2e case that pins them is the guard, and Phase 3's
+  done-when says its diff must be *only* the rename — a timeline whose onsets moved during a rename
+  is a bug, not a regeneration.
+- **This is nine phases, which is long for one plan.** It is one plan by decision, because every
+  phase amends the same schema and a second pass would mean a second fixture migration and a second
+  e2e timeline-pinning update. The natural stopping point if it has to be split is **after Phase 4**:
+  the two live defects and pedal are fixed, and Phases 5 to 9 are the expressive layer.
 - **Offline and latency are untouched.** No new dependency (NFR 9), no network, nothing added to
-  the MIDI-in path. NFR 12 and 13 are re-reported from the gate run rather than claimed.
+  the MIDI-in path. NFR 12, 13 and 14 are re-reported from the gate run.
 
 ## What this plan does NOT do
 
-- **No dynamics.** A hairpin reaching velocity amends ADR-0005's tempo-free, dynamics-free premise
-  and needs its own ADR. Playback's fixed velocity of 72 stands.
-- **No fingering.** OSMD already draws it; it changes neither what is played nor how it is judged.
-  It enters the data the day the coach comments on it.
-- **No articulation** — staccato, accent, slur. `VoiceEntry` exposes them and this plan deliberately
-  reads none: they change how a note is *played*, which is a scoring question this model has no
-  vocabulary for yet.
+- **It does not judge expression.** No verdict, count or colour changes because of a dynamic, a
+  tempo mark or an articulation. ADR-0021 Alternative A is the plan that would, and it needs its own
+  interview — starting with whether *relative* dynamics within a phrase can be judged where absolute
+  ones cannot, because a MIDI velocity is the CK88's curve and not the composer's intent.
+- **It does not describe dynamics**, only play them. Annotation is tempo-only, because tempo is
+  where an observation the report already makes coincides with something the page already says.
+- **It never reports the absence of observance.** "You did not slow where the score asks" is a
+  judgement wearing a description's clothes.
+- **No fingering.** OSMD draws it; it changes neither what is played nor how it is judged, and it
+  enters the data the day the coach comments on it.
+- **No slurs or phrase marks.** They are neither a note property nor a simple span with a number
+  attached, and phrasing a legato line is a synthesis problem, not an extraction one.
 - **No validation on the practice path.** See the risk above.
-- **Nothing about how an ornament is drawn.** Plan 0007 owns glyphs, and ADR-0018 records the one
+- **Nothing about how any of this is drawn.** Plan 0007 owns glyphs, and ADR-0018 records the one
   obligation this plan hands it: an expanded ornament note has no notehead of its own.
 
 ## Implementation log
@@ -342,11 +577,16 @@ type ExpectedTimeline = {
 | 2 — A bar may be empty | dev | not started | |
 | 3 — A turn is played, and costs nothing to play | dev | not started | |
 | 4 — The pedal goes down | dev | not started | |
-| 5 — At the piano | human | not started | |
+| 5 — The music gets louder and softer | dev | not started | |
+| 6 — The music breathes | dev | not started | |
+| 7 — Short notes are short | dev | not started | |
+| 8 — The report says where the score asked | dev | not started | |
+| 9 — At the piano | human | not started | |
 
 ### Measurements
 
-_(NFR 12 and 13 re-reported from the gate run; no new row is claimed)_
+_(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note which
+`ContinuousTempoType` values Phase 6 reads, and the taste constants Phases 6 and 7 chose.)_
 
 ### Notes
 
@@ -361,13 +601,16 @@ _(deviations, unmet done-whens, followups noticed and not acted on; one line eac
 
 ## Followups (after this lands)
 
-- **Validate the timeline on the practice path too**, or decide deliberately that it stays
-  unchecked there. The asymmetry that hid the zero-beats bug is still present.
-- **Dynamics**, as an ADR amending ADR-0005 — the first sign that changes a *number* rather than a
-  set of notes.
-- **Articulation**, once there is a scoring vocabulary for how a note was played rather than
-  whether it was.
-- **A trill's realisation as a setting**, if Phase 5 item 3 finds OSMD's choice misleading for one
+- **Judging expression**, as its own plan and interview. ADR-0021's Alternative A names what it
+  would have to reopen; Plan 0001 Phase 7's measured velocity range is where it should start.
+- **Describing dynamics**, if Phase 9 item 5 suggests the player wants to be told about them. It
+  needs an observation for the annotation to attach to, which today does not exist.
+- **Validate the timeline on the practice path too**, or decide deliberately that it stays unchecked
+  there. The asymmetry that hid the zero-beats bug is still present.
+- **A trill's realisation as a setting**, if Phase 9 item 3 finds OSMD's choice misleading for one
   kind rather than all of them.
+- **The taste constants as settings**, if Phase 9 item 7 finds the fermata hold or the staccato
+  factor wrong in a way that is a matter of preference rather than of correctness.
+- **Slurs and phrasing**, which this plan cut and which is the largest remaining expressive gap.
 - **Over-pedalling as an observation.** The timeline now knows where the pedal should lift; a take
   knows where it did. Nothing compares them, and the coach would have something to say if it could.
