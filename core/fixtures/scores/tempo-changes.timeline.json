@@ -1,8 +1,8 @@
 {
-  "scoreId": "0000000000000000000000000000f1a7",
+  "scoreId": "99497d91d9b7702ebc02dcbe78ffca9d",
   "notes": [
     {
-      "midi": 67,
+      "midi": 60,
       "onset": 0,
       "duration": 1,
       "bar": 0,
@@ -14,22 +14,10 @@
       "fermata": false
     },
     {
-      "midi": 48,
+      "midi": 62,
       "onset": 1,
-      "duration": 4,
-      "bar": 1,
-      "staff": 1,
-      "voice": 5,
-      "tied": false,
-      "optional": false,
-      "ornament": null,
-      "fermata": false
-    },
-    {
-      "midi": 60,
-      "onset": 1,
-      "duration": 2,
-      "bar": 1,
+      "duration": 1,
+      "bar": 0,
       "staff": 0,
       "voice": 1,
       "tied": false,
@@ -39,9 +27,21 @@
     },
     {
       "midi": 64,
-      "onset": 1,
-      "duration": 2,
-      "bar": 1,
+      "onset": 2,
+      "duration": 1,
+      "bar": 0,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "optional": false,
+      "ornament": null,
+      "fermata": false
+    },
+    {
+      "midi": 65,
+      "onset": 3,
+      "duration": 1,
+      "bar": 0,
       "staff": 0,
       "voice": 1,
       "tied": false,
@@ -51,30 +51,6 @@
     },
     {
       "midi": 67,
-      "onset": 1,
-      "duration": 2,
-      "bar": 1,
-      "staff": 0,
-      "voice": 1,
-      "tied": false,
-      "optional": false,
-      "ornament": null,
-      "fermata": false
-    },
-    {
-      "midi": 62,
-      "onset": 3,
-      "duration": 1,
-      "bar": 1,
-      "staff": 0,
-      "voice": 1,
-      "tied": false,
-      "optional": false,
-      "ornament": null,
-      "fermata": false
-    },
-    {
-      "midi": 64,
       "onset": 4,
       "duration": 1,
       "bar": 1,
@@ -86,32 +62,44 @@
       "fermata": false
     },
     {
-      "midi": 53,
+      "midi": 69,
       "onset": 5,
-      "duration": 4,
-      "bar": 2,
-      "staff": 1,
-      "voice": 5,
+      "duration": 1,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
       "tied": false,
       "optional": false,
       "ornament": null,
       "fermata": false
     },
     {
-      "midi": 59,
-      "onset": 5,
-      "duration": 0,
-      "bar": 2,
+      "midi": 71,
+      "onset": 6,
+      "duration": 1,
+      "bar": 1,
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "optional": true,
+      "optional": false,
       "ornament": null,
       "fermata": false
     },
     {
       "midi": 72,
-      "onset": 5,
+      "onset": 7,
+      "duration": 1,
+      "bar": 1,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "optional": false,
+      "ornament": null,
+      "fermata": false
+    },
+    {
+      "midi": 74,
+      "onset": 8,
       "duration": 1,
       "bar": 2,
       "staff": 0,
@@ -122,8 +110,8 @@
       "fermata": false
     },
     {
-      "midi": 74,
-      "onset": 6,
+      "midi": 76,
+      "onset": 9,
       "duration": 1,
       "bar": 2,
       "staff": 0,
@@ -135,7 +123,7 @@
     },
     {
       "midi": 77,
-      "onset": 7,
+      "onset": 10,
       "duration": 1,
       "bar": 2,
       "staff": 0,
@@ -147,54 +135,18 @@
     },
     {
       "midi": 79,
-      "onset": 8,
-      "duration": 2,
+      "onset": 11,
+      "duration": 1,
       "bar": 2,
       "staff": 0,
       "voice": 1,
-      "tied": true,
-      "optional": false,
-      "ornament": null,
-      "fermata": false
-    },
-    {
-      "midi": 50,
-      "onset": 10,
-      "duration": 3,
-      "bar": 3,
-      "staff": 1,
-      "voice": 5,
       "tied": false,
       "optional": false,
       "ornament": null,
       "fermata": false
     },
     {
-      "midi": 76,
-      "onset": 10,
-      "duration": 1,
-      "bar": 3,
-      "staff": 0,
-      "voice": 1,
-      "tied": false,
-      "optional": false,
-      "ornament": null,
-      "fermata": false
-    },
-    {
-      "midi": 74,
-      "onset": 11,
-      "duration": 1,
-      "bar": 3,
-      "staff": 0,
-      "voice": 1,
-      "tied": false,
-      "optional": false,
-      "ornament": null,
-      "fermata": false
-    },
-    {
-      "midi": 72,
+      "midi": 81,
       "onset": 12,
       "duration": 1,
       "bar": 3,
@@ -206,21 +158,57 @@
       "fermata": false
     },
     {
-      "midi": 48,
+      "midi": 79,
       "onset": 13,
-      "duration": 4,
-      "bar": 4,
-      "staff": 1,
-      "voice": 5,
+      "duration": 1,
+      "bar": 3,
+      "staff": 0,
+      "voice": 1,
       "tied": false,
       "optional": false,
       "ornament": null,
       "fermata": false
     },
     {
-      "midi": 64,
-      "onset": 13,
-      "duration": 4,
+      "midi": 77,
+      "onset": 14,
+      "duration": 1,
+      "bar": 3,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "optional": false,
+      "ornament": null,
+      "fermata": false
+    },
+    {
+      "midi": 76,
+      "onset": 15,
+      "duration": 1,
+      "bar": 3,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "optional": false,
+      "ornament": null,
+      "fermata": false
+    },
+    {
+      "midi": 74,
+      "onset": 16,
+      "duration": 1,
+      "bar": 4,
+      "staff": 0,
+      "voice": 1,
+      "tied": false,
+      "optional": false,
+      "ornament": null,
+      "fermata": true
+    },
+    {
+      "midi": 72,
+      "onset": 17,
+      "duration": 1,
       "bar": 4,
       "staff": 0,
       "voice": 1,
@@ -230,9 +218,9 @@
       "fermata": false
     },
     {
-      "midi": 67,
-      "onset": 13,
-      "duration": 4,
+      "midi": 71,
+      "onset": 18,
+      "duration": 1,
       "bar": 4,
       "staff": 0,
       "voice": 1,
@@ -243,8 +231,8 @@
     },
     {
       "midi": 72,
-      "onset": 13,
-      "duration": 4,
+      "onset": 19,
+      "duration": 1,
       "bar": 4,
       "staff": 0,
       "voice": 1,
@@ -258,30 +246,63 @@
     {
       "index": 0,
       "onset": 0,
-      "beats": 1
+      "beats": 4
     },
     {
       "index": 1,
-      "onset": 1,
+      "onset": 4,
       "beats": 4
     },
     {
       "index": 2,
-      "onset": 5,
+      "onset": 8,
       "beats": 4
     },
     {
       "index": 3,
-      "onset": 9,
+      "onset": 12,
       "beats": 4
     },
     {
       "index": 4,
-      "onset": 13,
+      "onset": 16,
       "beats": 4
     }
   ],
   "pedal": [],
   "dynamics": [],
-  "tempo": []
+  "tempo": [
+    {
+      "at": 0,
+      "kind": "metronome",
+      "bpm": 120,
+      "label": "quarter = 120"
+    },
+    {
+      "at": 4,
+      "kind": "ramp",
+      "direction": "slower",
+      "until": 8,
+      "label": "rit."
+    },
+    {
+      "at": 8,
+      "kind": "return",
+      "to": "previous",
+      "label": "a tempo"
+    },
+    {
+      "at": 12,
+      "kind": "ramp",
+      "direction": "faster",
+      "until": 16,
+      "label": "accel."
+    },
+    {
+      "at": 16,
+      "kind": "return",
+      "to": "previous",
+      "label": "a tempo"
+    }
+  ]
 }

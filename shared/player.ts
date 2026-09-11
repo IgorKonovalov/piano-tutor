@@ -16,9 +16,10 @@ import { TakeIdSchema, TakeReplayRequestSchema } from './take'
  */
 
 /**
- * What playback supplies where a score states nothing: a tempo, and a velocity
- * for a passage with no dynamic marked (ADR-0005 keeps the timeline's onsets
- * tempo-free; ADR-0018 adds the page's own marks beside them). They are
+ * What playback supplies where a score states nothing: a tempo before the
+ * page's first tempo mark, and a velocity for a passage with no dynamic marked
+ * (ADR-0005 keeps the timeline's onsets tempo-free; ADR-0018 adds the page's
+ * own marks beside them). They are
  * constants here rather than choices made somewhere in the code, because a
  * score quietly acquiring a tempo or a loudness it never had is the failure
  * mode.
@@ -105,7 +106,12 @@ export const PlayRequestSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('timeline'),
     timeline: ExpectedTimelineSchema,
-    bpm: z.number(),
+    /**
+     * The player's tempo, when they set one. Absent, the page's own tempo
+     * plays; present, it replaces the written tempo at `fromBar` and scales
+     * the rest of the page's tempo with it (ADR-0018).
+     */
+    bpm: z.number().optional(),
     /** Inclusive, in OSMD's own bar numbering. */
     fromBar: z.number().int().nonnegative(),
     toBar: z.number().int().nonnegative(),

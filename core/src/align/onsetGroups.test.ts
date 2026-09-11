@@ -181,6 +181,7 @@ function written(
     tied: false,
     optional: marks.optional ?? false,
     ornament: marks.ornament ?? null,
+    fermata: false,
   }
 }
 
@@ -203,6 +204,7 @@ function turnTimeline(): ExpectedTimeline {
     bars: [{ index: 0, onset: 0, beats: 2 }],
     pedal: [],
     dynamics: [],
+    tempo: [],
   }
 }
 

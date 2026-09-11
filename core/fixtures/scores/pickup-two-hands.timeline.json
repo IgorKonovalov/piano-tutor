@@ -10,7 +10,8 @@
       "voice": 5,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 55,
@@ -21,7 +22,8 @@
       "voice": 5,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 67,
@@ -32,7 +34,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 72,
@@ -43,7 +46,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 48,
@@ -54,7 +58,8 @@
       "voice": 5,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 55,
@@ -65,7 +70,8 @@
       "voice": 5,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 72,
@@ -76,7 +82,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 76,
@@ -87,7 +94,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 79,
@@ -98,7 +106,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 43,
@@ -109,7 +118,8 @@
       "voice": 5,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 50,
@@ -120,7 +130,8 @@
       "voice": 5,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 71,
@@ -131,7 +142,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 74,
@@ -142,7 +154,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 79,
@@ -153,7 +166,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 48,
@@ -164,7 +178,8 @@
       "voice": 5,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 55,
@@ -175,7 +190,8 @@
       "voice": 5,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 72,
@@ -186,7 +202,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 76,
@@ -197,7 +214,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     },
     {
       "midi": 79,
@@ -208,7 +226,8 @@
       "voice": 1,
       "tied": false,
       "optional": false,
-      "ornament": null
+      "ornament": null,
+      "fermata": false
     }
   ],
   "bars": [
@@ -234,5 +253,6 @@
     }
   ],
   "pedal": [],
-  "dynamics": []
+  "dynamics": [],
+  "tempo": []
 }

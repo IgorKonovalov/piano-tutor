@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { ExpectedTimelineSchema, type ExpectedTimeline } from '../../shared/score'
 import { canonicalTimeline, roundQuarters } from '../../core/src/score/timeline'
-import { timelineFromOsmd } from './timelineFromOsmd'
+import { RAMP_WORDS, normaliseTempoWord, timelineFromOsmd } from './timelineFromOsmd'
 
 /**
  * The adapter against the committed timelines, headless.
@@ -64,6 +64,7 @@ it('has a committed timeline for every fixture score', () => {
     'pedal',
     'pickup-two-hands',
     'scale-c-major',
+    'tempo-changes',
   ])
 })
 
@@ -235,6 +236,63 @@ describe('dynamics, read off the same expressions (ADR-0018)', () => {
     for (const { name, expected } of CASES) {
       if (name === 'dynamics') continue
       expect(ExpectedTimelineSchema.parse(JSON.parse(expected)).dynamics, name).toEqual([])
+    }
+  })
+})
+
+describe('tempo marks, read by what the page wrote (ADR-0018)', () => {
+  const fixture = CASES.find((c) => c.name === 'tempo-changes')
+  if (fixture === undefined) throw new Error('the tempo-changes fixture is missing')
+
+  async function load(): Promise<OpenSheetMusicDisplay> {
+    const osmd = new OpenSheetMusicDisplay(host, { autoResize: false, backend: 'svg' })
+    await osmd.load(fixture?.xml ?? '')
+    return osmd
+  }
+
+  it('holds the metronome mark, both ramps and both returns, and one fermata', async () => {
+    const timeline = timelineFromOsmd((await load()).Sheet, '0'.repeat(32))
+    expect(timeline.tempo).toEqual([
+      { at: 0, kind: 'metronome', bpm: 120, label: 'quarter = 120' },
+      { at: 4, kind: 'ramp', direction: 'slower', until: 8, label: 'rit.' },
+      { at: 8, kind: 'return', to: 'previous', label: 'a tempo' },
+      { at: 12, kind: 'ramp', direction: 'faster', until: 16, label: 'accel.' },
+      { at: 16, kind: 'return', to: 'previous', label: 'a tempo' },
+    ])
+    expect(timeline.notes.filter((note) => note.fermata).map((n) => [n.midi, n.onset])).toEqual([
+      [74, 16],
+    ])
+  })
+
+  it('reads a ramp word only where OSMD itself lists it, going the same way', async () => {
+    // The table is a filter over OSMD's classification, not a classifier of
+    // ours: every word in it must sit in OSMD's own list for its direction.
+    const osmd = await load()
+    const gradual = osmd.Sheet.SourceMeasures.flatMap((m) => m.TempoExpressions)
+      .map((expression) => expression.ContinuousTempo)
+      .find((tempo) => tempo !== undefined && tempo !== null)
+    expect(gradual).toBeDefined()
+    const lists = gradual?.constructor as unknown as {
+      listContinuousTempoSlower: string[]
+      listContinuousTempoFaster: string[]
+    }
+    const slower = lists.listContinuousTempoSlower.map(normaliseTempoWord)
+    const faster = lists.listContinuousTempoFaster.map(normaliseTempoWord)
+    expect(slower.length).toBeGreaterThan(0)
+    expect(faster.length).toBeGreaterThan(0)
+
+    for (const [word, direction] of RAMP_WORDS) {
+      expect(direction === 'slower' ? slower : faster, word).toContain(word)
+      expect(direction === 'slower' ? faster : slower, word).not.toContain(word)
+    }
+  })
+
+  it('is empty, with no fermata, for every score that marks no tempo', () => {
+    for (const { name, expected } of CASES) {
+      if (name === 'tempo-changes') continue
+      const timeline = ExpectedTimelineSchema.parse(JSON.parse(expected))
+      expect(timeline.tempo, name).toEqual([])
+      expect(timeline.notes.some((note) => note.fermata), name).toBe(false)
     }
   })
 })

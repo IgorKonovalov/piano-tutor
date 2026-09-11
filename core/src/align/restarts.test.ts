@@ -115,6 +115,7 @@ function repeatedTimeline(): ExpectedTimeline {
       tied: false,
       optional: false,
       ornament: null,
+      fermata: false,
     }))
   )
   return ExpectedTimelineSchema.parse({
@@ -123,5 +124,6 @@ function repeatedTimeline(): ExpectedTimeline {
     bars: [0, 1, 2].map((index) => ({ index, onset: index * 4, beats: 4 })),
     pedal: [],
     dynamics: [],
+    tempo: [],
   })
 }

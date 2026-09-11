@@ -4,6 +4,7 @@ import type {
   ExpectedNote,
   ExpectedTimeline,
   PedalMark,
+  TempoMark,
 } from '../../../shared/score'
 
 /**
@@ -16,7 +17,25 @@ import type {
  * reads a clock, and nothing here knows a tempo.
  */
 
-export type { DynamicMark, ExpectedBar, ExpectedNote, ExpectedTimeline, PedalMark }
+export type { DynamicMark, ExpectedBar, ExpectedNote, ExpectedTimeline, PedalMark, TempoMark }
+
+/** Where a tempo mark goes among others at its instant. */
+const TEMPO_MARK_ORDER: Record<TempoMark['kind'], number> = {
+  return: 0,
+  metronome: 1,
+  word: 1,
+  ramp: 2,
+}
+
+/**
+ * Tempo marks in the order playback applies them: by position, and at one
+ * position a return, then a metronome mark or word, then a ramp. So a
+ * metronome mark written beside `a tempo` wins, and a ramp that starts there
+ * starts from it.
+ */
+export function compareTempoMarks(a: TempoMark, b: TempoMark): number {
+  return a.at - b.at || TEMPO_MARK_ORDER[a.kind] - TEMPO_MARK_ORDER[b.kind]
+}
 
 /** By position, and at one position a step mark ahead of a hairpin, then by staff. */
 export function compareDynamicMarks(a: DynamicMark, b: DynamicMark): number {
@@ -151,6 +170,7 @@ export function canonicalTimeline(timeline: ExpectedTimeline): string {
     tied: note.tied,
     optional: note.optional,
     ornament: note.ornament,
+    fermata: note.fermata,
   }))
   const bars = timeline.bars.map((bar) => ({
     index: bar.index,
@@ -170,7 +190,30 @@ export function canonicalTimeline(timeline: ExpectedTimeline): string {
     until: mark.until === null ? null : roundQuarters(mark.until),
     endVelocity: mark.endVelocity,
   }))
-  return `${JSON.stringify({ scoreId: timeline.scoreId, notes, bars, pedal, dynamics }, null, 2)}\n`
+  const tempo = timeline.tempo.map((mark) => {
+    const at = roundQuarters(mark.at)
+    switch (mark.kind) {
+      case 'metronome':
+      case 'word':
+        return { at, kind: mark.kind, bpm: roundQuarters(mark.bpm), label: mark.label }
+      case 'ramp':
+        return {
+          at,
+          kind: mark.kind,
+          direction: mark.direction,
+          until: roundQuarters(mark.until),
+          label: mark.label,
+        }
+      case 'return':
+        return { at, kind: mark.kind, to: mark.to, label: mark.label }
+    }
+  })
+  const text = JSON.stringify(
+    { scoreId: timeline.scoreId, notes, bars, pedal, dynamics, tempo },
+    null,
+    2
+  )
+  return `${text}\n`
 }
 
 /**

@@ -845,7 +845,7 @@ section names cannot happen.
 | 4 — A turn is played, and costs nothing to play | dev | done | b3db5b8 |
 | 5 — The pedal goes down | dev | done | d182ad6 |
 | 6 — The music gets louder and softer | dev | done | 97175f8 |
-| 7 — The music breathes | dev | not started (stopped, see "Phase 7 stopped" below) | |
+| 7 — The music breathes | dev | done | committed with this row |
 | 8 — Short notes are short | dev | not started | |
 | 9 — The report says where the score asked | dev | not started | |
 | 10 — At the piano | human | not started | |
@@ -854,6 +854,12 @@ section names cannot happen.
 
 _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note which
 `ContinuousTempoType` values Phase 7 reads, and the taste constants Phases 7 and 8 chose.)_
+
+- **Phase 7's taste constants, starting values**, in `core/src/player/tempoMap.ts`:
+  `RAMP_CHANGE` 0.2 and `FERMATA_HOLD` 2.
+- **Phase 7 reads no `ContinuousTempoType` value.** A ramp is read by its normalised label:
+  `rit`, `ritard`, `ritardando`, `rallentando` (slower), `accel`, `accelerando` (faster). A
+  return is read by its label: `a tempo` (previous), `tempo primo` and `tempo i` (first).
 
 ### Notes
 
@@ -979,6 +985,35 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
 - Phase 6 touched `shared/player.ts` for `PLAYBACK_VELOCITY`'s comment, as the phase asks, and
   also rewrote that file's block comment, which said the timeline "carries no dynamics".
 - **Phase 6's full gate:** 777 unit tests and 37 of 37 e2e, first run.
+- **Phase 7: the player's tempo is carried by making `PlayRequest`'s `bpm` optional.** Absent,
+  the page's tempo plays. Present, it is the override. The Score view sends it only once the
+  player has typed a value, and a new score resets it. `electron/ipc/playerHandlers.ts` needed
+  no change. The transport labels the page's value "bpm, as written" and carries
+  `data-written`. `PlaybackSource.bpm` is now the tempo at the range start after any override.
+- **Phase 7 classifies by label before bpm.** A return word, then a ramp word, is tested
+  before a word with a positive bpm. So a `rit.` carrying `<sound tempo>` is read as a ramp and
+  not as a word. A continuous mark is read only as a ramp or a return.
+- **Not read by Phase 7:** metronome marks in any beat unit but an undotted quarter (followup),
+  and every word outside the two tables: `rubato`, `doppio movimento`, `ritenuto`, `riten`,
+  `meno mosso`, `piu mosso`, `poco meno`, `poco piu`, `piu lento`, `calando`, `allargando`,
+  `stretto`, `rall...`. None occurs in a fixture.
+- **A mark arriving inside a ramp cuts it** at the tempo it has reached. Marks at one instant
+  each leave a zero-length piece, so the next mark starts from the one before it.
+- **The ramp-word test reads OSMD 2.1.2's lists through the parsed `ContinuousTempo`'s
+  constructor:** slower `poco meno`, `meno mosso`, `piu lento`, `calando`, `allargando`,
+  `rallentando`, `ritardando`, `ritenuto`, `ritard.`, `ritard`, `rit.`, `rit`, `riten.`, `riten`;
+  faster `accelerando`, `accel`, `piu mosso`, `poco piu`, `stretto`.
+- `tempo-changes.musicxml`'s header comment was rewritten to the ruling, which changed its bytes
+  and its score id. The timeline was regenerated twice. The diff of the other nine committed
+  timelines is only `"fermata": false` on every note, `"tempo": []`, and a comma after
+  `"dynamics"` and `"ornament"`.
+- **Phase 7's gate:** typecheck, lint, both Node gates green. `npm test`'s first run had two
+  reds. One was a `tempoMap` defect: a ramp at the same instant as a metronome mark started from
+  the fallback. It was fixed before the commit. The other was
+  `electron/take/Recorder.test.ts > a real process killed outright > leaves a take that still
+  reads back`, failing with "expected 0 to be greater than 0" at line 290. That file passed 19 of
+  19 when rerun alone, and the full suite rerun passed 804 of 804.
+  `npm run test:e2e -- e2e/player.spec.ts e2e/score.spec.ts` passed 24 of 24, first run.
 
 ### Phase 3 stopped: `createVoiceEntriesForOrnament` misbehaves, and it is a design question
 
@@ -1026,21 +1061,10 @@ does reach the sounding pitch — the realised upper note is A#4, halfTone 70, n
 mordent's `AccidentalBelow` is ignored, its upper note arriving as C5 natural. Also worth
 recording: `AccidentalEnum.NONE` is `2`, so an unset ornament accidental reads `2` and not `0`.
 
-### Phase 7 stopped: OSMD 2.1.2 does not read tempo words as tempo (resume scaffolding)
+### Phase 7 stopped: OSMD 2.1.2 does not read tempo words as tempo
 
-The run stopped inside Phase 7, at the user's request to stop there, and on a finding that needs
-an architect ruling. **Phase 7's code is uncommitted in the working tree at the stop.**
-
-- **Done, uncommitted.** The schema gained `tempo: TempoMark[]` and `ExpectedNote.fermata`.
-  The mechanical sites gained `fermata: false` and `tempo: []`: the MIDI adapter, the
-  hand-built test timelines and every committed timeline, all regenerated. `canonicalTimeline`
-  emits both. The extractor gained `hasFermata` (upright and inverted) and `readTempo`. The
-  fixture `tempo-changes.musicxml` was added to `FIXTURE_SCORES` and to the jsdom glob list.
-- **Not done.** The scheduler's tempo map and fermata hold, the `FERMATA_HOLD` constant, the
-  transport showing the written tempo, and every Phase 7 test.
-- **Known defect in the uncommitted code.** A metronome mark has `Label` undefined in OSMD, so
-  `readTempo` writes a mark with no `label` and the regenerated `tempo-changes.timeline.json`
-  fails its schema.
+The run stopped inside Phase 7, at the user's request, on a finding that needed an architect
+ruling. The ruling is amendment items 6 to 9, and Phase 7 then landed against it.
 
 **What OSMD 2.1.2 holds for `tempo-changes.musicxml`**, read by a throwaway jsdom probe that was
 since deleted:
@@ -1059,15 +1083,6 @@ span, and take the direction from the ramp's type. The probe shows that ruling d
 the common case, because `rit.` never becomes a ramp at all. **Of the marks Phase 7 claims, the
 only one OSMD resolves correctly here is the metronome mark.** Whether a plain Italian word
 (`Allegro`) gets OSMD's default value was not tested.
-
-**Options for the architect**, with no recommendation from this lane:
-
-- Read metronome marks, and the tempo words OSMD resolves to a positive tempo, plus fermatas.
-  Read no ramps. Phase 7's rit. and accel. done-when is recorded unmet, and the override is
-  tested on a step change.
-- Read `rit.` and `accel.` from their labels with a curve of our own. That is the interpreter
-  ADR-0018 refuses to own.
-- Something else, in a revision of ADR-0018.
 
 ### Close triggers
 

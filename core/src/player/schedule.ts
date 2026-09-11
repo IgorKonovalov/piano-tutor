@@ -17,6 +17,7 @@ import {
   clampBpm,
 } from '../../../shared/player'
 import type { DynamicMark, ExpectedTimeline } from '../../../shared/score'
+import { type TempoMap, tempoMap } from './tempoMap'
 
 /**
  * A schedule is the whole of playback that can be got wrong without a device
@@ -207,7 +208,11 @@ export function scheduleFromEvents(
 }
 
 export interface TimelineScheduleOptions {
-  /** Quarter notes per minute. Clamped; the timeline states none (ADR-0005). */
+  /**
+   * The player's tempo, in quarter notes per minute, clamped. It replaces the
+   * page's tempo at the range start and scales the rest with it. Absent, the
+   * page's own tempo plays, and `DEFAULT_BPM` wherever the page has none.
+   */
   bpm?: number
   /** One velocity for every note, in place of the page's dynamics. */
   velocity?: number
@@ -234,38 +239,51 @@ export function scheduleFromTimeline(
   timeline: ExpectedTimeline,
   options: TimelineScheduleOptions = {}
 ): PlaybackSchedule {
-  const bpm = clampBpm(options.bpm ?? DEFAULT_BPM)
   const fixed = options.velocity
   const velocityOf = fixed === undefined ? pageVelocity(timeline) : () => fixed
-  const msPerQuarter = 60000 / bpm
 
   const first = options.fromBar ?? timeline.bars[0]?.index ?? 0
   const last = options.toBar ?? timeline.bars[timeline.bars.length - 1]?.index ?? first
   const selected = timeline.bars.filter((bar) => bar.index >= first && bar.index <= last)
-
-  const source: PlaybackSource = { kind: 'timeline', fromBar: first, toBar: last, bpm }
-  if (selected.length === 0) return { source, durationMs: 0, events: [], bars: [] }
+  const inRange = timeline.notes.filter((note) => note.bar >= first && note.bar <= last)
 
   const originQuarters = selected[0]?.onset ?? 0
   const endBar = selected[selected.length - 1]
   const endQuarters = endBar === undefined ? originQuarters : endBar.onset + endBar.beats
 
+  // Every millisecond below comes through the map: note-ons, note-offs, the
+  // pedal and the bars alike, so a fermata or a rit. moves all of them together.
+  const map = tempoMap({
+    tempo: timeline.tempo,
+    from: originQuarters,
+    fallbackBpm: DEFAULT_BPM,
+    overrideBpm: options.bpm === undefined ? undefined : clampBpm(options.bpm),
+    fermatas: inRange.filter((note) => note.fermata),
+  })
+
+  const source: PlaybackSource = {
+    kind: 'timeline',
+    fromBar: first,
+    toBar: last,
+    bpm: map.bpmAtStart,
+  }
+  if (selected.length === 0) return { source, durationMs: 0, events: [], bars: [] }
+
   const events: ScheduledEvent[] = []
-  for (const note of timeline.notes) {
-    if (note.bar < first || note.bar > last) continue
+  for (const note of inRange) {
     // A scored note carrying an ornament is sounded by its realisation, which
     // follows it in the timeline and re-strikes its pitch (ADR-0018). Sounding
     // it too would hold a key the ornament is about to strike again.
     if (!note.optional && note.ornament !== null) continue
 
-    const at = (note.onset - originQuarters) * msPerQuarter
+    const at = map.ms(note.onset)
     // A tie is already summed by the timeline, so it is one strike of one key.
     // A grace note has no length of its own; a realised ornament note does.
     const grace = note.optional && note.ornament === null
-    const sounding =
-      grace || note.duration === 0 ? GRACE_NOTE_MS : note.duration * msPerQuarter
-    const gap = Math.min(RELEASE_GAP_MS, RELEASE_GAP_FRACTION * sounding)
-    const offAt = at + sounding - gap
+    const endAt =
+      grace || note.duration === 0 ? at + GRACE_NOTE_MS : map.ms(note.onset + note.duration)
+    const gap = Math.min(RELEASE_GAP_MS, RELEASE_GAP_FRACTION * (endAt - at))
+    const offAt = endAt - gap
 
     events.push({
       at,
@@ -283,17 +301,11 @@ export function scheduleFromTimeline(
     })
   }
 
-  events.push(...pedalEvents(timeline, originQuarters, endQuarters, msPerQuarter))
+  events.push(...pedalEvents(timeline, originQuarters, endQuarters, map))
 
-  const bars: ScheduleBar[] = selected.map((bar) => ({
-    bar: bar.index,
-    at: (bar.onset - originQuarters) * msPerQuarter,
-  }))
+  const bars: ScheduleBar[] = selected.map((bar) => ({ bar: bar.index, at: map.ms(bar.onset) }))
 
-  return normaliseSchedule(events, source, {
-    bars,
-    durationMs: (endQuarters - originQuarters) * msPerQuarter,
-  })
+  return normaliseSchedule(events, source, { bars, durationMs: map.ms(endQuarters) })
 }
 
 /**
@@ -366,7 +378,7 @@ function pedalEvents(
   timeline: ExpectedTimeline,
   origin: number,
   end: number,
-  msPerQuarter: number
+  map: TempoMap
 ): ScheduledEvent[] {
   const events: ScheduledEvent[] = []
   let heldAtStart = false
@@ -376,7 +388,7 @@ function pedalEvents(
       continue
     }
     if (mark.at > end || (mark.down && mark.at === end)) continue
-    events.push(sustain((mark.at - origin) * msPerQuarter, mark.down))
+    events.push(sustain(map.ms(mark.at), mark.down))
   }
   if (heldAtStart) events.unshift(sustain(0, true))
   return events

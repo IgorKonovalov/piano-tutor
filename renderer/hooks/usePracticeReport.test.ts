@@ -34,6 +34,7 @@ function piece(bars: number): ExpectedTimeline {
           tied: false,
           optional: false,
           ornament: null,
+          fermata: false,
         })
       }
     }
@@ -44,6 +45,7 @@ function piece(bars: number): ExpectedTimeline {
     bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 4, beats: 4 })),
     pedal: [],
     dynamics: [],
+    tempo: [],
   }
 }
 

@@ -3,6 +3,7 @@ import samplerJson from '../../fixtures/playback/sampler.timeline.json'
 import ornamentsJson from '../../fixtures/scores/ornaments.timeline.json'
 import pedalJson from '../../fixtures/scores/pedal.timeline.json'
 import dynamicsJson from '../../fixtures/scores/dynamics.timeline.json'
+import tempoChangesJson from '../../fixtures/scores/tempo-changes.timeline.json'
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
 import {
   DEFAULT_BPM,
@@ -24,6 +25,7 @@ import {
   scheduleFromEvents,
   scheduleFromTimeline,
 } from './schedule'
+import { FERMATA_HOLD } from './tempoMap'
 
 /**
  * Five bars of 4/4 behind a one-beat anacrusis, carrying the four shapes a
@@ -41,6 +43,13 @@ const pedalled = ExpectedTimelineSchema.parse(pedalJson)
 
 /** pp, a crescendo to ff, and p in the right hand; one mf in the left. */
 const dynamics = ExpectedTimelineSchema.parse(dynamicsJson)
+
+/**
+ * One quarter note per beat, onsets 0 to 19: quarter = 120, a rit. over bar 1
+ * and a tempo at 8, an accel. over bar 3 and a tempo at 16, where D5 carries a
+ * fermata.
+ */
+const breathing = ExpectedTimelineSchema.parse(tempoChangesJson)
 
 function struck(schedule: PlaybackSchedule) {
   return schedule.events.filter((e) => e.event.kind === 'noteOn')
@@ -553,6 +562,116 @@ describe('the music gets louder and softer where the page says (ADR-0018)', () =
     expect(struck(schedule).every((e) => (e.event as { velocity: number }).velocity === 90)).toBe(
       true
     )
+  })
+})
+
+describe('the music breathes where the page says (ADR-0018)', () => {
+  /** Note-on times, which are one per onset in this fixture, so index k is onset k. */
+  const onsets = (schedule: PlaybackSchedule) => struck(schedule).map((e) => e.at)
+  /** gaps[k] is the time from onset k to onset k + 1. */
+  const gaps = (schedule: PlaybackSchedule) =>
+    onsets(schedule)
+      .slice(1)
+      .map((at, k) => at - (onsets(schedule)[k] ?? NaN))
+
+  const written = scheduleFromTimeline(breathing)
+  const withoutFermata: ExpectedTimeline = {
+    ...breathing,
+    notes: breathing.notes.map((note) => ({ ...note, fermata: false })),
+  }
+
+  it('plays at the metronome mark when the player has set no tempo', () => {
+    expect(onsets(written)).toHaveLength(20)
+    expect(written.source).toMatchObject({ kind: 'timeline', bpm: 120 })
+  })
+
+  it('slows strictly through the rit. and quickens strictly through the accel.', () => {
+    const g = gaps(written)
+    // G4 at 4 through D5 at 8, then A5 at 12 through D5 at 16.
+    for (let k = 5; k <= 7; k++) expect(g[k] ?? 0).toBeGreaterThan(g[k - 1] ?? Infinity)
+    for (let k = 13; k <= 15; k++) expect(g[k] ?? Infinity).toBeLessThan(g[k - 1] ?? 0)
+  })
+
+  it('returns to the written tempo at each a tempo', () => {
+    const g = gaps(written)
+    // Bar 1, bar 3, and bar 5 from C5 at 17 on: 500 ms a quarter at 120.
+    for (const k of [0, 1, 2, 3, 8, 9, 10, 11, 17, 18]) expect(g[k]).toBeCloseTo(500, 6)
+  })
+
+  it('keeps the shape under an override: every gap doubles at half the tempo', () => {
+    const halved = scheduleFromTimeline(breathing, { bpm: 60 })
+    const slow = gaps(halved)
+    const fast = gaps(written)
+    expect(slow).toHaveLength(fast.length)
+    for (const [k, gap] of fast.entries()) expect(slow[k]).toBeCloseTo(gap * 2, 6)
+    // So the rit. slows by the same ratio however fast it is played; a
+    // flattened curve would make this 1.
+    expect((slow[7] ?? 0) / (slow[4] ?? 1)).toBeCloseTo((fast[7] ?? 0) / (fast[4] ?? 1), 9)
+    expect((fast[7] ?? 0) / (fast[4] ?? 1)).toBeGreaterThan(1)
+    expect(halved.source).toMatchObject({ bpm: 60 })
+  })
+
+  it('holds the fermata, and everything after it waits by the same amount', () => {
+    const plain = scheduleFromTimeline(withoutFermata)
+    expect(written.events).toHaveLength(plain.events.length)
+
+    const d5 = (schedule: PlaybackSchedule) => {
+      const on = onsets(schedule)[16] ?? NaN
+      const off = released(schedule).find(
+        (e) => e.at > on && (e.event as { note: number }).note === 74
+      )
+      return (off?.at ?? NaN) - on
+    }
+    const x = d5(written) - d5(plain)
+    expect(x).toBeGreaterThan(0)
+    // The size is taste, but it is the one the constant says.
+    expect(x).toBeCloseTo((FERMATA_HOLD - 1) * 500, 6)
+
+    const d5Struck = onsets(plain)[16] ?? NaN
+    for (const [k, event] of plain.events.entries()) {
+      const moved = (written.events[k]?.at ?? NaN) - event.at
+      expect(written.events[k]?.event).toEqual({ ...event.event, t: written.events[k]?.at })
+      // Nothing up to D5's strike moves; D5's release and everything from 17 on waits.
+      expect(moved).toBeCloseTo(event.at <= d5Struck ? 0 : x, 6)
+    }
+    expect(written.durationMs - plain.durationMs).toBeCloseTo(x, 6)
+  })
+
+  it('starts a range at the tempo in force there, not at the end of the rit.', () => {
+    // Bar 2 begins at quarter 8, the a tempo after the rit.
+    const fromBar2 = scheduleFromTimeline(breathing, { fromBar: 2, toBar: 2 })
+    expect(fromBar2.bars[0]).toEqual({ bar: 2, at: 0 })
+    expect(gaps(fromBar2)[0]).toBeCloseTo(500, 6)
+    expect(fromBar2.source).toMatchObject({ bpm: 120 })
+  })
+
+  it('changes nothing for a timeline with no tempo marks', () => {
+    const unmarked: ExpectedTimeline = { ...withoutFermata, tempo: [] }
+    expect(onsets(scheduleFromTimeline(unmarked))).toEqual(
+      unmarked.notes.map((note) => (note.onset * 60000) / DEFAULT_BPM)
+    )
+    expect(onsets(scheduleFromTimeline(unmarked, { bpm: 120 }))).toEqual(
+      unmarked.notes.map((note) => note.onset * 500)
+    )
+  })
+
+  it('stays ordered and balanced over every range and tempo, the fermata included', () => {
+    for (const bpm of [undefined, MIN_BPM, 60, MAX_BPM]) {
+      for (const [fromBar, toBar] of [
+        [0, 4],
+        [1, 1],
+        [1, 3],
+        [3, 4],
+        [4, 4],
+      ] as const) {
+        const schedule = scheduleFromTimeline(breathing, { bpm, fromBar, toBar })
+        expect(outstandingAtEnd(schedule)).toEqual({ notes: [], pedals: [] })
+        expect(schedule.events.map((e) => e.at)).toEqual(
+          [...schedule.events.map((e) => e.at)].sort((a, b) => a - b)
+        )
+        expect(struck(schedule)).toHaveLength(released(schedule).length)
+      }
+    }
   })
 })
 

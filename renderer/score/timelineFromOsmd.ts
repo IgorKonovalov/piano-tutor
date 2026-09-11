@@ -1,4 +1,5 @@
 import {
+  ArticulationEnum,
   type Fraction,
   type KeyInstruction,
   type MusicSheet,
@@ -16,11 +17,13 @@ import type {
   ExpectedTimeline,
   OrnamentKind,
   PedalMark,
+  TempoMark,
 } from '../../shared/score'
 import {
   compareDynamicMarks,
   comparePedalMarks,
   compareNotes,
+  compareTempoMarks,
   roundQuarters,
 } from '../../core/src/score/timeline'
 
@@ -124,6 +127,7 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
               tied: tie !== undefined,
               optional: voiceEntry.IsGrace === true,
               ornament: realisation?.kind ?? null,
+              fermata: hasFermata(voiceEntry),
             })
 
             for (const realised of realisation?.notes ?? []) {
@@ -137,6 +141,8 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
                 tied: false,
                 optional: true,
                 ornament: realisation?.kind ?? null,
+                // The hold belongs to the written note; its principal carries it.
+                fermata: false,
               })
             }
           }
@@ -150,7 +156,116 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
   const pedal = [...found.pedal].sort(comparePedalMarks)
   const steps = [...found.steps].sort(compareDynamicMarks)
   const dynamics = [...steps, ...resolveHairpins(steps, found.hairpins)].sort(compareDynamicMarks)
-  return { scoreId, notes, bars, pedal, dynamics }
+  const lastBar = bars[bars.length - 1]
+  const end = lastBar === undefined ? 0 : roundQuarters(lastBar.onset + lastBar.beats)
+  return { scoreId, notes, bars, pedal, dynamics, tempo: readTempo(sheet, end) }
+}
+
+/** Both of OSMD's fermata signs, upright and inverted: each is a hold. */
+function hasFermata(entry: VoiceEntry): boolean {
+  return entry.Articulations.some(
+    (articulation) =>
+      articulation.articulationEnum === ArticulationEnum.fermata ||
+      articulation.articulationEnum === ArticulationEnum.invertedfermata
+  )
+}
+
+/**
+ * The ramps read, by normalised label, and which way each goes. A filter over
+ * OSMD's own classification, not a classifier of ours: a test holds every word
+ * here to OSMD's list of slower or faster words for its direction. Not every
+ * word OSMD calls a gradual change is one: `meno mosso` and `più mosso` are a
+ * new tempo at once, `ritenuto` a holding back at once, `calando` and
+ * `allargando` are as much about loudness and breadth, and `rubato` is a
+ * direction to a human. Those are not read.
+ */
+export const RAMP_WORDS: ReadonlyMap<string, 'slower' | 'faster'> = new Map([
+  ['rit', 'slower'],
+  ['ritard', 'slower'],
+  ['ritardando', 'slower'],
+  ['rallentando', 'slower'],
+  ['accel', 'faster'],
+  ['accelerando', 'faster'],
+])
+
+/** The returns read, by normalised label. Read so that a *rit.* ends somewhere. */
+const RETURN_WORDS: ReadonlyMap<string, 'previous' | 'first'> = new Map([
+  ['a tempo', 'previous'],
+  ['tempo primo', 'first'],
+  ['tempo i', 'first'],
+])
+
+/** Trimmed, lower-cased, one trailing full stop removed: `Rit.` reads as `rit`. */
+export function normaliseTempoWord(label: string | undefined): string {
+  return (label ?? '').trim().toLowerCase().replace(/\.$/, '')
+}
+
+/** OSMD's name for the tempo it inserts at the start of a score that marks none. */
+const GENERATED_TEMPO = '*generated'
+
+/** The one beat unit a metronome mark is read in; dotted units are not read. */
+const QUARTER = 'quarter'
+
+/**
+ * A mark OSMD placed in `TempoExpressions`, classified by what the page wrote
+ * rather than by the class OSMD put it in: OSMD 2.1.2 files `rit.` and
+ * `a tempo` as instantaneous tempos of 0 bpm, and `accel.` as a continuous
+ * one. A ramp's `until` is a placeholder until every mark has been read.
+ */
+function markFromWord(label: string, at: number, bpm: number): TempoMark | null {
+  const word = normaliseTempoWord(label)
+  const to = RETURN_WORDS.get(word)
+  if (to !== undefined) return { at, kind: 'return', to, label }
+  const direction = RAMP_WORDS.get(word)
+  if (direction !== undefined) return { at, kind: 'ramp', direction, until: at, label }
+  if (label === GENERATED_TEMPO || !(bpm > 0)) return null
+  return { at, kind: 'word', bpm, label }
+}
+
+/**
+ * The page's tempo marks (ADR-0018). Where the page gives a number, OSMD's
+ * number is the number: a metronome mark's, or a word's from `<sound tempo>`
+ * or OSMD's default for the word. A ramp is a word, a direction and a span,
+ * and no number is read for it at all: OSMD 2.1.2 gives `rit.` none, and its
+ * running tempo after one is 0. `scheduleFromTimeline` sizes it.
+ *
+ * A ramp runs to the next mark read, or to the end of the last bar. The tempo
+ * OSMD generates for a score with no mark is not on the page and is not read,
+ * so such a score keeps an empty track.
+ */
+function readTempo(sheet: MusicSheet, end: number): TempoMark[] {
+  const read: TempoMark[] = []
+  for (const measure of sheet.SourceMeasures) {
+    for (const expression of measure.TempoExpressions) {
+      const at = quarters(expression.AbsoluteTimestamp.RealValue)
+      const instant = expression.InstantaneousTempo
+      if (instant !== undefined && instant !== null) {
+        if (instant.isMetronomeMark) {
+          // OSMD holds no label for a metronome mark, so it is written as the
+          // page shows it.
+          if (instant.TempoInBpm > 0 && instant.beatUnit === QUARTER && !instant.dotted) {
+            const bpm = instant.TempoInBpm
+            read.push({ at, kind: 'metronome', bpm, label: `${QUARTER} = ${bpm}` })
+          }
+        } else {
+          const mark = markFromWord(instant.Label, at, instant.TempoInBpm)
+          if (mark !== null) read.push(mark)
+        }
+      }
+      const gradual = expression.ContinuousTempo
+      if (gradual !== undefined && gradual !== null) {
+        const mark = markFromWord(gradual.Label, at, 0)
+        if (mark !== null && mark.kind !== 'word') read.push(mark)
+      }
+    }
+  }
+
+  read.sort(compareTempoMarks)
+  return read.map((mark) =>
+    mark.kind === 'ramp'
+      ? { ...mark, until: read.find((other) => other.at > mark.at)?.at ?? end }
+      : mark
+  )
 }
 
 /**

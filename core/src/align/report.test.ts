@@ -384,6 +384,7 @@ function longTimeline(bars: number, chord = 3): ExpectedTimeline {
           tied: false,
           optional: false,
           ornament: null,
+          fermata: false,
         })
       }
     }
@@ -394,6 +395,7 @@ function longTimeline(bars: number, chord = 3): ExpectedTimeline {
     bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 4, beats: 4 })),
     pedal: [],
     dynamics: [],
+    tempo: [],
   }
 }
 
@@ -619,6 +621,7 @@ describe('an optional pitch forgives only a surplus strike (ADR-0018)', () => {
       tied: false,
       optional: marks.optional ?? false,
       ornament: marks.ornament ?? null,
+      fermata: false,
     }
   }
 
@@ -629,6 +632,7 @@ describe('an optional pitch forgives only a surplus strike (ADR-0018)', () => {
       bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 2, beats: 2 })),
       pedal: [],
       dynamics: [],
+      tempo: [],
     })
   }
 
@@ -799,6 +803,7 @@ describe('a long piece played only at its opening (ADR-0010)', () => {
           tied: false,
           optional: false,
           ornament: null,
+          fermata: false,
         })
       }
     }
@@ -808,6 +813,7 @@ describe('a long piece played only at its opening (ADR-0010)', () => {
       bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 4, beats: 4 })),
       pedal: [],
       dynamics: [],
+      tempo: [],
     }
   }
 

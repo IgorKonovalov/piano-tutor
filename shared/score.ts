@@ -137,6 +137,8 @@ export const ExpectedNoteSchema = z.object({
    * ordinary note, and on a scored note only when its realisation exists.
    */
   ornament: OrnamentKindSchema.nullable(),
+  /** A fermata is written over this note. Playback holds it; scoring never reads it (ADR-0021). */
+  fermata: z.boolean(),
 })
 export type ExpectedNote = z.infer<typeof ExpectedNoteSchema>
 
@@ -202,6 +204,46 @@ export const DynamicMarkSchema = z.object({
 })
 export type DynamicMark = z.infer<typeof DynamicMarkSchema>
 
+/** What the page printed -- `quarter = 120`, `rit.` -- which is what a report quotes. */
+const tempoLabel = z.string()
+
+/**
+ * What the page says about speed (ADR-0018), never a resolved number.
+ *
+ * A metronome mark or a word carries OSMD's own bpm, in quarter notes per
+ * minute. A ramp and a return carry no number, because the page gives none:
+ * `scheduleFromTimeline` sizes a ramp and resolves a return against the marks
+ * before it. A ramp runs from `at` to `until`, the next mark read or the end
+ * of the piece.
+ *
+ * Playback reads this and scoring never does to decide anything (ADR-0021):
+ * the aligner stays tempo-free, and the report may only quote `label` beside
+ * an observation it already made.
+ */
+export const TempoMarkSchema = z.discriminatedUnion('kind', [
+  z.object({
+    at: z.number().nonnegative(),
+    kind: z.enum(['metronome', 'word']),
+    bpm: z.number().positive(),
+    label: tempoLabel,
+  }),
+  z.object({
+    at: z.number().nonnegative(),
+    kind: z.literal('ramp'),
+    direction: z.enum(['slower', 'faster']),
+    until: z.number().nonnegative(),
+    label: tempoLabel,
+  }),
+  z.object({
+    at: z.number().nonnegative(),
+    kind: z.literal('return'),
+    /** `a tempo` restores the tempo before the last ramp; `tempo primo` the first one. */
+    to: z.enum(['previous', 'first']),
+    label: tempoLabel,
+  }),
+])
+export type TempoMark = z.infer<typeof TempoMarkSchema>
+
 export const ExpectedTimelineSchema = z.object({
   scoreId: scoreId,
   /** Ordered by onset, then pitch. */
@@ -212,6 +254,8 @@ export const ExpectedTimelineSchema = z.object({
   pedal: z.array(PedalMarkSchema),
   /** Ordered by `at`, a step mark ahead of a hairpin at the same instant. */
   dynamics: z.array(DynamicMarkSchema),
+  /** Ordered by `at`, and at one instant a return, then a tempo, then a ramp. */
+  tempo: z.array(TempoMarkSchema),
 })
 export type ExpectedTimeline = z.infer<typeof ExpectedTimelineSchema>
 

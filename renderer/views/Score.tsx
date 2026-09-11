@@ -21,6 +21,7 @@ import {
   timelineFromMidi,
 } from '../../core/src/score/timelineFromMidi'
 import { DEFAULT_BPM, clampBpm } from '../../shared/player'
+import { writtenTempoAt } from '../../core/src/player/tempoMap'
 import { BarDetail } from '../components/BarDetail'
 import { BarList } from '../components/BarList'
 import { PracticeStats } from '../components/PracticeStats'
@@ -91,12 +92,13 @@ export function Score() {
    */
   const [strictness, setStrictness] = useState<TimingStrictness>(DEFAULT_STRICTNESS)
   /**
-   * What the app plays back, as opposed to what the player plays. The tempo is
-   * per play and forgotten: the score states none (ADR-0005) and there is no
-   * settings store to remember one in. A null range means the whole piece;
-   * clicking a bar narrows it to that bar, which the inputs then widen.
+   * What the app plays back, as opposed to what the player plays. A null tempo
+   * means the page's own (ADR-0018); one the player types overrides it, and is
+   * forgotten with the score, there being no settings store to remember it in.
+   * A null range means the whole piece; clicking a bar narrows it to that bar,
+   * which the inputs then widen.
    */
-  const [bpm, setBpm] = useState(DEFAULT_BPM)
+  const [bpm, setBpm] = useState<number | null>(null)
   const [range, setRange] = useState<{ from: number; to: number } | null>(null)
 
   const [ports, setPorts] = useState<MidiPort[]>([])
@@ -136,6 +138,14 @@ export function Score() {
   const report = practice.state.status === 'ready' ? practice.state.report : null
   const lastBar = Math.max(0, barCount - 1)
   const playRange = range ?? { from: 0, to: lastBar }
+  // The written tempo at the start of what will play: what an override scales from.
+  const rangeStart = timeline?.bars.find(
+    (bar) => bar.index === Math.min(playRange.from, playRange.to)
+  )
+  const writtenBpm =
+    timeline === null || rangeStart === undefined
+      ? DEFAULT_BPM
+      : writtenTempoAt(timeline.tempo, rangeStart.onset, DEFAULT_BPM)
   const playingBar = player.state.state === 'playing' ? player.state.bar : null
   const markedBar = playingBar ?? player.lastBar
   const chosenPort = ports.find((port) => port.id === portId)
@@ -174,6 +184,7 @@ export function Score() {
       setRenderError(null)
       setSelectedBar(null)
       setRange(null)
+      setBpm(null)
       setShowRead(false)
       setPracticeError(null)
       player.clearLastBar()
@@ -279,7 +290,7 @@ export function Score() {
     void player.play({
       kind: 'timeline',
       timeline,
-      bpm: clampBpm(bpm),
+      bpm: bpm === null ? undefined : clampBpm(bpm),
       fromBar: Math.min(playRange.from, playRange.to),
       toBar: Math.max(playRange.from, playRange.to),
     })
@@ -503,7 +514,11 @@ export function Score() {
               onPlay={playScore}
               onStop={() => void player.stop()}
               disabled={barCount === 0 || timeline === null}
-              tempo={{ bpm, onChange: (next) => setBpm(next) }}
+              tempo={{
+                bpm: bpm ?? Math.round(writtenBpm),
+                written: bpm === null,
+                onChange: (next) => setBpm(next),
+              }}
               range={{
                 from: playRange.from,
                 to: playRange.to,

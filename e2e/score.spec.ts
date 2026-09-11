@@ -47,6 +47,7 @@ const FIXTURE_SCORES = [
   { file: 'empty-carrier-bar.musicxml', title: 'Empty carrier bar', bars: 3 },
   { file: 'pedal.musicxml', title: 'Pedal', bars: 4 },
   { file: 'dynamics.musicxml', title: 'Dynamics', bars: 4 },
+  { file: 'tempo-changes.musicxml', title: 'Tempo changes', bars: 5 },
 ]
 
 /** `scripts/regen-score-timelines.md` is the procedure this flag belongs to. */

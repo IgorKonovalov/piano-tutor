@@ -15,6 +15,8 @@ import styles from './Transport.module.css'
 export interface TransportTempo {
   bpm: number
   onChange(bpm: number): void
+  /** The value is the page's own tempo, not one the player set. */
+  written?: boolean
 }
 
 export interface TransportRange {
@@ -124,8 +126,9 @@ export function Transport({
             disabled={playing}
             onChange={(event) => tempo.onChange(Number(event.target.value))}
             data-testid={`${testId}-bpm`}
+            data-written={tempo.written === true}
           />
-          <span className={styles.unit}>bpm</span>
+          <span className={styles.unit}>{tempo.written === true ? 'bpm, as written' : 'bpm'}</span>
         </>
       )}
 

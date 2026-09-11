@@ -1,6 +1,7 @@
 import { type Page, expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { DEFAULT_BPM } from '../shared/player'
 import {
   SCORE_FIXTURES,
   type LaunchedApp,
@@ -339,6 +340,41 @@ test('the page\'s dynamics reach the player:event stream as velocities', async (
   expect(velocityOf(84) ?? 0).toBeGreaterThan(velocityOf(72) ?? 0)
   expect(new Set(struck.map((e) => e.velocity)).size).toBeGreaterThan(3)
   expect(Number(await attribute(page, 'transport', 'data-sounding'))).toBe(0)
+})
+
+test('the transport shows the tempo the page writes, and plays it untouched', async () => {
+  test.setTimeout(120_000)
+  launched = await launchApp()
+  const { page } = launched
+  await openScoreView(launched)
+
+  // A score with no tempo mark shows the default, as before any page had one.
+  await importScore(launched, 'scale-c-major.musicxml')
+  await expect(page.getByTestId('transport-bpm')).toHaveValue(String(DEFAULT_BPM))
+
+  // quarter = 120 on the page is 120 in the box, marked as the page's.
+  await importScore(launched, 'tempo-changes.musicxml')
+  const bpm = page.getByTestId('transport-bpm')
+  await expect(bpm).toHaveValue('120')
+  await expect(bpm).toHaveAttribute('data-written', 'true')
+
+  // Played without touching the box, the request carries no tempo and main
+  // plays the page's. Bar 4 is the fermata bar: four notes, nothing left on.
+  await page.getByTestId('transport-from').fill('4')
+  await page.getByTestId('transport-to').fill('4')
+  await expect(bpm).toHaveValue('120')
+  await play(page)
+  await waitForIdle(page)
+  expect(Number(await attribute(page, 'transport', 'data-notes'))).toBe(
+    fixtureNotes('tempo-changes.musicxml', 4, 4)
+  )
+  await expect(page.getByTestId('transport-error')).toHaveCount(0)
+  expect(Number(await attribute(page, 'transport', 'data-sounding'))).toBe(0)
+
+  // A value the player sets is theirs, and says so.
+  await bpm.fill('90')
+  await expect(bpm).toHaveAttribute('data-written', 'false')
+  expect(launched.networkRequests).toEqual([])
 })
 
 test('the highlight walks the bars and lands on the last one chosen', async () => {
