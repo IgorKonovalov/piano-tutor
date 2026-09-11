@@ -251,11 +251,17 @@ export function scheduleFromTimeline(
   const events: ScheduledEvent[] = []
   for (const note of timeline.notes) {
     if (note.bar < first || note.bar > last) continue
+    // A scored note carrying an ornament is sounded by its realisation, which
+    // follows it in the timeline and re-strikes its pitch (ADR-0018). Sounding
+    // it too would hold a key the ornament is about to strike again.
+    if (!note.optional && note.ornament !== null) continue
 
     const at = (note.onset - originQuarters) * msPerQuarter
     // A tie is already summed by the timeline, so it is one strike of one key.
+    // A grace note has no length of its own; a realised ornament note does.
+    const grace = note.optional && note.ornament === null
     const sounding =
-      note.optional || note.duration === 0 ? GRACE_NOTE_MS : note.duration * msPerQuarter
+      grace || note.duration === 0 ? GRACE_NOTE_MS : note.duration * msPerQuarter
     const gap = Math.min(RELEASE_GAP_MS, RELEASE_GAP_FRACTION * sounding)
     const offAt = at + sounding - gap
 

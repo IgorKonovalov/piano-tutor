@@ -13,6 +13,7 @@ import type { MidiEvent } from '../../../shared/midi'
 import graceJson from '../../fixtures/scores/grace-note.timeline.json'
 import keyAndTimeJson from '../../fixtures/scores/key-and-time-change.timeline.json'
 import multiRestJson from '../../fixtures/scores/multi-rest-and-ties.timeline.json'
+import ornamentsJson from '../../fixtures/scores/ornaments.timeline.json'
 import pickupJson from '../../fixtures/scores/pickup-two-hands.timeline.json'
 import scaleJson from '../../fixtures/scores/scale-c-major.timeline.json'
 import { DEFAULT_BPM } from '../midi/generate'
@@ -37,6 +38,7 @@ const TIMELINES: Record<string, ExpectedTimeline> = {
   'key-and-time-change': ExpectedTimelineSchema.parse(keyAndTimeJson),
   'multi-rest-and-ties': ExpectedTimelineSchema.parse(multiRestJson),
   'grace-note': ExpectedTimelineSchema.parse(graceJson),
+  ornaments: ExpectedTimelineSchema.parse(ornamentsJson),
 }
 
 const SEED = 20260910
@@ -554,6 +556,39 @@ describe('an ornament is scored neither way (ADR-0009)', () => {
     expect(wrong).toHaveLength(1)
     expect(wrong[0]?.bar).toBe(declared.bar)
     expect(report.counts.extra).toBe(0)
+  })
+})
+
+describe('a realised ornament costs nothing to play (ADR-0018)', () => {
+  /**
+   * The defect the ornaments fixture was written to show: a player who plays
+   * the turn correctly strikes four notes where the timeline used to expect
+   * one, and was charged three extras for it.
+   */
+  const ORNAMENTED_BARS = [1, 2]
+
+  it.each(['played', 'skipped'] as const)(
+    'reports every bar clean with the ornaments %s',
+    (ornaments) => {
+      const { report } = run('ornaments', { ornaments })
+      expect(states(report)).toEqual(['clean', 'clean', 'clean', 'clean'])
+      expect(report.counts).toMatchObject({ wrongPitch: 0, missing: 0, extra: 0 })
+    }
+  )
+
+  it('is not vacuous: the same take against the page without its ornaments shows extras', () => {
+    // If the generated take did not really contain the realisations, this
+    // copy would score clean too.
+    const { timeline, take } = runTake('ornaments', { ornaments: 'played' })
+    const bare: ExpectedTimeline = {
+      ...timeline,
+      notes: timeline.notes.filter((note) => !note.optional),
+    }
+    const report = practiceReport({ timeline: bare, events: take.events, takeId: 'bare' })
+    const extraBars = [...new Set(verdicts(report, 'extra').map((v) => v.bar))]
+
+    expect(extraBars.sort()).toEqual(ORNAMENTED_BARS)
+    expect(report.counts.extra).toBeGreaterThan(0)
   })
 })
 

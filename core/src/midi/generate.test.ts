@@ -5,11 +5,71 @@ import {
   ONSET_JITTER_MS,
   type PlayedNote,
   SCENARIOS,
+  GRACE_LEAD_QUARTERS,
   findScenarioById,
   playNotes,
+  timelineNotes,
 } from './generate'
 import { makeRng } from './rng'
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
+import { ExpectedTimelineSchema } from '../../../shared/score'
+import { roundQuarters, scoredNotes } from '../score/timeline'
+import graceJson from '../../fixtures/scores/grace-note.timeline.json'
+import ornamentsJson from '../../fixtures/scores/ornaments.timeline.json'
+
+const ornaments = ExpectedTimelineSchema.parse(ornamentsJson)
+const grace = ExpectedTimelineSchema.parse(graceJson)
+
+describe('timelineNotes and ornaments', () => {
+  const asPlayed = (notes: readonly PlayedNote[]) =>
+    [...notes]
+      .sort((a, b) => a.onset - b.onset || a.midi - b.midi)
+      .map((note) => [note.midi, note.onset, note.duration])
+
+  it('plays every scored note, principals included, when ornaments are skipped', () => {
+    expect(asPlayed(timelineNotes(ornaments))).toEqual(asPlayed(scoredNotes(ornaments)))
+  })
+
+  it('plays a realisation instead of its principal, at the realised onsets', () => {
+    const played = timelineNotes(ornaments, { ornaments: 'played' })
+    const turn = played.filter((note) => note.onset >= 5 && note.onset < 6)
+    expect(asPlayed(turn)).toEqual([
+      [71, 5, 0.25],
+      [69, 5.25, 0.25],
+      [67, 5.5, 0.25],
+      [69, 5.75, 0.25],
+    ])
+
+    const principals = ornaments.notes.filter((note) => !note.optional && note.ornament !== null)
+    expect(principals).toHaveLength(7)
+    for (const principal of principals) {
+      // Nothing is struck for the principal's written length; its pitch sounds
+      // only as the realisation's own short notes.
+      expect(
+        played.some(
+          (note) => note.onset === principal.onset && note.duration === principal.duration
+        )
+      ).toBe(false)
+    }
+    expect(played).toHaveLength(
+      ornaments.notes.filter((note) => note.optional || note.ornament === null).length
+    )
+  })
+
+  it('still strikes a grace note ahead of a principal that is itself struck', () => {
+    const played = timelineNotes(grace, { ornaments: 'played' })
+    const ornament = grace.notes.find((note) => note.optional)
+    if (ornament === undefined) throw new Error('the grace fixture changed shape')
+
+    expect(played).toContainEqual({
+      midi: ornament.midi,
+      onset: roundQuarters(ornament.onset - GRACE_LEAD_QUARTERS),
+      duration: GRACE_LEAD_QUARTERS,
+      bar: ornament.bar,
+    })
+    expect(played).toHaveLength(grace.notes.length)
+  })
+})
 
 const scenarioIds = SCENARIOS.map((s) => s.id)
 

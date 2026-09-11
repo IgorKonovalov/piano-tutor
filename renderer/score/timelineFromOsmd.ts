@@ -1,5 +1,18 @@
-import type { MusicSheet, Note, Tie } from 'opensheetmusicdisplay'
-import type { ExpectedBar, ExpectedNote, ExpectedTimeline } from '../../shared/score'
+import {
+  type Fraction,
+  type KeyInstruction,
+  type MusicSheet,
+  type Note,
+  OrnamentEnum,
+  type Tie,
+  type VoiceEntry,
+} from 'opensheetmusicdisplay'
+import type {
+  ExpectedBar,
+  ExpectedNote,
+  ExpectedTimeline,
+  OrnamentKind,
+} from '../../shared/score'
 import { compareNotes, roundQuarters } from '../../core/src/score/timeline'
 
 /**
@@ -32,9 +45,16 @@ function quarters(whole: number): number {
 export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTimeline {
   const notes: ExpectedNote[] = []
   const bars: ExpectedBar[] = []
+  // The key in force on each staff. A measure carries a key instruction only
+  // where one is written, so this is carried forward from the last one seen.
+  const keys = new Map<number, KeyInstruction>()
 
   for (const measure of sheet.SourceMeasures) {
     const bar = measure.measureListIndex
+    for (let staffIndex = 0; staffIndex < measure.FirstInstructionsStaffEntries.length; staffIndex++) {
+      const key: KeyInstruction | undefined = measure.getKeyInstruction(staffIndex)
+      if (key !== undefined) keys.set(staffIndex, key)
+    }
 
     // The bar's own length, not the metre. An anacrusis is as long as what is
     // written in it, and using the time signature here would make the first
@@ -64,17 +84,49 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
             const pitch = pitchOf(note)
             if (pitch === undefined) continue
 
+            const lengthWhole = (tie?.Duration ?? note.Length).RealValue
+            const staff = entry.ParentStaff.idInMusicSheet
+            const voice = voiceEntry.ParentVoice.VoiceId
+            const key = keys.get(staff)
+            // OSMD realises the entry's first note and nothing else; any other
+            // note of the chord stays plain.
+            const realisation =
+              note === voiceEntry.Notes[0] &&
+              voiceEntry.IsGrace !== true &&
+              voiceEntry.OrnamentContainer !== undefined &&
+              voiceEntry.OrnamentContainer !== null &&
+              key !== undefined
+                ? realiseOrnament(voiceEntry, key, lengthWhole)
+                : undefined
+
+            // The principal stays scored at its written onset and length. It
+            // carries the ornament's kind so that playback sounds its
+            // realisation in its place, which re-strikes its pitch (ADR-0018).
             notes.push({
               midi: pitch,
               onset: quarters(entry.AbsoluteTimestamp.RealValue),
-              duration: quarters((tie?.Duration ?? note.Length).RealValue),
+              duration: quarters(lengthWhole),
               bar,
-              staff: entry.ParentStaff.idInMusicSheet,
-              voice: voiceEntry.ParentVoice.VoiceId,
+              staff,
+              voice,
               tied: tie !== undefined,
               optional: voiceEntry.IsGrace === true,
-              ornament: null,
+              ornament: realisation?.kind ?? null,
             })
+
+            for (const realised of realisation?.notes ?? []) {
+              notes.push({
+                midi: realised.midi,
+                onset: quarters(entry.AbsoluteTimestamp.RealValue + realised.offset),
+                duration: quarters(realised.length),
+                bar,
+                staff,
+                voice,
+                tied: false,
+                optional: true,
+                ornament: realisation?.kind ?? null,
+              })
+            }
           }
         }
       }
@@ -84,6 +136,118 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
   notes.sort(compareNotes)
   bars.sort((a, b) => a.index - b.index)
   return { scoreId, notes, bars }
+}
+
+/** OSMD's `OrnamentEnum`, by the names the timeline uses. */
+const ORNAMENT_KINDS: Record<OrnamentEnum, OrnamentKind> = {
+  [OrnamentEnum.Trill]: 'trill',
+  [OrnamentEnum.Turn]: 'turn',
+  [OrnamentEnum.InvertedTurn]: 'invertedTurn',
+  [OrnamentEnum.DelayedTurn]: 'delayedTurn',
+  [OrnamentEnum.DelayedInvertedTurn]: 'delayedInvertedTurn',
+  [OrnamentEnum.Mordent]: 'mordent',
+  [OrnamentEnum.InvertedMordent]: 'invertedMordent',
+}
+
+/** Two sums of the same fractions, in whole notes, agree to far better than this. */
+const TILE_TOLERANCE = 1e-9
+
+interface Realisation {
+  kind: OrnamentKind
+  /** Whole notes: `offset` from the principal's onset, and each note's `length`. */
+  notes: { midi: number; offset: number; length: number }[]
+}
+
+/** The two private builders `createVoiceEntriesForOrnament` makes every note through. */
+type Builder = (this: VoiceEntry, timestamp: Fraction, length: Fraction, ...rest: unknown[]) => void
+type BuilderName = 'createBaseVoiceEntry' | 'createAlteratedVoiceEntry'
+const BUILDERS: readonly BuilderName[] = ['createBaseVoiceEntry', 'createAlteratedVoiceEntry']
+
+/**
+ * An ornament symbol, realised into notes by OSMD's own realiser (ADR-0018):
+ * its pitches, their order and their rhythm are all the library's.
+ *
+ * **OSMD 2.1.2 aliases the rhythm.** `createVoiceEntriesForOrnament` passes one
+ * `Fraction` by reference into every entry it builds and then mutates it, so
+ * the entries it returns all read the final timestamp -- and, for the mordents
+ * and the delayed turns, the final length as well. The values are right at the
+ * moment each entry is built. So the two builders are wrapped **on this one
+ * instance**, for the length of the call, to record each timestamp and length
+ * as a number when it is handed over; the i-th record pairs with the i-th
+ * returned entry's pitch. `VoiceEntry.prototype` is never touched. The builders
+ * are private in the typings, hence the one cast below. Check this first when
+ * upgrading OSMD: if the aliasing is fixed, read the returned entries instead.
+ *
+ * The realiser's other side effect, on the staff entry, is undone below.
+ *
+ * Undefined, and the principal stays a plain note, whenever the realiser
+ * throws, the capture and the result disagree in count, or the captured notes
+ * do not tile the principal exactly from its onset to its end. A partial
+ * realisation is never written.
+ */
+function realiseOrnament(
+  entry: VoiceEntry,
+  key: KeyInstruction,
+  principalWhole: number
+): Realisation | undefined {
+  const kind = ORNAMENT_KINDS[entry.OrnamentContainer.GetOrnament]
+  if (kind === undefined) return undefined
+
+  // Both builders live on the prototype, so wrapping sets an own property and
+  // restoring deletes it. Anything else is not the library this was written
+  // against.
+  if (BUILDERS.some((name) => Object.hasOwn(entry, name))) return undefined
+
+  const builders = entry as unknown as Record<BuilderName, Builder>
+  const captured: { timestamp: number; length: number }[] = []
+  for (const name of BUILDERS) {
+    const original = builders[name]
+    builders[name] = function (this: VoiceEntry, timestamp, length, ...rest) {
+      captured.push({ timestamp: timestamp.RealValue, length: length.RealValue })
+      original.call(this, timestamp, length, ...rest)
+    }
+  }
+
+  // The realiser also **writes to the model**: `createBaseVoiceEntry` builds its
+  // entry with the principal's staff entry as parent, and the VoiceEntry
+  // constructor appends itself to that staff entry's `VoiceEntries`. Left
+  // there, each one is a new scored note to this extractor, which is walking
+  // that same array, and a new notehead to OSMD's next layout. So whatever the
+  // call appended is taken back out, and the model is left as it was parsed.
+  const siblings = entry.ParentSourceStaffEntry?.VoiceEntries
+  const before = siblings === undefined ? [] : [...siblings]
+
+  let returned: VoiceEntry[] | undefined
+  try {
+    returned = entry.createVoiceEntriesForOrnament(entry, key)
+  } catch {
+    return undefined
+  } finally {
+    for (const name of BUILDERS) delete builders[name]
+    if (siblings !== undefined) {
+      for (let i = siblings.length - 1; i >= 0; i--) {
+        if (!before.includes(siblings[i] as VoiceEntry)) siblings.splice(i, 1)
+      }
+    }
+  }
+  if (returned === undefined || returned.length === 0 || returned.length !== captured.length) {
+    return undefined
+  }
+
+  const start = entry.Timestamp.RealValue
+  let reached = start
+  const notes: Realisation['notes'] = []
+  for (let i = 0; i < returned.length; i++) {
+    const record = captured[i]
+    const sounding = returned[i]?.Notes[0]
+    const midi = sounding === undefined ? undefined : pitchOf(sounding)
+    if (record === undefined || midi === undefined || record.length <= 0) return undefined
+    if (Math.abs(record.timestamp - reached) > TILE_TOLERANCE) return undefined
+    notes.push({ midi, offset: record.timestamp - start, length: record.length })
+    reached = record.timestamp + record.length
+  }
+  if (Math.abs(reached - (start + principalWhole)) > TILE_TOLERANCE) return undefined
+  return { kind, notes }
 }
 
 function pitchOf(note: Note): number | undefined {

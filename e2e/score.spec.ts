@@ -43,7 +43,7 @@ const FIXTURE_SCORES = [
   { file: 'key-and-time-change.musicxml', title: 'Key and time change', bars: 4 },
   { file: 'multi-rest-and-ties.musicxml', title: 'Multi-rest and ties', bars: 7 },
   { file: 'grace-note.musicxml', title: 'Grace note', bars: 3 },
-  { file: 'ornaments.musicxml', title: 'Ornaments', bars: 3 },
+  { file: 'ornaments.musicxml', title: 'Ornaments', bars: 4 },
   { file: 'empty-carrier-bar.musicxml', title: 'Empty carrier bar', bars: 3 },
 ]
 

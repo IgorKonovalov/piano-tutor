@@ -721,8 +721,8 @@ section names cannot happen.
 |---|---|---|---|
 | 1 — A score with a turn in it, and the bug on screen | dev | done | 3788e72 |
 | 2 — A bar may be empty | dev | done | b2bd3a7 |
-| 3 — An ornament costs nothing, whatever pitch it shares | dev | done | committed with this row |
-| 4 — A turn is played, and costs nothing to play | dev | not started | |
+| 3 — An ornament costs nothing, whatever pitch it shares | dev | done | 2f01d0f |
+| 4 — A turn is played, and costs nothing to play | dev | done | committed with this row |
 | 5 — The pedal goes down | dev | not started | |
 | 6 — The music gets louder and softer | dev | not started | |
 | 7 — The music breathes | dev | not started | |
@@ -794,6 +794,31 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
   previous score's load lands after the selection has moved, that title is written to the new
   score's row. The next render of that score corrects it, because the write fires whenever the
   titles differ. The race predates this plan. The file is outside every phase's list.
+- **Phase 4 does more to the model than the plan names: OSMD's realiser writes to it, and the
+  extractor undoes the write.** `createBaseVoiceEntry` builds its entry with the principal's
+  `SourceStaffEntry` as parent, and OSMD's `VoiceEntry` constructor appends itself to that
+  entry's `VoiceEntries`. The first regeneration showed it: extra **scored** copies of each
+  principal, one per base note (four G4s under the trill), because the extractor was walking that
+  same array. Left alone, OSMD's next layout would also draw them. The extractor snapshots the
+  array before the call and removes what the call appended, in the same `finally` that restores
+  the builders. A jsdom test asserts every staff entry still holds one voice entry afterwards, and
+  that extracting twice gives the same timeline.
+- **The active key is carried forward by the extractor.** OSMD never calls
+  `createVoiceEntriesForOrnament` itself. `SourceMeasure.getKeyInstruction(staff)` returns only a
+  key written in that measure, so the extractor keeps the last one seen per staff. A staff with
+  no key yet does not expand.
+- **Tiling is checked against the principal's timeline length.** That length is tie-summed, and
+  OSMD realises only the first note of a tie, so a tied principal fails the check and stays plain.
+- `OrnamentEnum` is imported as a value into `renderer/score/timelineFromOsmd.ts`. It was
+  type-only imports before.
+- `report.test.ts`'s `TIMELINES` gained `ornaments`, so the existing every-fixture cases also run
+  over it.
+- **Phase 4's full gate:** typecheck, lint, 760 unit tests, both Node gates green. The e2e step
+  had three red cases: `player.spec.ts:227`, `practice.spec.ts:249` (one extra) and
+  `score.spec.ts:248` (a take with 13 of 38 events). None of them uses the ornaments fixture. While
+  that run finished, a `npm run test:e2e` process from a `bash` parent was still launching
+  Electron. Whether that process was the gate's own tail or a second run was not established. The
+  suite rerun with no other test process alive passed 34 of 34.
 
 ### Phase 3 stopped: `createVoiceEntriesForOrnament` misbehaves, and it is a design question
 

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
-import { ExpectedTimelineSchema } from '../../shared/score'
-import { canonicalTimeline } from '../../core/src/score/timeline'
+import { ExpectedTimelineSchema, type ExpectedTimeline } from '../../shared/score'
+import { canonicalTimeline, roundQuarters } from '../../core/src/score/timeline'
 import { timelineFromOsmd } from './timelineFromOsmd'
 
 /**
@@ -63,6 +63,120 @@ it('has a committed timeline for every fixture score', () => {
     'pickup-two-hands',
     'scale-c-major',
   ])
+})
+
+describe('ornaments, realised by OSMD and captured as they are built (ADR-0018)', () => {
+  const ornaments = CASES.find((c) => c.name === 'ornaments')
+  if (ornaments === undefined) throw new Error('the ornaments fixture is missing')
+
+  async function extract(): Promise<{ timeline: ExpectedTimeline; osmd: OpenSheetMusicDisplay }> {
+    const scoreId = ExpectedTimelineSchema.parse(JSON.parse(ornaments?.expected ?? '')).scoreId
+    const osmd = new OpenSheetMusicDisplay(host, { autoResize: false, backend: 'svg' })
+    await osmd.load(ornaments?.xml ?? '')
+    return { timeline: timelineFromOsmd(osmd.Sheet, scoreId), osmd }
+  }
+
+  const principals = (timeline: ExpectedTimeline) =>
+    timeline.notes.filter((note) => !note.optional && note.ornament !== null)
+
+  /** The realisation of the principal at `onset`, relative to that onset. */
+  function realisationAt(timeline: ExpectedTimeline, onset: number) {
+    return timeline.notes
+      .filter((note) => note.optional && note.onset >= onset && note.onset < onset + 1)
+      .map((note) => ({ midi: note.midi, at: note.onset - onset, length: note.duration }))
+  }
+
+  it('marks the principal, its realisation and nothing else', async () => {
+    const { timeline } = await extract()
+
+    expect(principals(timeline).map((note) => [note.midi, note.ornament])).toEqual([
+      [67, 'trill'],
+      [69, 'turn'],
+      [71, 'mordent'],
+      [72, 'invertedTurn'],
+      [74, 'delayedTurn'],
+      [76, 'delayedInvertedTurn'],
+      [77, 'invertedMordent'],
+    ])
+    for (const note of timeline.notes) {
+      if (note.optional) expect(note.ornament).not.toBeNull()
+    }
+    // Every other note is plain: one per written notehead, and no stray copy
+    // of a principal left behind by the realiser.
+    const plain = timeline.notes.filter((note) => !note.optional && note.ornament === null)
+    expect(plain.map((note) => note.onset)).toEqual([0, 1, 2, 3, 7, 12, 13, 14])
+    expect(principals(timeline).every((note) => note.duration === 1)).toBe(true)
+  })
+
+  it('realises the trill, the turn and the mordent as OSMD intends', async () => {
+    const { timeline } = await extract()
+
+    expect(realisationAt(timeline, 4)).toEqual(
+      Array.from({ length: 8 }, (_, k) => ({
+        midi: k % 2 === 0 ? 67 : 70,
+        at: k * 0.125,
+        length: 0.125,
+      }))
+    )
+    expect(realisationAt(timeline, 5)).toEqual([
+      { midi: 71, at: 0, length: 0.25 },
+      { midi: 69, at: 0.25, length: 0.25 },
+      { midi: 67, at: 0.5, length: 0.25 },
+      { midi: 69, at: 0.75, length: 0.25 },
+    ])
+    expect(realisationAt(timeline, 6)).toEqual([
+      { midi: 71, at: 0, length: 0.25 },
+      { midi: 72, at: 0.25, length: 0.25 },
+      { midi: 71, at: 0.5, length: 0.5 },
+    ])
+  })
+
+  it('tiles every principal exactly, all seven kinds, from its onset to its end', async () => {
+    // The property the capture exists for. OSMD's returned entries alias one
+    // timestamp across a turn and one length across a mordent or delayed turn,
+    // so read back from them no realisation but the trill would tile.
+    const { timeline } = await extract()
+
+    for (const principal of principals(timeline)) {
+      const realised = realisationAt(timeline, principal.onset)
+      expect(realised.length, principal.ornament ?? '').toBeGreaterThan(2)
+      let reached = 0
+      for (const note of realised) {
+        expect(note.at, principal.ornament ?? '').toBe(reached)
+        reached = roundQuarters(reached + note.length)
+      }
+      expect(reached, principal.ornament ?? '').toBe(principal.duration)
+      expect(
+        timeline.notes.filter((note) => note.optional && note.onset === principal.onset)
+          .every((note) => note.ornament === principal.ornament)
+      ).toBe(true)
+    }
+  })
+
+  it('sounds the trill above-accidental and not the mordent below-accidental', async () => {
+    // OSMD 2.1.2 behaviour, asserted as the library's: its realiser reads
+    // AccidentalAbove for a trill only, and never reads AccidentalBelow.
+    const { timeline } = await extract()
+    expect(realisationAt(timeline, 4).map((note) => note.midi)).toContain(70)
+    expect(realisationAt(timeline, 4).map((note) => note.midi)).not.toContain(69)
+    expect(realisationAt(timeline, 6).map((note) => note.midi)).toEqual([71, 72, 71])
+  })
+
+  it('leaves the model as it was parsed, so extracting twice agrees', async () => {
+    const { timeline, osmd } = await extract()
+    const entriesPerStaffEntry = () =>
+      osmd.Sheet.SourceMeasures.flatMap((measure) =>
+        measure.VerticalSourceStaffEntryContainers.flatMap((container) =>
+          container.StaffEntries.map((entry) => entry?.VoiceEntries.length ?? 0)
+        )
+      )
+    const before = entriesPerStaffEntry()
+    expect(before.every((count) => count === 1)).toBe(true)
+
+    const again = timelineFromOsmd(osmd.Sheet, timeline.scoreId)
+    expect(canonicalTimeline(again)).toBe(canonicalTimeline(timeline))
+    expect(entriesPerStaffEntry()).toEqual(before)
+  })
 })
 
 describe.each(CASES)('$name', ({ xml, expected }) => {

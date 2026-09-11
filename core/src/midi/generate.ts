@@ -277,22 +277,35 @@ export interface TimelineNoteOptions {
 }
 
 /**
- * Every note the score expects to be struck. Grace notes are not scored, so
+ * Every note the score expects to be struck. Optional notes are not scored, so
  * they are left out unless the caller asks for a performance that takes them.
+ *
+ * Taking them means two different things. A grace note is struck ahead of its
+ * principal, which is still struck. A realised ornament is played **instead
+ * of** its principal, at its own onsets: the principal's pitch is already in
+ * the realisation (ADR-0018), and striking both would be a player sounding the
+ * key twice at once.
  */
 export function timelineNotes(
   timeline: ExpectedTimeline,
   options: TimelineNoteOptions = {}
 ): PlayedNote[] {
-  const played = scoredNotes(timeline).map((note) => ({
-    midi: note.midi,
-    onset: note.onset,
-    duration: note.duration,
-    bar: note.bar,
-  }))
-  if (options.ornaments !== 'played') return played
+  const taking = options.ornaments === 'played'
+  const played = scoredNotes(timeline)
+    .filter((note) => !taking || note.ornament === null)
+    .map((note) => ({
+      midi: note.midi,
+      onset: note.onset,
+      duration: note.duration,
+      bar: note.bar,
+    }))
+  if (!taking) return played
 
   for (const note of optionalNotes(timeline)) {
+    if (note.ornament !== null) {
+      played.push({ midi: note.midi, onset: note.onset, duration: note.duration, bar: note.bar })
+      continue
+    }
     played.push({
       midi: note.midi,
       onset: roundQuarters(Math.max(0, note.onset - GRACE_LEAD_QUARTERS)),

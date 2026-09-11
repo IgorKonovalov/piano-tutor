@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import samplerJson from '../../fixtures/playback/sampler.timeline.json'
+import ornamentsJson from '../../fixtures/scores/ornaments.timeline.json'
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
 import {
   DEFAULT_BPM,
@@ -29,6 +30,9 @@ import {
  * rest.
  */
 const sampler = ExpectedTimelineSchema.parse(samplerJson)
+
+/** Seven symbol ornaments, each realised by OSMD at extraction. */
+const ornaments = ExpectedTimelineSchema.parse(ornamentsJson)
 
 function struck(schedule: PlaybackSchedule) {
   return schedule.events.filter((e) => e.event.kind === 'noteOn')
@@ -331,6 +335,80 @@ describe('the shapes a score makes', () => {
         }
         if (event.kind === 'noteOff') sounding = false
       }
+    }
+  })
+})
+
+describe('an ornament plays its realisation, not the note under it (ADR-0018)', () => {
+  const at120 = scheduleFromTimeline(ornaments, { bpm: 120 })
+
+  it('strikes the turn as B4 A4 G4 A4 at the realised times, and holds no A4 across it', () => {
+    // Bar 1 at 120 bpm: the turn's principal is written on beat 2, 500 ms in.
+    const schedule = scheduleFromTimeline(ornaments, { bpm: 120, fromBar: 1, toBar: 1 })
+    const turn = struck(schedule)
+      .filter((e) => e.at >= 500 && e.at < 1000)
+      .map((e) => [(e.event as { note: number }).note, e.at])
+    expect(turn).toEqual([
+      [71, 500],
+      [69, 625],
+      [67, 750],
+      [69, 875],
+    ])
+
+    // Each A4 is released within its own sixteenth, never held for the beat.
+    const a4 = schedule.events.filter(
+      (e) => 'note' in e.event && e.event.note === 69 && e.at >= 500 && e.at < 1000
+    )
+    expect(a4.map((e) => e.event.kind)).toEqual(['noteOn', 'noteOff', 'noteOn', 'noteOff'])
+    expect(soundingFor(schedule, 69)).toBeLessThan(125)
+  })
+
+  it('never strikes the principal at its written length', () => {
+    const principals = ornaments.notes.filter((n) => !n.optional && n.ornament !== null)
+    const written = ornaments.notes.filter((n) => n.optional || n.ornament === null)
+    expect(struck(at120)).toHaveLength(written.length)
+    for (const principal of principals) {
+      const onsetMs = principal.onset * 500
+      const heldForBeat = struck(at120).some((on) => {
+        if (on.at !== onsetMs || (on.event as { note: number }).note !== principal.midi) return false
+        const release = released(at120).find(
+          (e) => e.at > on.at && (e.event as { note: number }).note === principal.midi
+        )
+        return (release?.at ?? 0) - on.at > (principal.duration * 500) / 2
+      })
+      expect(heldForBeat, principal.ornament ?? '').toBe(false)
+    }
+  })
+
+  it('plays each realised note for its own length, not a grace note length', () => {
+    const trillStep = struck(at120).filter((e) => e.at >= 2000 && e.at < 2500)
+    expect(trillStep).toHaveLength(8)
+    expect(trillStep.map((e) => e.at)).toEqual([2000, 2062.5, 2125, 2187.5, 2250, 2312.5, 2375, 2437.5])
+  })
+
+  it('strikes no pitch while it is still sounding, at any tempo', () => {
+    for (const bpm of [MIN_BPM, DEFAULT_BPM, MAX_BPM]) {
+      const schedule = scheduleFromTimeline(ornaments, { bpm })
+      const sounding = new Set<number>()
+      for (const { event } of schedule.events) {
+        if (event.kind === 'noteOn') {
+          expect(sounding.has(event.note), `${event.note} restruck at ${bpm} bpm`).toBe(false)
+          sounding.add(event.note)
+        } else if (event.kind === 'noteOff') {
+          sounding.delete(event.note)
+        }
+      }
+    }
+  })
+
+  it('stays ordered and balanced', () => {
+    for (const bpm of [MIN_BPM, DEFAULT_BPM, MAX_BPM]) {
+      const schedule = scheduleFromTimeline(ornaments, { bpm })
+      expect(outstandingAtEnd(schedule)).toEqual({ notes: [], pedals: [] })
+      expect(schedule.events.map((e) => e.at)).toEqual(
+        [...schedule.events.map((e) => e.at)].sort((a, b) => a - b)
+      )
+      expect(struck(schedule)).toHaveLength(released(schedule).length)
     }
   })
 })

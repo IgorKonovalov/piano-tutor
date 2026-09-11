@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Three symbol ornaments, one per principal note, and nothing else to
-     distract from them (ADR-0018). Three bars of quarter notes in one voice;
-     bar 2 carries a trill on G4, a turn on A4 and a mordent on B4.
+<!-- All seven symbol ornaments OSMD realises, one per principal note, and
+     nothing else to distract from them (ADR-0018). Four bars of quarter notes
+     in one voice; bar 2 carries a trill on G4, a turn on A4 and a mordent on
+     B4, and bar 3 an inverted turn on C5, a delayed turn on D5, a delayed
+     inverted turn on E5 and an inverted mordent on F5, with no accidentals.
+     The delayed turns matter most: OSMD aliases their first length as well as
+     their timestamps, so they are what proves the extractor captured the
+     rhythm rather than reading the returned entries.
 
      It exists because no fixture in this repository contained a <turn>,
      <trill-mark> or <mordent>, so the whole symbol-ornament path was exercised
@@ -75,6 +80,36 @@
       <note><pitch><step>C</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type></note>
     </measure>
     <measure number="3">
+      <note>
+        <pitch><step>C</step><octave>5</octave></pitch>
+        <duration>1</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <notations><ornaments><inverted-turn/></ornaments></notations>
+      </note>
+      <note>
+        <pitch><step>D</step><octave>5</octave></pitch>
+        <duration>1</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <notations><ornaments><delayed-turn/></ornaments></notations>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>5</octave></pitch>
+        <duration>1</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <notations><ornaments><delayed-inverted-turn/></ornaments></notations>
+      </note>
+      <note>
+        <pitch><step>F</step><octave>5</octave></pitch>
+        <duration>1</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <notations><ornaments><inverted-mordent/></ornaments></notations>
+      </note>
+    </measure>
+    <measure number="4">
       <note><pitch><step>D</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type></note>
       <note><pitch><step>E</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type></note>
       <note><pitch><step>F</step><octave>5</octave></pitch><duration>2</duration><voice>1</voice><type>half</type></note>
