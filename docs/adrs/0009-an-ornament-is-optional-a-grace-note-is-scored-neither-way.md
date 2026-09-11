@@ -3,7 +3,7 @@
 > **Status:** accepted 2026-09-10 (implemented outside a plan, in `67d10b8`)
 > **Date:** 2026-09-10
 > **Related plan(s):** raised by the close review of Plan
-> [0002](../plans/0002-a-piece-is-practised.md); implemented as a scoped change outside a plan,
+> [0002](../plans/done/0002-a-piece-is-practised.md); implemented as a scoped change outside a plan,
 > before that plan's `human` phase runs
 
 ## Context

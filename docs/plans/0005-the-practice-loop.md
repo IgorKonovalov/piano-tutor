@@ -17,7 +17,7 @@
 > [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (accepted)
 > governs the processes
 > **NFRs claimed:** 3, 7b, 9, 11 in [nfr.md](../nfr.md)
-> **Depends on:** Plan [0002](0002-a-piece-is-practised.md) Phases 4 and 5 — the aligner, the
+> **Depends on:** Plan [0002](done/0002-a-piece-is-practised.md) Phases 4 and 5 — the aligner, the
 > `PracticeReport` and the bar-marked Score view. Phase 5 of this plan additionally needs Plan
 > [0004](done/0004-the-app-plays-the-piece.md) Phase 3; Phase 6 additionally needs Plan
 > [0003](0003-the-coach-speaks.md) Phases 1 and 3 for the coach panel and the reply store, and

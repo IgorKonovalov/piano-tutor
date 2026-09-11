@@ -10,9 +10,10 @@ it synthesises only what it is itself playing, and only when no instrument is li
 **Status:** in build. The walking skeleton, the practice path and playback are in —
 [Plan 0001](docs/plans/done/0001-the-keyboard-shows-on-screen.md) (the Electron shell, the MIDI
 pipeline, the live keyboard, staff and labels, take recording and replay),
-[Plan 0008](docs/plans/done/0008-the-timing-model.md) (how a bar's timing is judged) and
-[Plan 0004](docs/plans/done/0004-the-app-plays-the-piece.md) (the app plays the piece), each
-measured at the CK88. What is in flight and what comes next is in
+[Plan 0002](docs/plans/done/0002-a-piece-is-practised.md) (the score library, the aligner and the
+per-bar report), [Plan 0008](docs/plans/done/0008-the-timing-model.md) (how a bar's timing is
+judged) and [Plan 0004](docs/plans/done/0004-the-app-plays-the-piece.md) (the app plays the
+piece), each measured at the CK88 on real repertoire. What is in flight and what comes next is in
 [docs/plans/README.md](docs/plans/README.md).
 
 ## Where to start reading

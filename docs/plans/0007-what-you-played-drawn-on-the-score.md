@@ -16,7 +16,7 @@
 > [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (accepted)
 > governs the processes
 > **NFRs claimed:** 3, 9, 11 in [nfr.md](../nfr.md)
-> **Depends on:** Plan [0002](0002-a-piece-is-practised.md) Phases 2, 4 and 5 — the extraction, the
+> **Depends on:** Plan [0002](done/0002-a-piece-is-practised.md) Phases 2, 4 and 5 — the extraction, the
 > aligner's `NoteVerdict`s and the bar-mark overlay this plan deepens. Nothing else.
 
 ## TL;DR

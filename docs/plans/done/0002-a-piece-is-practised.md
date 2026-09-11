@@ -1,15 +1,18 @@
 # 0002 — A piece is practised
 
-> **Status:** in-progress
+> **Status:** done — closed 2026-09-11, no version bump (its code shipped under v0.2.1 and has
+> been in every release since; this close is documentation only). Six `dev` phases, a close review
+> on 2026-09-10 whose two blocking defects were fixed, and Phase 7 finished at the CK88 across two
+> sittings. ADRs 0005, 0009 and 0010 accepted on it.
 > **Created:** 2026-09-09
 > **Owner skill(s):** dev, human
-> **Related ADRs:** [0003](../adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) (accepted),
-> [0004](../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (accepted),
-> [0005](../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (accepted);
-> [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (accepted) governs
+> **Related ADRs:** [0003](../../adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) (accepted),
+> [0004](../../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (accepted),
+> [0005](../../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (accepted);
+> [0001](../../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (accepted) governs
 > the processes and the new `score:*` domain
-> **NFRs claimed:** 3, 9, 11, 12 in [nfr.md](../nfr.md)
-> **Depends on:** Plan [0001](done/0001-the-keyboard-shows-on-screen.md) Phases 1 to 6 — the take
+> **NFRs claimed:** 3, 9, 11, 12 in [nfr.md](../../nfr.md)
+> **Depends on:** Plan [0001](0001-the-keyboard-shows-on-screen.md) Phases 1 to 6 — the take
 > format, the `MidiSource` seam, the seeded generator and `npm run gate`
 
 ## TL;DR
@@ -746,6 +749,74 @@ and the per-bar verdict needs to be about the bar -- its evenness against a loca
 than its displacement from a line fitted across everything. That is the largest single finding of
 Phase 7 and it is a plan of its own, not a threshold to widen.
 
+### Phase 7 finished, 2026-09-11
+
+The second sitting, at the CK88, on BWV 846 (`scoreId a2577533505716ba6071b24cff714d9d`, imported
+as `BWV_0846.xml`). App v0.4.0, port `CK Series-1`. It closes the two lines the evening of
+2026-09-10 left open. Answers are the player's; the figures are read off the app and the take
+headers.
+
+**Item 6 — well against badly. Answered, yes.** Four takes were recorded; the demonstrated pair is
+the last two, each stopped before the next began — which is the thing that went wrong in the first
+attempt, when two performances ran into one file and on into the Fugue.
+
+| | well (`11-55-48-839Z`, 551 note-ons) | badly (`11-58-17-702Z`, 233 note-ons) |
+|---|---|---|
+| as written | **548** | **176** |
+| wrong note | 0 | 0 |
+| missed | 1 | 0 |
+| extra | **2** | **89** |
+| bars clean | **32 / 35** | **7 / 11** |
+| tempo you kept | 79 bpm | 84 bpm |
+| prose | "You slowed 45% over bars 31 to 33." | "You went back over bar 2 and played 8 notes again. Those are not counted as wrong or extra." / "You slowed 27% over bars 6 to 8." |
+| furthest from the tempo around them | bar 11 (-62 ms), bar 4 (+59 ms), bar 5 (-55 ms) | **bar 1 (+7 110 ms)**, bar 8 (+339 ms), bar 2 (-75 ms) |
+
+The player's verdict, in their own words, was that it was **"honestly fine"**. The two are not
+close: 2 extra against 89, 32 of 35 bars clean against 7 of 11, and on the page the bad take opens
+with two red bars and an amber one before it settles into green. That is the whole question the
+item asks, and the answer is yes.
+
+**Item 4 — rubato read as error. Answered, and this plan's own expectation was wrong.** The good
+take is the rubato case. The item predicted a rallentando *would* be flagged as a timing error,
+"given one fitted tempo", and asked only whether that was annoying enough to warrant a followup.
+**It is not flagged at all.** A 45 % slowing over three bars is **described in prose as an
+observation**, the take reads 32 of 35 attempted bars clean, and the three bars furthest from their
+neighbours' tempo are out by about 60 ms. The bad take does the same thing independently: a 27 %
+slowing over bars 6 to 8, described, not charged.
+
+Set against what this same phase measured on 2026-09-10 — deviations of -2 450, +2 105 and
+-1 235 ms, 7 of 9 attempted bars `out of time`, a fitted 53 bpm where the player played 64 — the
+difference is three orders of magnitude on the same instrument and the same piece. **That is Plan
+[0008](0008-the-timing-model.md) and ADR-0014 working on a hand rather than on the generated
+oracle.** The followup this item asked about was written, implemented and closed before the item
+could be answered.
+
+**ADR-0010 is demonstrated twice over, and it is the reason these numbers are readable at all.**
+The good take attempted 35 of 62 bars and the bad one 11 of 62; missed notes were **1 and 0**, not
+27 and 51 bars of missing. The unplayed tail is free, exactly as that ADR says, and it is accepted
+on this close.
+
+The score-read disclosure on both: **1 286 notes across 62 bars, drawn in 788 ms.**
+
+**Two observations the bad take produced, carried rather than fixed here.** Neither changes the
+item's answer and both are evidence for work already planned:
+
+- **A single bar was labelled `81 extra notes`.** This is the carried close-review finding that an
+  `extra` verdict per unmatched pitch is **unbounded**, observed at the instrument instead of
+  argued. Plan [0003](../0003-the-coach-speaks.md) already owns it because its token budget depends on
+  it; this is the first real measurement of how large one bar's label can get, and 81 in a bar of
+  the Prelude is a useful number for that plan to size against.
+- **`bar 1 (+7 110 ms)` sits in the tempo-outlier list beside values of ±60 ms.** The restart was
+  detected and named in prose — "you went back over bar 2 and played 8 notes again" — and those 8
+  notes were forgiven, so the mechanism ADR-0014 shipped is working. What is still visible is a
+  seven-second bar being reported as a tempo outlier at all, which is a reference drawn across the
+  disturbance rather than around it: [ADR-0016](../../adrs/0016-a-reference-is-never-drawn-across-a-disturbance.md)
+  and Plan [0009](../0009-a-bar-is-judged-note-by-note.md) exist for exactly this and are unchanged by
+  it.
+
+**Every checklist line now has an answer.** Items 1, 2, 3, 5 and 7 in `### Phase 7 at the piano,
+2026-09-10 evening` above; items 4 and 6 here.
+
 ### Close triggers
 
 - **What shipped:** feature. A `score:*` IPC domain and score library; the engraved Score view
@@ -783,15 +854,15 @@ Phase 7 and it is a plan of its own, not a threshold to widen.
      and not chosen.
   4. **It is a plan of its own, drafted after this one closes**, not extra phases here.
 
-  Drafted 2026-09-10 as Plan [0006](0006-the-metronome-and-the-score-follows.md), ahead of this
-  plan's close rather than after it. Decision 1's ADR is [0012](../adrs/0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md);
+  Drafted 2026-09-10 as Plan [0006](../0006-the-metronome-and-the-score-follows.md), ahead of this
+  plan's close rather than after it. Decision 1's ADR is [0012](../../adrs/0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md);
   its rejection of a MIDI click was reopened there and reversed, because ADR-0007 has since built
   the output path whose absence was the reason. Decisions 2, 3 and 4 stand as written.
 - **The follow cursor this plan's prose promised was never built.** "The score follows with a
   cursor, nothing is judged until you stop" appears in *Context & problem* and in *What this plan
   does NOT do*, but no phase carries a done-when for it and none was implemented. The gap is
   between the plan's narrative and its phases, not between the phases and the code. It is now Plan
-  [0006](0006-the-metronome-and-the-score-follows.md) Phase 3, which has the wall clock a cursor
+  [0006](../0006-the-metronome-and-the-score-follows.md) Phase 3, which has the wall clock a cursor
   needs and which this plan never had.
 - **Repeat unfolding** — first and second endings, da capo, segno. The single largest thing this
   plan cut, and the one most likely to be asked for by real repertoire.
@@ -834,7 +905,7 @@ judge; the third is carried.
   method and NFR 7's lever. **Carried:** it is Plan 0003's to close, since the coach's token
   budget is what depends on it. Wants a cap on extras per bar — a count plus a sample — and a
   test with a take twice the length of the score. Plan
-  [0005](0005-the-practice-loop.md) does not make it worse: ADR-0011 records each drill attempt as
+  [0005](../0005-the-practice-loop.md) does not make it worse: ADR-0011 records each drill attempt as
   its own take, so a repeated passage never reaches one report.
 
 Two smaller items from the same review, neither blocking: `report.counts` includes bars the app
@@ -843,3 +914,49 @@ while `PracticeStats` says "Nothing after it is judged"); and `SyntheticSource.o
 consult the harness gate, so a `virtual:*` id still plays in a packaged build even though
 `listPorts` hides it — inherited from Plan 0001, and the roadmap's release plan is where that
 check belongs.
+
+### The close, 2026-09-11
+
+The review proper ran on 2026-09-10 and is above; this is the close that follows Phase 7 finishing.
+The full gate was re-run on the finished tree rather than read from the log — `npm run gate` exit 0
+end to end: typecheck, lint, **717 unit tests in 31 files**, both Node gates, **33 end-to-end tests
+in 3.1 minutes**. (The plan's own close trigger above records 472 tests in 25 files at Phase 6;
+the growth is four plans' worth of later work on the same tree, not this plan's.)
+
+**No blocker.** Both defects the 2026-09-10 review asked to be fixed before Phase 7 were fixed, and
+Phase 7 then exercised exactly what they distorted: item 2 asked whether the colours match the
+player's sense of a take, and item 6 compared two takes of one piece.
+
+**One close trigger above is stale and is corrected here.** "Outstanding `human` phases: Phase 7,
+deferred and not attempted" was written by `dev` at Phase 6, before either sitting at the piano.
+Phase 7 is finished; every checklist line has an answer in `### Phase 7 at the piano, 2026-09-10
+evening` and `### Phase 7 finished, 2026-09-11`.
+
+**No version bump, deliberately.** This plan's code shipped under v0.2.1 and has been in every
+release since — v0.3.0 and v0.4.0 both contain it. The close adds documentation and nothing else,
+so bumping would claim a release that does not exist. This is the `none` the close ceremony allows
+as a call rather than a miss.
+
+**ADRs accepted on this close:** [0010](../../adrs/0010-alignment-ends-where-the-player-stopped-an-unplayed-tail-is-free.md),
+raised at this plan's own Phase 7 and now carrying a dated `Outcome` — two takes of a 62-bar score
+attempted 35 bars and 11, and reported 1 and 0 missed notes rather than a tail of 27 and 51 bars'
+worth. [0005](../../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) and
+[0009](../../adrs/0009-an-ornament-is-optional-a-grace-note-is-scored-neither-way.md) were accepted
+earlier and are unchanged; ADR-0005 is now amended by
+[0018](../../adrs/0018-the-timeline-carries-the-page-ornaments-expanded-pedal-as-its-own-track.md),
+and ADR-0009's mechanism gains a second producer there.
+
+**What survives this plan**, all of it already owned by a drafted plan and none of it blocking:
+
+- The carried close-review finding that **an `extra` verdict per unmatched pitch is unbounded** now
+  has its first measurement — a bar labelled `81 extra notes` on real playing. Plan
+  [0003](../0003-the-coach-speaks.md) owns it because its token budget depends on it.
+- A **`+7 110 ms` bar reported as a tempo outlier** beside values of ±60 ms: a reference drawn
+  across a disturbance rather than around it, which is
+  [ADR-0016](../../adrs/0016-a-reference-is-never-drawn-across-a-disturbance.md) and Plan
+  [0009](../0009-a-bar-is-judged-note-by-note.md).
+- The two smaller items from the 2026-09-10 review: `report.counts` including bars the app says it
+  did not judge, and `SyntheticSource.open` not consulting the harness gate — the latter belongs to
+  the roadmap's release plan, which is where the packaged-build sweep lives.
+- This plan's own `## Followups`, unchanged. The metronome among them is already Plan
+  [0006](../0006-the-metronome-and-the-score-follows.md).

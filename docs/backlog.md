@@ -119,7 +119,7 @@ Each becomes an ADR when the plan that needs it is drafted. None should be answe
 - **A grid estimated from the take**, which is a different question from the grid Plan
   [0006](plans/0006-the-metronome-and-the-score-follows.md) *gives* the player. That plan answers
   the case where the player accepts a beat we supply. It does not answer rubato ([Plan
-  0002](plans/0002-a-piece-is-practised.md) Phase 7 item 4, and its piecewise-tempo-fit followup)
+  0002](plans/done/0002-a-piece-is-practised.md) Phase 7 item 4, and its piecewise-tempo-fit followup)
   or swing, where the beat has to be inferred from what was played and scored for consistency
   against itself instead of against a single fitted tempo. Both remain open, they are the same
   problem, and this is why jazz sits behind the drill work in the roadmap rather than beside it —

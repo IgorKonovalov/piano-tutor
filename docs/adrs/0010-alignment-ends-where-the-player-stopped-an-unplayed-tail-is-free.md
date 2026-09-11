@@ -1,9 +1,9 @@
 # ADR-0010 — Alignment ends where the player stopped: an unplayed tail is free
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-11, on the close of Plan 0002
 > **Date:** 2026-09-10
 > **Related plan(s):** raised at the piano during Plan
-> [0002](../plans/0002-a-piece-is-practised.md) Phase 7; implemented as a scoped change outside a
+> [0002](../plans/done/0002-a-piece-is-practised.md) Phase 7; implemented as a scoped change outside a
 > plan, because Phase 7 cannot be answered on a build that has this defect
 
 ## Context
@@ -128,3 +128,22 @@ because the real take is the user's playing and does not belong in the repositor
 
 `findUnalignable`'s inability to fire on a wide band is recorded in Plan 0002's followups rather
 than fixed here, so this ADR stays about one decision.
+
+## Outcome, 2026-09-11
+
+Accepted on the close of Plan [0002](../plans/done/0002-a-piece-is-practised.md), and measured on
+real playing at the CK88 the same day rather than only on the take that provoked it.
+
+**It is the reason a partial practice session is readable at all.** Two takes of BWV 846, a 62-bar
+score: one attempted 35 bars and one attempted 11. Missed notes came out at **1 and 0**. Without
+this ADR they would have been roughly 27 and 51 bars' worth of missing, which is not a report a
+player can learn anything from — the number they care about would have been buried under the tail
+they had not reached yet.
+
+**The regime it was written for turns out to be the normal one, not the exception.** The ADR was
+raised against a take that played the opening of BWV 847 and stopped; both of these takes did the
+same thing without being asked to, because that is what practising a piece is. A player works at
+the part they are learning. The original diagnosis — 1 585 notes missing, a fitted tempo of
+2 663 bpm — was not an edge case being handled, it was the ordinary case being repaired.
+
+Nothing in the body is falsified and no part of it wants revisiting.

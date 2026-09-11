@@ -2,7 +2,7 @@
 
 > **Status:** accepted 2026-09-10 (Plan 0002 — its `dev` phases and its close review; that plan is still open on its `human` phase)
 > **Date:** 2026-09-09
-> **Related plan(s):** Plan [0002](../plans/0002-a-piece-is-practised.md)
+> **Related plan(s):** Plan [0002](../plans/done/0002-a-piece-is-practised.md)
 
 ## Context
 

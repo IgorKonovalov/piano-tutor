@@ -4,7 +4,7 @@
 > half is evidenced when Plan 0002 closes)
 > **Date:** 2026-09-09
 > **Related plan(s):** [0001](../plans/done/0001-the-keyboard-shows-on-screen.md) (the live staff);
-> the score view lands in Plan [0002](../plans/0002-a-piece-is-practised.md)
+> the score view lands in Plan [0002](../plans/done/0002-a-piece-is-practised.md)
 
 ## Context
 

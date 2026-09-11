@@ -10,7 +10,7 @@
 > [0012](../../adrs/0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md)
 > (proposed) owns the click-relative path and bounds this plan to the other one
 > **NFRs claimed:** 12, and a new row **14** in [nfr.md](../../nfr.md) this plan adds
-> **Depends on:** Plan [0002](../0002-a-piece-is-practised.md) Phases 4 and 5 — the aligner, the
+> **Depends on:** Plan [0002](0002-a-piece-is-practised.md) Phases 4 and 5 — the aligner, the
 > fitted tempo and the per-bar report this plan replaces the timing half of
 > **Closed:** 2026-09-10 — five `dev` phases landed (`60050f7`, `6ba8f05`, `1296c40`,
 > `4e11434`, `28fd9a8`) and the `human` phase was answered at the CK88 the same evening

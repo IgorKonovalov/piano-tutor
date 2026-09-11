@@ -12,7 +12,6 @@ to pick the plan up. The plan file carries everything else.
 
 | Plan | Title | Status | Owner | Live constraint |
 |------|-------|--------|-------|-----------------|
-| [0002](0002-a-piece-is-practised.md) | A piece is practised | in-progress | human | All six `dev` phases landed and the close review ran on 2026-09-10; both defects it asked to be fixed before Phase 7 are fixed. **The only thing left is Phase 7 at the CK88** — items 2, 3 and 6 unanswered, item 4 observed and not judged — and the plan cannot close until those answers are in its log. **Item 6 is no longer blocked**: Plan 0008 closed 2026-09-10 and a good take and a bad one no longer both read out of time. It was attempted that evening and did not land — two performances ran into one take — so it wants one clean take each, nothing more. Nothing else in the roster is blocked by it. |
 | [0009](0009-a-bar-is-judged-note-by-note.md) | A bar is judged note by note | draft | dev, human | ADRs 0015, 0016 and 0017 are its design. **Plan 0008's eight followups, taken as one piece of work**, because four of them are the same bug: every reference in the model still draws through the disturbance it is judging around. A bar gains a second number - the shape of its arrivals inside it, read against a quadratic null so a ritardando reads zero - because a hand that hurries three notes and gives them back leaves the bar's duration unchanged to the millisecond. **Its Phase 2 is a `human` phase in the middle of the run** and Plan 0002's last open item rides on it. **Parked 2026-09-10 until the player can sit at the CK88** — it blocks nothing and nothing blocks it. Its Phase 1 is `dev`-only, self-contained and makes no threshold decisions, so it can be picked up alone to have the fixture waiting. |
 | [0010](0010-the-timeline-tells-the-truth-about-the-page.md) | The timeline tells the truth about the page | draft | dev, human | ADR-0018 is its whole design, and it amends ADR-0005's seam once for the whole list of marks rather than per sign. **The only plan in the roster fixing things that are broken right now**, both found at the CK88 on 2026-09-11: a real score with an attributes-only carrier bar cannot be played at all, and a bar with a turn over it is marked wrong for being played *correctly* — the failure ADR-0009 exists to prevent, alive by another route and exercised by no fixture. OSMD realises the ornament itself (`createVoiceEntriesForOrnament`), so we never own a turn-realiser. **Its Phase 3 renames `grace` to `optional`**, which is the one identifier Plan 0009 could collide on: do not run the two in parallel worktrees without agreeing that first. Its Phase 5 also settles the pedal question Plan 0004 Phase 7 left unexplained. |
 | [0011](0011-the-instrument-can-leave.md) | The instrument can leave | draft | dev, human | ADR-0019 is its whole design and it closes the open question ADR-0007 left: `MidiSink.send` stays fire-and-forget, because RtMidi on Windows prints to stderr and returns, so any status it gave back would be a lie. Main notices a departure by enumeration — free to ask, ADR-0006 — runs the panic path it already has, and tells the renderer. **Notice and say so, not reopen and resume**, by decision; name-matched reopen stays a followup. Depends on nothing in flight; Plan 0004 is closed and shipped everything it needs. It also pays Plan 0004's carried debt that **NFR 13's magnitude is asserted by nothing** larger than 29 note-ons against a row that says 500. |
@@ -24,6 +23,21 @@ to pick the plan up. The plan file carries everything else.
 | [0006](0006-the-metronome-and-the-score-follows.md) | The metronome, and the score follows | draft | dev, human | ADR-0012 is its whole design: the click is a grid both processes schedule from, not a tick per beat, and it becomes the timing reference whenever it runs. Widens ADR-0008's bound to let the app open an audio device while it is only listening. **Unblocked 2026-09-11:** Plan 0004 closed and its sink, lookahead clock, synthesised voice and stop path are shipped and measured. Builds the follow cursor Plan 0002's prose promised and never shipped. |
 
 ## Recently closed
+
+- [0002 — A piece is practised](done/0002-a-piece-is-practised.md) — closed 2026-09-11, **no
+  version bump** (its code shipped under v0.2.1 and has been in every release since; the close is
+  documentation only, a deliberate call). The oldest plan in the roster and the one everything else
+  reads: the score library, the `ExpectedTimeline`, the aligner, the per-bar report. Six `dev`
+  phases, a close review on 2026-09-10 whose two blocking defects were fixed, and **Phase 7
+  finished at the CK88 across two sittings**. ADRs 0005, 0009 and 0010 accepted on it, 0010 with a
+  dated `Outcome`. The two items that stayed open a day are answered on BWV 846: **well against
+  badly** reads 548/2 extra/32 of 35 bars clean against 176/89 extra/7 of 11, which the player
+  judged trustworthy; and **rubato is not flagged as error** — a 45 % rallentando is described in
+  prose while the bars furthest from their neighbours sit at ±60 ms, against the ±2 450 ms this
+  same phase measured before Plan 0008 replaced the global fit. Two observations carried, neither
+  new: a bar labelled **`81 extra notes`** is the unbounded-`extra` finding measured at last, and
+  Plan 0003 owns it; and a `+7 110 ms` bar sitting in the tempo-outlier list is ADR-0016's
+  territory, which Plan 0009 already exists for.
 
 - [0004 — The app plays the piece](done/0004-the-app-plays-the-piece.md) — closed 2026-09-11,
   v0.4.0. Six `dev` phases, three pre-Phase-7 fixes and a `human` phase at the CK88; **no
@@ -71,9 +85,12 @@ later plans build on its sink and its voice. The loop goes before the metronome 
 useful alone: the loop ships against the tempo-free aligner, and the metronome then adds the
 click, click-relative scoring and — once there is a store — the ladder.
 
-1. **A piece is practised** — drafted as Plan [0002](0002-a-piece-is-practised.md), `dev` phases
-   landed and reviewed, open on its `human` phase — and now blocked on item 2 below, because its
-   Phase 7 item 6 cannot be answered while a good take and a bad one both read out of time.
+1. **A piece is practised** — **closed** as Plan [0002](done/0002-a-piece-is-practised.md) on
+   2026-09-11. It was blocked on item 2 below — its Phase 7 item 6 could not be answered while a
+   good take and a bad one both read out of time — and that blockage is the reason item 2 exists
+   at all. With the timing model replaced, the same checklist line took one sitting at the piano
+   and came back yes. **Everything below reads something this plan built:** the score library, the
+   `ExpectedTimeline`, the aligner and the per-bar report.
 2. **The timing model** — **closed** as Plan [0008](done/0008-the-timing-model.md), out of Plan 0002's
    Phase 7 at the CK88 on 2026-09-10. One tempo fitted across a whole take cannot describe a take
    with a restart or a rallentando in it; the residuals ramp from +1741 to -1191 ms and the player

@@ -15,7 +15,7 @@
 > (accepted) governs the new output port list; [0001](../../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md)
 > (accepted) governs the processes and the new `player:*` domain
 > **NFRs claimed:** 3, 9, 11, 13 in [nfr.md](../../nfr.md)
-> **Depends on:** Plan [0002](../0002-a-piece-is-practised.md) Phases 1 and 2 — the score library and the
+> **Depends on:** Plan [0002](0002-a-piece-is-practised.md) Phases 1 and 2 — the score library and the
 > `ExpectedTimeline`. Phases 1 and 2 of this plan depend on neither and can run before it lands.
 
 ## TL;DR

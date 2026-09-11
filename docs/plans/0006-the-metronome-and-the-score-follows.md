@@ -18,7 +18,7 @@
 > **NFRs claimed:** 3, 9, 11, 13 in [nfr.md](../nfr.md)
 > **Depends on:** Plan [0004](done/0004-the-app-plays-the-piece.md) Phases 1, 5 and 6 — the `MidiSink`
 > and its clock, the Web Audio voice, and the stop path. Plan
-> [0002](0002-a-piece-is-practised.md) Phases 4 and 5 supply the aligner and the bar marking the
+> [0002](done/0002-a-piece-is-practised.md) Phases 4 and 5 supply the aligner and the bar marking the
 > cursor reuses.
 
 ## TL;DR
