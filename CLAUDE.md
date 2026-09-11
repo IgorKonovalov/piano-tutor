@@ -88,7 +88,8 @@ shared/          # ipc-channels.ts (constants), Zod schemas for every IPC payloa
 scripts/         # Node gates, no dependencies: check-doc-links.mjs (every relative markdown link
                  #   resolves; covers docs/, README, CLAUDE.md and .claude/skills/) and
                  #   check-pins.mjs (every direct dependency is X.Y.Z, NFR 9). Both run at pre-push
-                 #   and at every plan close.
+                 #   and at every plan close. clear-stale-dev.mjs is `predev`: it kills an orphaned
+                 #   Vite or esbuild watcher an earlier dev run of this checkout left behind.
 docs/
   nfr.md         # The numbered requirements every "fast" / "offline" claim cites. Properties are
                  #   asserted by tests; milliseconds are measured by hand and logged.
