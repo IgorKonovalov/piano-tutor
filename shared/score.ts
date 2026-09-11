@@ -393,6 +393,12 @@ export const TempoObservationSchema = z.object({
   toBar: z.number().int().nonnegative(),
   /** Negative is slower. -22 reads "slowed 22%". */
   percent: z.number(),
+  /**
+   * What the page prints over these bars asking for this change -- `rit.` --
+   * when it asks for one in the same direction (ADR-0021). A label on an
+   * observation already made; absent everywhere else, and never a verdict.
+   */
+  asked: z.string().optional(),
 })
 export type TempoObservation = z.infer<typeof TempoObservationSchema>
 

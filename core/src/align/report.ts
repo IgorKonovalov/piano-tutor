@@ -6,6 +6,7 @@ import {
   type ExpectedTimeline,
   type NoteVerdict,
   type PracticeReport,
+  type TempoObservation,
   type TimingStrictness,
 } from '../../../shared/score'
 import { type Alignment, align, arrivalTime, confidentPairs, struckPitches } from './align'
@@ -265,7 +266,9 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
       fittedTempo: steadyTempo(timed),
       counts,
       restarts,
-      tempoObservations: tempoObservations(paces),
+      // Last, after every bar's state and every count above is settled: the
+      // page's tempo may label an observation and can reach nothing else.
+      tempoObservations: annotateTempo(tempoObservations(paces), input.timeline),
       unalignableFromBar,
     },
     alignment,
@@ -301,6 +304,45 @@ function barDeviation(pace: BarPace | undefined, local: LocalTempo | undefined):
   return (pace.msPerQuarter - local.msPerQuarter) * pace.spread
 }
 
+
+/**
+ * The one read of the page's tempo in `core/src/align/` (ADR-0021): a label on
+ * an observation the timing model has already made, where a ramp written in
+ * the same direction overlaps its bars.
+ *
+ * Three things it cannot do, by construction. It never creates an
+ * observation: it maps the list it is given. It never changes a verdict, a
+ * count or a colour: it sees none of them. And it never reports absence: an
+ * observation the page does not ask for, or asks for the other way, comes back
+ * exactly as it went in, and a ramp with no observation produces nothing.
+ */
+export function annotateTempo(
+  observations: readonly TempoObservation[],
+  timeline: ExpectedTimeline
+): TempoObservation[] {
+  return observations.map((observation) => {
+    const from = timeline.bars.find((bar) => bar.index === observation.fromBar)
+    const to = timeline.bars.find((bar) => bar.index === observation.toBar)
+    if (from === undefined || to === undefined) return observation
+    const start = from.onset
+    const end = to.onset + to.beats
+    const direction = observation.percent < 0 ? 'slower' : 'faster'
+    for (const mark of timeline.tempo) {
+      if (mark.kind !== 'ramp' || mark.direction !== direction) continue
+      if (mark.at < end && mark.until > start) return { ...observation, asked: mark.label }
+    }
+    return observation
+  })
+}
+
+/** What a player reads for one observation, with the page's word where it asked. */
+export function tempoSentence(observation: TempoObservation): string {
+  const verb = observation.percent < 0 ? 'slowed' : 'pressed on'
+  const said = `You ${verb} ${Math.abs(observation.percent)}% over bars ${observation.fromBar} to ${observation.toBar}`
+  return observation.asked === undefined
+    ? `${said}.`
+    : `${said}, where the score asks for it (${observation.asked}).`
+}
 
 export function practiceReport(input: PracticeReportInput): PracticeReport {
   return analyse(input).report

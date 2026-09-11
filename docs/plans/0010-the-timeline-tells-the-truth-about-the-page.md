@@ -846,8 +846,8 @@ section names cannot happen.
 | 5 — The pedal goes down | dev | done | d182ad6 |
 | 6 — The music gets louder and softer | dev | done | 97175f8 |
 | 7 — The music breathes | dev | done | 22b1067 |
-| 8 — Short notes are short | dev | done | committed with this row |
-| 9 — The report says where the score asked | dev | not started | |
+| 8 — Short notes are short | dev | done | 242c8ab |
+| 9 — The report says where the score asked | dev | done | committed with this row |
 | 10 — At the piano | human | not started | |
 
 ### Measurements
@@ -1054,6 +1054,25 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
   `score.spec.ts:317 > a compressed .mxl reads as the same music as the .musicxml inside it`
   with "Expected: ab880089354a303ff5148c42c3f64a7e, Received: 376ec9ea9b05e2036d299752dd5b629b",
   after 20.9 s. That case then passed 3 of 3 alone. Run 4, `npm run test:e2e`, passed 38 of 38.
+- **Phase 9's label is an optional `asked` on `TempoObservation`**, absent unless annotated. An
+  unannotated observation is the same object as before, which is why every existing
+  `tempoObservations` assertion passes unedited. `annotateTempo` in `report.ts` runs at the
+  report's return, after bar states and counts. It sets `asked` to the label of the first ramp
+  in the observation's direction whose `[at, until)` overlaps the observation's bars, from the
+  onset of `fromBar` to the end of `toBar`.
+- The sentence moved from `PracticeStats.tsx` into `tempoSentence` in `report.ts`, so the test
+  asserts the plain and the annotated sentence word for word. `PracticeStats` renders it and
+  carries `data-asked`. The plain sentence's wording is unchanged.
+- **The mechanical guard is a test, not a lint rule**, because the ESLint config is outside the
+  phase's list. In `report.test.ts` it reads every non-test source in `core/src/align/` through
+  `import.meta.glob` and asserts that none imports from `../player/` or names `tempoMap`, and
+  that `report.ts` is the only file reading `timeline.tempo`.
+- **`e2e/practice.spec.ts` is unchanged.** Every practice take comes from a generated scenario
+  in `electron/midi/virtualPorts.ts`, which is outside the list, and none of them plays a score
+  with a written ramp. The annotated sentence is covered at the report level only.
+- `git diff core/src/align/align.ts` at Phase 9 is empty.
+- **Phase 9's gate is the plan's full gate:** `npm run gate` passed first run, with 819 of 819
+  unit tests and 38 of 38 e2e.
 
 ### Phase 3 stopped: `createVoiceEntriesForOrnament` misbehaves, and it is a design question
 

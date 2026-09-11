@@ -1,5 +1,5 @@
 import type { PracticeReport } from '../../shared/score'
-import { barsByTiming } from '../../core/src/align/report'
+import { barsByTiming, tempoSentence } from '../../core/src/align/report'
 import styles from './PracticeStats.module.css'
 
 /**
@@ -96,11 +96,10 @@ export function PracticeStats({ report, elapsedMs }: PracticeStatsProps) {
               data-from={observation.fromBar}
               data-to={observation.toBar}
               data-percent={observation.percent}
+              data-asked={observation.asked ?? ''}
             >
               {index > 0 && ' '}
-              You {observation.percent < 0 ? 'slowed' : 'pressed on'}{' '}
-              {Math.abs(observation.percent)}% over bars {observation.fromBar} to{' '}
-              {observation.toBar}.
+              {tempoSentence(observation)}
             </span>
           ))}
         </p>

@@ -7,6 +7,7 @@ import {
   type ExpectedNote,
   type ExpectedTimeline,
   type PracticeReport,
+  type TempoMark,
   type TimingStrictness,
 } from '../../../shared/score'
 import type { MidiEvent } from '../../../shared/midi'
@@ -21,7 +22,7 @@ import { type Perturbation, perturb } from '../midi/perturb'
 import { align } from './align'
 import { expectedGroups, playedGroups } from './onsetGroups'
 import { scoredNotes } from '../score/timeline'
-import { TIMING_THRESHOLD_MS, barsByTiming, practiceReport } from './report'
+import { TIMING_THRESHOLD_MS, barsByTiming, practiceReport, tempoSentence } from './report'
 
 /**
  * The aligner against the oracle of Phase 3.
@@ -1123,6 +1124,120 @@ describe('the tempo you kept, and the shape you gave it', () => {
     })
     expect(report.tempoObservations).toEqual([])
     expect(report.bars.find((bar) => bar.bar === 2)?.state).toBe('timing')
+  })
+})
+
+/**
+ * ADR-0021, stated as tests: the page's tempo may label an observation the
+ * timing model already made, and can reach nothing else. The take is always
+ * generated from the unmarked scale, so what varies between two reports below
+ * is only the tempo track they are judged against.
+ */
+describe('the report says where the score asked, and only that (ADR-0021)', () => {
+  const scale = TIMELINES['scale-c-major'] as ExpectedTimeline
+  const SLOWING: Perturbation = { kind: 'rallentando', fromBar: 1, toBar: 3, factor: 0.7 }
+
+  /** Quarters from the start of one bar to the end of another. */
+  function span(fromBar: number, toBar: number): [number, number] {
+    const from = scale.bars[fromBar]
+    const to = scale.bars[toBar]
+    if (from === undefined || to === undefined) throw new Error('no such bar')
+    return [from.onset, to.onset + to.beats]
+  }
+  function ramp(direction: 'slower' | 'faster', [at, until]: [number, number]): TempoMark {
+    return { at, kind: 'ramp', direction, until, label: direction === 'slower' ? 'rit.' : 'accel.' }
+  }
+  const markedWith = (tempo: TempoMark[]): ExpectedTimeline => ({ ...scale, tempo })
+  function judge(timeline: ExpectedTimeline, perturbations: Perturbation[] = []): PracticeReport {
+    const take = perturb(scale, { seed: SEED, perturbations })
+    return PracticeReportSchema.parse(
+      practiceReport({ timeline, events: take.events, takeId: 'asked' })
+    )
+  }
+  const unlabelled = (report: PracticeReport): PracticeReport => ({
+    ...report,
+    tempoObservations: report.tempoObservations.map(({ fromBar, toBar, percent }) => ({
+      fromBar,
+      toBar,
+      percent,
+    })),
+  })
+
+  const ritOverTheSlowing = markedWith([ramp('slower', span(1, 3))])
+
+  it('says the score asks for it where a take slows under a written rit.', () => {
+    const report = judge(ritOverTheSlowing, [SLOWING])
+    expect(report.tempoObservations).toHaveLength(1)
+    const observation = report.tempoObservations[0]
+    if (observation === undefined) throw new Error('no observation')
+    expect(observation.asked).toBe('rit.')
+    expect(tempoSentence(observation)).toBe(
+      `You slowed ${Math.abs(observation.percent)}% over bars 1 to 3, where the score asks for it (rit.).`
+    )
+  })
+
+  it('gives the same take against an empty tempo track the plain sentence and the same verdicts', () => {
+    const annotated = judge(ritOverTheSlowing, [SLOWING])
+    const plain = judge(scale, [SLOWING])
+    const observation = plain.tempoObservations[0]
+    if (observation === undefined) throw new Error('no observation')
+
+    expect(observation.asked).toBeUndefined()
+    expect(tempoSentence(observation)).toBe(
+      `You slowed ${Math.abs(observation.percent)}% over bars 1 to 3.`
+    )
+    // Verdicts, counts and colours identical; the label is the whole difference.
+    expect(annotated.bars).toEqual(plain.bars)
+    expect(annotated.counts).toEqual(plain.counts)
+    expect(states(annotated)).toEqual(states(plain))
+    expect(unlabelled(annotated)).toEqual(plain)
+  })
+
+  it('gives the plain sentence where the slowing has no rit. over it, or an accel.', () => {
+    for (const tempo of [
+      [],
+      [ramp('slower', span(0, 0))],
+      [ramp('faster', span(1, 3))],
+    ]) {
+      const report = judge(markedWith(tempo), [SLOWING])
+      expect(report.tempoObservations).toHaveLength(1)
+      expect(report.tempoObservations[0]?.asked, JSON.stringify(tempo)).toBeUndefined()
+      expect(report).toEqual(judge(scale, [SLOWING]))
+    }
+  })
+
+  it('says nothing at all about a steady take through a written rit.', () => {
+    const report = judge(ritOverTheSlowing)
+    expect(report.tempoObservations).toEqual([])
+    expect(report).toEqual(judge(scale))
+  })
+
+  it('still reports an even take at half speed against an Allegro as correct playing (NFR 14)', () => {
+    const allegro = markedWith([
+      { at: 0, kind: 'word', bpm: 130, label: 'Allegro' },
+      ramp('slower', span(1, 3)),
+    ])
+    const halfSpeed: Perturbation[] = [{ kind: 'tempoScale', factor: 2 }]
+    const report = judge(allegro, halfSpeed)
+    expect(report.bars.filter((bar) => bar.state === 'timing')).toEqual([])
+    expect(states(report)).toEqual(report.bars.map(() => 'clean'))
+    expect(report).toEqual(judge(scale, halfSpeed))
+  })
+
+  it('keeps core/src/align/ off the player tempo map, with one read of the tempo track', () => {
+    const sources = Object.entries(
+      import.meta.glob('./*.ts', { query: '?raw', import: 'default', eager: true }) as Record<
+        string,
+        string
+      >
+    ).filter(([path]) => !path.endsWith('.test.ts'))
+    expect(sources.length).toBeGreaterThan(3)
+    for (const [path, source] of sources) {
+      expect(source, path).not.toMatch(/from '\.\.\/player\//)
+      expect(source, path).not.toMatch(/tempoMap/)
+    }
+    const readers = sources.filter(([, source]) => /timeline\.tempo\b/.test(source))
+    expect(readers.map(([path]) => path)).toEqual(['./report.ts'])
   })
 })
 
