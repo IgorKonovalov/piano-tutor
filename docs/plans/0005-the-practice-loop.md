@@ -1,6 +1,6 @@
 # 0005 — The practice loop
 
-> **Status:** draft
+> **Status:** approved
 > **Created:** 2026-09-10
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0011](../adrs/0011-an-attempt-is-a-take-the-loop-repeats-through-the-recorder.md) (proposed)

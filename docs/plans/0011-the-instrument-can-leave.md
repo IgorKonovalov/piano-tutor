@@ -1,6 +1,6 @@
 # 0011 — The instrument can leave
 
-> **Status:** draft
+> **Status:** approved
 > **Created:** 2026-09-11
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0019](../adrs/0019-a-device-departure-is-noticed-by-enumeration-not-by-a-failed-send.md)

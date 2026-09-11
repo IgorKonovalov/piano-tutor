@@ -1,6 +1,6 @@
 # 0006 — The metronome, and the score follows
 
-> **Status:** draft
+> **Status:** approved
 > **Created:** 2026-09-10
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0012](../adrs/0012-the-metronome-is-a-shared-grid-and-the-timing-reference-when-it-runs.md)

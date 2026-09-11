@@ -1,6 +1,6 @@
 # 0013 — The travelling line
 
-> **Status:** draft
+> **Status:** approved
 > **Created:** 2026-09-11
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0020](../adrs/0020-one-cursor-on-the-score-with-two-position-sources.md)

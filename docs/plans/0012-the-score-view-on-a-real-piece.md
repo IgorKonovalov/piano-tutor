@@ -1,6 +1,6 @@
 # 0012 — The Score view on a real piece
 
-> **Status:** draft
+> **Status:** approved
 > **Created:** 2026-09-11
 > **Owner skill(s):** dev, human
 > **Related ADRs:** none new. [0003](../adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md)

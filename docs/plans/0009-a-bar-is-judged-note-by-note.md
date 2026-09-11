@@ -1,6 +1,6 @@
 # 0009 — A bar is judged note by note
 
-> **Status:** draft
+> **Status:** approved
 > **Created:** 2026-09-10
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0015](../adrs/0015-a-bar-is-judged-twice-the-pace-it-kept-and-the-shape-inside-it.md)

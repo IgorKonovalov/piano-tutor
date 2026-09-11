@@ -1,6 +1,6 @@
 # 0007 — What you played, drawn on the score
 
-> **Status:** draft
+> **Status:** approved
 > **Created:** 2026-09-10
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0013](../adrs/0013-what-you-played-is-drawn-over-the-engraving-never-into-it.md)
