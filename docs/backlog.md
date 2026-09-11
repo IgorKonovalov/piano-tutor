@@ -192,6 +192,48 @@ own interview:
     that draws neither. Nothing new is needed but a size and a home for it.
   - **The score list on the left folds away**, so a piece can have the width. Pure layout, and the
     one of these three with no dependency on anything.
+- **The marks on the page that change how a piece is played.** Raised by the user on 2026-09-11
+  with a bar showing a turn, a fingering, a slur, an accidental under the ornament and a hairpin:
+  the app should read the signs that influence playing "for correct reference", and send pedal
+  signals if it can. `ExpectedNote` carries `midi`, `onset`, `duration`, `bar`, `staff`, `voice`,
+  `tied` and `grace` — nothing else. No dynamics, no articulation, no ornament, no pedal.
+  - **A symbol ornament is a live scoring bug, not merely a playback gap, and ADR-0009 does not
+    cover it.** That ADR made a *grace note* optional — `timelineFromOsmd.ts` reads
+    `voiceEntry.IsGrace`, which is a small note written on the stave. A turn, trill or mordent is
+    a **symbol over a principal note**: OSMD puts it in `OrnamentContainer`, the extractor never
+    looks at that property, and the timeline gets **one** note. So a player who correctly realises
+    the turn plays four or five notes where one is expected, the surplus matches nothing,
+    `report.ts` charges each as `extra` and the bar goes `wrong`. It is precisely the failure
+    ADR-0009 was written to end, still live by another route — and ADR-0009's own Context
+    ("the repertoire Phase 7 exists to try is exactly the repertoire that has ornaments") argues
+    for fixing it. **The blind spot that hid the first one is still open, verified 2026-09-11:**
+    no fixture score contains a `<turn>`, `<trill-mark>` or `<mordent>`. The corpus gained
+    `grace-note.musicxml` for ADR-0009 and that file holds `<grace slash="yes"/>` — a written-out
+    grace note, the case that was fixed. Its own header comment reads "real repertoire is full of
+    ornaments"; the symbol form was never added, so this path is exercised by nothing, exactly as
+    the grace path was not.
+  - **Playback and scoring may want opposite answers here**, which is the fork an interview has to
+    settle. A demonstration should *play* the turn, so extraction would expand the symbol into
+    notes. Judging should *not punish* a player who plays it or who leaves it out, which is
+    ADR-0009's optional treatment. Expanding and marking-optional are not alternatives; the
+    question is whether both happen and where.
+  - **Pedal marks are the missing half of Plan 0004's Phase 7 item 3.** That item asks for a piece
+    to play "with the sustain pedal messages included" and a score cannot: there is no pedal in
+    the timeline, so `scheduleFromTimeline` has none to emit. Reading OSMD's pedal expressions
+    would make the item true as written, and it is the one item on this list with a done-when
+    already waiting for it.
+  - **Dynamics are excluded by decision, not by oversight.** ADR-0005 makes the timeline
+    tempo-free and dynamics-free; Plan 0004 fixes velocity at 72 and says in as many words that
+    inventing dynamics from OSMD's markings is a change to that extractor. A hairpin reaching
+    velocity therefore needs an ADR amending 0005, not a patch to the extractor.
+  - **Fingering is the one that needs nothing.** OSMD already draws it — it is visible in the
+    user's own screenshot — and it changes neither what is played nor how it is judged. It would
+    only need to enter the data if the coach were ever to comment on it.
+
+  The shape question underneath all of it: whether these become fields on `ExpectedNote`, a
+  parallel structure of marks beside the notes, or an expansion performed at extraction so the
+  rest of the app keeps seeing plain notes. That decision is ADR-0005's to amend and should be
+  taken once for the whole list rather than per sign.
 - **The instrument can be unplugged and plugged back in.** Measured at the CK88 on 2026-09-11
   (Plan [0004](plans/0004-the-app-plays-the-piece.md) Phase 7 item 5d). Pulling the USB cable
   mid-chord leaves **no stuck note**, which is the property that phase existed to check. What
