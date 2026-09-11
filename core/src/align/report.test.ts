@@ -4,6 +4,7 @@ import {
   ExpectedTimelineSchema,
   PracticeReportSchema,
   type BarVerdict,
+  type ExpectedNote,
   type ExpectedTimeline,
   type PracticeReport,
   type TimingStrictness,
@@ -379,7 +380,8 @@ function longTimeline(bars: number, chord = 3): ExpectedTimeline {
           staff: voice === 0 ? 1 : 0,
           voice: voice === 0 ? 5 : 1,
           tied: false,
-          grace: false,
+          optional: false,
+          ornament: null,
         })
       }
     }
@@ -555,6 +557,171 @@ describe('an ornament is scored neither way (ADR-0009)', () => {
   })
 })
 
+describe('an optional pitch forgives only a surplus strike (ADR-0018)', () => {
+  /**
+   * Hand-built timelines and hand-struck takes: the shapes a realised ornament
+   * produces, before any score produces them. Each strike is its own played
+   * group -- the struck notes sit further apart than the grouping window --
+   * because that is the case an ornament actually arrives as.
+   */
+  const MS_PER_QUARTER = 1000
+
+  function written(
+    midi: number,
+    onset: number,
+    duration: number,
+    marks: Partial<Pick<ExpectedNote, 'optional' | 'ornament'>> = {}
+  ): ExpectedNote {
+    return {
+      midi,
+      onset,
+      duration,
+      bar: Math.floor(onset / 2),
+      staff: 0,
+      voice: 1,
+      tied: false,
+      optional: marks.optional ?? false,
+      ornament: marks.ornament ?? null,
+    }
+  }
+
+  function timelineOf(notes: ExpectedNote[], bars: number): ExpectedTimeline {
+    return ExpectedTimelineSchema.parse({
+      scoreId: 'b'.repeat(32),
+      notes,
+      bars: Array.from({ length: bars }, (_, index) => ({ index, onset: index * 2, beats: 2 })),
+    })
+  }
+
+  /** One note-on per `[midi, onset]`, at `onset` quarters on a steady clock. */
+  function strikes(played: readonly (readonly [number, number])[]): MidiEvent[] {
+    return played.flatMap(([midi, onset]) => [
+      { kind: 'noteOn', t: onset * MS_PER_QUARTER, ch: 0, note: midi, velocity: 70 } as const,
+      { kind: 'noteOff', t: onset * MS_PER_QUARTER + 40, ch: 0, note: midi, velocity: 0 } as const,
+    ])
+  }
+
+  function judge(timeline: ExpectedTimeline, played: readonly (readonly [number, number])[]) {
+    return PracticeReportSchema.parse(
+      practiceReport({ timeline, events: strikes(played), takeId: 'hand-struck' })
+    )
+  }
+
+  const CLEAN = { wrongPitch: 0, missing: 0, extra: 0 }
+
+  describe('a grace note repeating a chord tone', () => {
+    // C4-E4-G4 with a grace E4 against it, then a plain line so the take has
+    // something either side of the chord.
+    const timeline = timelineOf(
+      [
+        written(60, 0, 1),
+        written(64, 0, 1),
+        written(67, 0, 1),
+        written(64, 0, 0.125, { optional: true }),
+        written(62, 1, 1),
+        written(64, 2, 1),
+        written(65, 3, 1),
+      ],
+      2
+    )
+    const LINE = [
+      [62, 1],
+      [64, 2],
+      [65, 3],
+    ] as const
+
+    it('is clean when the chord is played plainly', () => {
+      const report = judge(timeline, [[60, 0.2], [64, 0.2], [67, 0.2], ...LINE])
+      expect(report.counts).toEqual({ correct: 6, ...CLEAN })
+      expect(states(report)).toEqual(['clean', 'clean'])
+    })
+
+    it('is clean when the grace is struck ahead of the chord', () => {
+      const report = judge(timeline, [[64, 0], [60, 0.2], [64, 0.2], [67, 0.2], ...LINE])
+      expect(report.counts).toEqual({ correct: 6, ...CLEAN })
+      expect(states(report)).toEqual(['clean', 'clean'])
+    })
+  })
+
+  describe('a turn on A4', () => {
+    const realised = { optional: true, ornament: 'turn' } as const
+    const timeline = timelineOf(
+      [
+        written(69, 0, 1, { ornament: 'turn' }),
+        written(71, 0, 0.25, realised),
+        written(69, 0.25, 0.25, realised),
+        written(67, 0.5, 0.25, realised),
+        written(69, 0.75, 0.25, realised),
+        written(72, 1, 1),
+      ],
+      1
+    )
+
+    it('is clean when the realisation is played in full, each strike its own group', () => {
+      const report = judge(timeline, [
+        [71, 0],
+        [69, 0.25],
+        [67, 0.5],
+        [69, 0.75],
+        [72, 1],
+      ])
+      expect(report.counts).toEqual({ correct: 2, ...CLEAN })
+      expect(states(report)).toEqual(['clean'])
+    })
+
+    it('is clean when only the principal is played', () => {
+      const report = judge(timeline, [
+        [69, 0],
+        [72, 1],
+      ])
+      expect(report.counts).toEqual({ correct: 2, ...CLEAN })
+      expect(states(report)).toEqual(['clean'])
+    })
+
+    it('reports A4 missing when B4 alone is played where A4 is written', () => {
+      // The rule excuses the ornament, not the note: B4 is forgiven as surplus
+      // and A4, which nobody struck, is still owed.
+      const report = judge(timeline, [
+        [71, 0],
+        [72, 1],
+      ])
+      expect(verdicts(report, 'missing').map((v) => v.verdict)).toEqual([
+        { kind: 'missing', expected: 69 },
+      ])
+      expect(report.counts).toEqual({ correct: 1, wrongPitch: 0, missing: 1, extra: 0 })
+
+      const mentioned = report.bars.flatMap((bar) =>
+        bar.notes.flatMap((note) => [
+          'expected' in note ? note.expected : -1,
+          'played' in note ? note.played : -1,
+        ])
+      )
+      expect(mentioned).not.toContain(71)
+    })
+  })
+
+  describe('a trill on G4', () => {
+    it('is clean when all eight realised strikes are played, each its own group', () => {
+      // OSMD's trill: eight notes alternating G4 and A#4 an eighth of a quarter
+      // apart, exactly at the aligner's absorb bound.
+      const realised = { optional: true, ornament: 'trill' } as const
+      const trill = Array.from({ length: 8 }, (_, k) => [k % 2 === 0 ? 67 : 70, k * 0.125] as const)
+      const timeline = timelineOf(
+        [
+          written(67, 0, 1, { ornament: 'trill' }),
+          ...trill.map(([midi, onset]) => written(midi, onset, 0.125, realised)),
+          written(72, 1, 1),
+        ],
+        1
+      )
+
+      const report = judge(timeline, [...trill, [72, 1]])
+      expect(report.counts).toEqual({ correct: 2, ...CLEAN })
+      expect(states(report)).toEqual(['clean'])
+    })
+  })
+})
+
 describe('a long piece played only at its opening (ADR-0010)', () => {
   /**
    * The regime the fixture corpus does not contain, and the one every real
@@ -591,7 +758,8 @@ describe('a long piece played only at its opening (ADR-0010)', () => {
           staff: 0,
           voice: 1,
           tied: false,
-          grace: false,
+          optional: false,
+          ornament: null,
         })
       }
     }

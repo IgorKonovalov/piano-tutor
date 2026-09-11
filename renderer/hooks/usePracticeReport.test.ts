@@ -32,7 +32,8 @@ function piece(bars: number): ExpectedTimeline {
           staff: voice === 0 ? 1 : 0,
           voice: voice === 0 ? 5 : 1,
           tied: false,
-          grace: false,
+          optional: false,
+          ornament: null,
         })
       }
     }

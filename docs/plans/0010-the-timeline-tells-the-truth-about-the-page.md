@@ -720,8 +720,8 @@ section names cannot happen.
 | phase | owner | state | commit |
 |---|---|---|---|
 | 1 — A score with a turn in it, and the bug on screen | dev | done | 3788e72 |
-| 2 — A bar may be empty | dev | done | committed with this row |
-| 3 — An ornament costs nothing, whatever pitch it shares | dev | not started (the old Phase 3 stopped, see Notes; re-cut by the amendment) | |
+| 2 — A bar may be empty | dev | done | b2bd3a7 |
+| 3 — An ornament costs nothing, whatever pitch it shares | dev | done | committed with this row |
 | 4 — A turn is played, and costs nothing to play | dev | not started | |
 | 5 — The pedal goes down | dev | not started | |
 | 6 — The music gets louder and softer | dev | not started | |
@@ -768,6 +768,32 @@ _(NFR 12, 13 and 14 re-reported from the gate run; no new row is claimed. Note w
 - The Phase 2 end-to-end test was **run against the unrelaxed schema to confirm it bites**: with
   `beats: z.number().positive()` restored, the transport never leaves `idle` because `player:play`
   is refused on receive. That is the BWV 555 failure, reproduced and then fixed.
+- **Phase 3 renamed the committed timelines with a script, not with the `PT_REGEN_TIMELINES`
+  run.** `"grace": X` became `"optional": X, "ornament": null` in all eight files. Afterwards the
+  unflagged e2e case "the committed timelines still match what the app extracts" and the jsdom
+  comparison in `timelineFromOsmd.test.ts` both passed against them. The fixture diff is 103 notes,
+  each exactly those three lines, and both `true` values carried over.
+- **Phase 3's forgiveness rule is a new function, `withoutForgivenOrnaments`, in
+  `core/src/align/onsetGroups.ts`.** `ornamentAwareDifference`, `matchSharesNothing` and
+  `report.ts`'s `heard` call it. `withoutOrnaments` (the plain subtraction) stays, with its old
+  tests unedited, for the roll-cost count and `arrivalTime`.
+- **Done-when 2 was run failing first.** With `withoutForgivenOrnaments`'s body temporarily
+  replaced by the old subtraction, 7 of the new tests failed. The plain C4-E4-G4 chord reported
+  `correct: 5` of 6, with E4 missing. The four `report.test.ts` cases for the turn and the trill
+  failed the same way, with the principal missing. The body was then restored.
+- Of Phase 3's listed files, `align.test.ts`, `schedule.test.ts`, `timelineFromOsmd.test.ts` and
+  `e2e/score.spec.ts` needed no change. `grace` survives in them only as a fixture file name, a
+  comment or a local variable.
+- **The e2e suite took three runs at Phase 3 to come back fully green, and each red was a
+  different case.** Run 1 failed `e2e/practice.spec.ts:196` with "only -1 of 19 notes arrived". A
+  count of `-1` means the first poll of the banner counter never came back before the 60 s
+  deadline. That spec then passed alone, 8 of 8. Run 2 failed `e2e/score.spec.ts:71`: the
+  `pickup-two-hands` row carried the title "C major scale". Run 3 passed 34 of 34.
+- **Followup, not acted on: the Score view can write a title to the wrong score.**
+  `renderer/views/Score.tsx:204-209` looks up `selectedId` when OSMD reports a load. If the
+  previous score's load lands after the selection has moved, that title is written to the new
+  score's row. The next render of that score corrects it, because the write fires whenever the
+  titles differ. The race predates this plan. The file is outside every phase's list.
 
 ### Phase 3 stopped: `createVoiceEntriesForOrnament` misbehaves, and it is a design question
 

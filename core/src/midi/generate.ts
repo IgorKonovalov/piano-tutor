@@ -1,6 +1,6 @@
 import { CC_SUSTAIN, type MidiEvent } from '../../../shared/midi'
 import type { ExpectedTimeline } from '../../../shared/score'
-import { graceNotes, roundQuarters, scoredNotes } from '../score/timeline'
+import { optionalNotes, roundQuarters, scoredNotes } from '../score/timeline'
 import { makeRng } from './rng'
 
 /**
@@ -292,7 +292,7 @@ export function timelineNotes(
   }))
   if (options.ornaments !== 'played') return played
 
-  for (const note of graceNotes(timeline)) {
+  for (const note of optionalNotes(timeline)) {
     played.push({
       midi: note.midi,
       onset: roundQuarters(Math.max(0, note.onset - GRACE_LEAD_QUARTERS)),

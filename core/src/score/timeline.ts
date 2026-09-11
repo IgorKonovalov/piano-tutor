@@ -41,12 +41,13 @@ export function barAt(timeline: ExpectedTimeline, index: number): ExpectedBar | 
 }
 
 /**
- * The notes alignment judges. Grace notes are in the timeline so the score can
- * still be described, and out of this list because scoring an ornament against
- * a beat it deliberately anticipates would mark good playing wrong.
+ * The notes alignment judges. Optional notes -- grace notes and realised
+ * ornaments -- are in the timeline so the score can still be described and
+ * played, and out of this list because scoring an ornament would mark good
+ * playing wrong whichever way the player took it.
  */
 export function scoredNotes(timeline: ExpectedTimeline): ExpectedNote[] {
-  return timeline.notes.filter((note) => !note.grace)
+  return timeline.notes.filter((note) => !note.optional)
 }
 
 /**
@@ -55,8 +56,8 @@ export function scoredNotes(timeline: ExpectedTimeline): ExpectedNote[] {
  * decorate as optional pitches, so that playing one costs nothing and leaving
  * one out costs nothing (ADR-0009).
  */
-export function graceNotes(timeline: ExpectedTimeline): ExpectedNote[] {
-  return timeline.notes.filter((note) => note.grace)
+export function optionalNotes(timeline: ExpectedTimeline): ExpectedNote[] {
+  return timeline.notes.filter((note) => note.optional)
 }
 
 /** The piece's length in quarter notes, from the bar table rather than the notes. */
@@ -128,7 +129,8 @@ export function canonicalTimeline(timeline: ExpectedTimeline): string {
     staff: note.staff,
     voice: note.voice,
     tied: note.tied,
-    grace: note.grace,
+    optional: note.optional,
+    ornament: note.ornament,
   }))
   const bars = timeline.bars.map((bar) => ({
     index: bar.index,

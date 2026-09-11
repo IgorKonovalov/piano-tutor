@@ -255,7 +255,7 @@ export function scheduleFromTimeline(
     const at = (note.onset - originQuarters) * msPerQuarter
     // A tie is already summed by the timeline, so it is one strike of one key.
     const sounding =
-      note.grace || note.duration === 0 ? GRACE_NOTE_MS : note.duration * msPerQuarter
+      note.optional || note.duration === 0 ? GRACE_NOTE_MS : note.duration * msPerQuarter
     const gap = Math.min(RELEASE_GAP_MS, RELEASE_GAP_FRACTION * sounding)
     const offAt = at + sounding - gap
 

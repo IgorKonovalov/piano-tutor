@@ -113,7 +113,8 @@ function repeatedTimeline(): ExpectedTimeline {
       staff: 0,
       voice: 0,
       tied: false,
-      grace: false,
+      optional: false,
+      ornament: null,
     }))
   )
   return ExpectedTimelineSchema.parse({

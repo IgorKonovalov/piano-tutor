@@ -98,6 +98,19 @@ export type ScoreTitleRequest = z.infer<typeof ScoreTitleRequestSchema>
  * timeline that spoke in seconds would be asserting one; alignment fits a
  * tempo after the fact instead, and is tempo-free by construction.
  */
+
+/** OSMD's `OrnamentEnum`, one name per value it can realise into notes. */
+export const OrnamentKindSchema = z.enum([
+  'trill',
+  'turn',
+  'invertedTurn',
+  'delayedTurn',
+  'delayedInvertedTurn',
+  'mordent',
+  'invertedMordent',
+])
+export type OrnamentKind = z.infer<typeof OrnamentKindSchema>
+
 export const ExpectedNoteSchema = z.object({
   midi: z.number().int().min(0).max(127),
   /** Quarter notes from the start of the piece. */
@@ -111,8 +124,19 @@ export const ExpectedNoteSchema = z.object({
   voice: z.number().int().nonnegative(),
   /** This note absorbed a tie: the player strikes the key once. */
   tied: z.boolean(),
-  /** Marked here, excluded from alignment scoring in this plan. */
-  grace: z.boolean(),
+  /**
+   * Scored neither way (ADR-0009): a written-out grace note, or one of the
+   * notes an ornament symbol was realised into (ADR-0018). Striking it costs
+   * nothing and leaving it out costs nothing.
+   */
+  optional: z.boolean(),
+  /**
+   * The ornament this note carries or was realised from. On a scored note it
+   * means "sounded by its realisation, scored as written"; on an optional one,
+   * "one of those notes". Null for a written-out grace note and for every
+   * ordinary note, and on a scored note only when its realisation exists.
+   */
+  ornament: OrnamentKindSchema.nullable(),
 })
 export type ExpectedNote = z.infer<typeof ExpectedNoteSchema>
 

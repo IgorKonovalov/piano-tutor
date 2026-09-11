@@ -9,7 +9,8 @@
       "staff": 0,
       "voice": 1,
       "tied": true,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 67,
@@ -19,7 +20,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 64,
@@ -29,7 +31,8 @@
       "staff": 0,
       "voice": 1,
       "tied": true,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 60,
@@ -39,7 +42,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     }
   ],
   "bars": [

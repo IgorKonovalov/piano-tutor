@@ -72,7 +72,8 @@ export function timelineFromOsmd(sheet: MusicSheet, scoreId: string): ExpectedTi
               staff: entry.ParentStaff.idInMusicSheet,
               voice: voiceEntry.ParentVoice.VoiceId,
               tied: tie !== undefined,
-              grace: voiceEntry.IsGrace === true,
+              optional: voiceEntry.IsGrace === true,
+              ornament: null,
             })
           }
         }

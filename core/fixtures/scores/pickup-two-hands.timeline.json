@@ -9,7 +9,8 @@
       "staff": 1,
       "voice": 5,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 55,
@@ -19,7 +20,8 @@
       "staff": 1,
       "voice": 5,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 67,
@@ -29,7 +31,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 72,
@@ -39,7 +42,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 48,
@@ -49,7 +53,8 @@
       "staff": 1,
       "voice": 5,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 55,
@@ -59,7 +64,8 @@
       "staff": 1,
       "voice": 5,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 72,
@@ -69,7 +75,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 76,
@@ -79,7 +86,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 79,
@@ -89,7 +97,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 43,
@@ -99,7 +108,8 @@
       "staff": 1,
       "voice": 5,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 50,
@@ -109,7 +119,8 @@
       "staff": 1,
       "voice": 5,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 71,
@@ -119,7 +130,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 74,
@@ -129,7 +141,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 79,
@@ -139,7 +152,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 48,
@@ -149,7 +163,8 @@
       "staff": 1,
       "voice": 5,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 55,
@@ -159,7 +174,8 @@
       "staff": 1,
       "voice": 5,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 72,
@@ -169,7 +185,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 76,
@@ -179,7 +196,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     },
     {
       "midi": 79,
@@ -189,7 +207,8 @@
       "staff": 0,
       "voice": 1,
       "tied": false,
-      "grace": false
+      "optional": false,
+      "ornament": null
     }
   ],
   "bars": [

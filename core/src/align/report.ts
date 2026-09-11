@@ -16,7 +16,7 @@ import {
   expectedGroups,
   pitchesMissingFrom,
   playedGroups,
-  withoutOrnaments,
+  withoutForgivenOrnaments,
 } from './onsetGroups'
 import { findRestarts } from './restarts'
 import {
@@ -144,10 +144,12 @@ export function analyse(input: PracticeReportInput): PracticeAnalysis {
 
       // A match may span several played groups when the player broke the
       // chord, so what it is judged against is every note in the run -- minus
-      // this group's ornaments, which are scored neither way (ADR-0009). A
-      // grace note the player struck is not in `heard` at all, so it reaches
-      // no verdict, no count and no bar state.
-      const heard = withoutOrnaments(struckPitches(played, step), expectedGroup.optionalPitches)
+      // the strikes this group's ornaments forgive, which are scored neither
+      // way (ADR-0009). An ornament the player struck is not in `heard` at
+      // all, so it reaches no verdict, no count and no bar state; a scored
+      // note sharing its pitch stays in, because only a surplus strike is
+      // forgiven (ADR-0018).
+      const heard = withoutForgivenOrnaments(struckPitches(played, step), expectedGroup)
       const heardNotes = played
         .slice(step.played, step.played + step.playedCount)
         .flatMap((group) => group.notes)

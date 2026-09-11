@@ -146,7 +146,8 @@ export function timelineFromMidi(
       staff: 0,
       voice: note.voice,
       tied: false,
-      grace: false,
+      optional: false,
+      ornament: null,
     }))
     .sort(compareNotes)
 

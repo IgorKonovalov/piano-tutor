@@ -2,6 +2,7 @@ import {
   type ExpectedGroup,
   type PlayedGroup,
   pitchDifference,
+  withoutForgivenOrnaments,
   withoutOrnaments,
 } from './onsetGroups'
 
@@ -71,16 +72,18 @@ const MAX_ABSORBED_GROUPS = 8
 const ROLL_COST = 1
 
 /**
- * How far this group's pitches are from what the player struck, with the
- * group's ornaments removed from the played side first (ADR-0009). Every cost
- * in the matcher goes through here, so an ornament can never make a step look
- * more expensive than the same passage without one.
+ * How far this group's pitches are from what the player struck, once the
+ * group's ornaments have forgiven whatever surplus they can (ADR-0009,
+ * ADR-0018). Every cost in the matcher goes through here, so an ornament can
+ * never make a step look more expensive than the same passage without one --
+ * and, because only a surplus strike is forgiven, never cheaper than the
+ * scored notes deserve either.
  */
 export function ornamentAwareDifference(
   group: ExpectedGroup,
   struck: readonly number[]
 ): number {
-  return pitchDifference(group.pitches, withoutOrnaments(struck, group.optionalPitches))
+  return pitchDifference(group.pitches, withoutForgivenOrnaments(struck, group))
 }
 
 /**
@@ -244,6 +247,11 @@ export function align(
         // chord, it is the decoration in front of it. Charging it would make
         // taking an ornament cost more than leaving it out, which is the one
         // thing ADR-0009 says must not happen.
+        //
+        // This asks whether a group is *nothing but ornament*, so it takes out
+        // every optional pitch -- the plain subtraction, not the surplus-only
+        // rule the cost uses. A trill's repeated principal is part of the
+        // realisation and must not be charged as a spread chord.
         const most = Math.min(absorbLimit(expectedGroup), j)
         const union = [...playedGroup.pitches]
         let ornamentGroups = 0
@@ -406,18 +414,18 @@ function findUnalignable(
  * the difference is as large as it could possibly be, which is every expected
  * pitch missing plus every struck one unaccounted for.
  *
- * The struck side is counted **after** the group's ornaments come out
- * (ADR-0009), because `step.difference` was computed that way too. Counting
- * them here and not there would make a group with an ornament look like it
- * shared something it did not, and a run of those is what earns
- * `unalignableFrom`.
+ * The struck side is counted **after** the group's ornaments forgive what
+ * they can (ADR-0009, ADR-0018), because `step.difference` was computed that
+ * way too. Counting them here and not there would make a group with an
+ * ornament look like it shared something it did not, and a run of those is
+ * what earns `unalignableFrom`.
  */
 function matchSharesNothing(
   expectedGroup: ExpectedGroup,
   played: readonly PlayedGroup[],
   step: Extract<Step, { kind: 'match' }>
 ): boolean {
-  const kept = withoutOrnaments(struckPitches(played, step), expectedGroup.optionalPitches)
+  const kept = withoutForgivenOrnaments(struckPitches(played, step), expectedGroup)
   return step.difference >= expectedGroup.pitches.length + kept.length
 }
 
@@ -429,6 +437,12 @@ function matchSharesNothing(
  * it would read a correctly placed note as early by however long the player
  * took over the ornament. The beat is the first group in the run that carries
  * a pitch the score actually scores.
+ *
+ * "Carries a scored pitch" means "is not nothing but ornament", so this takes
+ * out every optional pitch, the plain subtraction, and not the surplus-only
+ * rule verdicts use. A realised ornament re-emits its principal's pitch, so
+ * every group of a realised run is all ornament and the fallback applies: the
+ * run's first group, which is the realisation starting on the beat.
  */
 export function arrivalTime(
   expectedGroup: ExpectedGroup,

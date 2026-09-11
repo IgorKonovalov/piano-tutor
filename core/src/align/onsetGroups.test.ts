@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { ExpectedTimelineSchema, type ExpectedTimeline } from '../../../shared/score'
+import {
+  ExpectedTimelineSchema,
+  type ExpectedNote,
+  type ExpectedTimeline,
+} from '../../../shared/score'
 import type { MidiEvent } from '../../../shared/midi'
 import graceJson from '../../fixtures/scores/grace-note.timeline.json'
 import multiRestJson from '../../fixtures/scores/multi-rest-and-ties.timeline.json'
@@ -10,6 +14,7 @@ import {
   pitchDifference,
   pitchesMissingFrom,
   playedGroups,
+  withoutForgivenOrnaments,
   withoutOrnaments,
 } from './onsetGroups'
 
@@ -136,7 +141,7 @@ describe('ornaments attach to the group they decorate (ADR-0009)', () => {
     const ahead: ExpectedTimeline = {
       ...grace,
       notes: grace.notes.map((note) =>
-        note.grace ? { ...note, onset: note.onset - 0.25 } : note
+        note.optional ? { ...note, onset: note.onset - 0.25 } : note
       ),
     }
     const groups = expectedGroups(ahead)
@@ -152,10 +157,122 @@ describe('ornaments attach to the group they decorate (ADR-0009)', () => {
     // "attaches forwards, never backwards".
     const trailing: ExpectedTimeline = {
       ...grace,
-      notes: grace.notes.map((note) => (note.grace ? { ...note, onset: 99 } : note)),
+      notes: grace.notes.map((note) => (note.optional ? { ...note, onset: 99 } : note)),
     }
     const groups = expectedGroups(trailing)
     expect(groups.every((group) => group.optionalPitches.length === 0)).toBe(true)
+  })
+})
+
+/** One note of a hand-built timeline: plain unless told otherwise. */
+function written(
+  midi: number,
+  onset: number,
+  duration: number,
+  marks: Partial<Pick<ExpectedNote, 'optional' | 'ornament'>> = {}
+): ExpectedNote {
+  return {
+    midi,
+    onset,
+    duration,
+    bar: 0,
+    staff: 0,
+    voice: 1,
+    tied: false,
+    optional: marks.optional ?? false,
+    ornament: marks.ornament ?? null,
+  }
+}
+
+/**
+ * A turn on A4 as ADR-0018 records it: the principal scored and carrying the
+ * kind, its realisation B4 A4 G4 A4 optional and inside it, then a plain C5.
+ */
+function turnTimeline(): ExpectedTimeline {
+  const realised = { optional: true, ornament: 'turn' } as const
+  return {
+    scoreId: 'a'.repeat(32),
+    notes: [
+      written(69, 0, 1, { ornament: 'turn' }),
+      written(71, 0, 0.25, realised),
+      written(69, 0.25, 0.25, realised),
+      written(67, 0.5, 0.25, realised),
+      written(69, 0.75, 0.25, realised),
+      written(72, 1, 1),
+    ],
+    bars: [{ index: 0, onset: 0, beats: 2 }],
+  }
+}
+
+describe('a realised ornament attaches backwards (ADR-0018)', () => {
+  it('hangs every realised note off its principal, and none off the next beat', () => {
+    const groups = expectedGroups(turnTimeline())
+
+    expect(groups.map((group) => group.pitches)).toEqual([[69], [72]])
+    expect(groups[0]?.optionalPitches).toEqual([67, 69, 69, 71])
+    expect(groups[1]?.optionalPitches).toEqual([])
+  })
+
+  it('keeps the principal scored: it is a group, and its realisation is not', () => {
+    const groups = expectedGroups(turnTimeline())
+    expect(groups).toHaveLength(2)
+    expect(groups[0]?.notes.map((note) => note.ornament)).toEqual(['turn'])
+  })
+
+  it('still sends a grace note forwards when it sits between two groups', () => {
+    // The same position, two readings: a realised note there belongs to the
+    // beat before, a grace note to the beat after.
+    const between = (ornament: ExpectedNote['ornament']): ExpectedTimeline => ({
+      ...turnTimeline(),
+      notes: [
+        written(69, 0, 1),
+        written(71, 0.5, 0.25, { optional: true, ornament }),
+        written(72, 1, 1),
+      ],
+    })
+
+    expect(expectedGroups(between('turn')).map((g) => g.optionalPitches)).toEqual([[71], []])
+    expect(expectedGroups(between(null)).map((g) => g.optionalPitches)).toEqual([[], [71]])
+  })
+})
+
+describe('withoutForgivenOrnaments', () => {
+  const chordWithGraceE = { pitches: [60, 64, 67], optionalPitches: [64] }
+
+  it('forgives nothing when the player struck only what is scored', () => {
+    // The latent ADR-0009 defect: a grace note repeating a chord tone. Taking
+    // the optional E4 out first would remove the E4 the chord scores.
+    expect(withoutForgivenOrnaments([60, 64, 67], chordWithGraceE)).toEqual([60, 64, 67])
+  })
+
+  it('forgives the surplus copy when the ornament was struck as well', () => {
+    expect(withoutForgivenOrnaments([60, 64, 64, 67], chordWithGraceE)).toEqual([60, 64, 67])
+  })
+
+  it('never excuses a scored note the player replaced with the ornament', () => {
+    // B4 where A4 is written: B4 is surplus and forgiven, and A4 is still
+    // absent from what is judged, so it will be reported missing.
+    expect(withoutForgivenOrnaments([71], { pitches: [69], optionalPitches: [67, 69, 69, 71] }))
+      .toEqual([])
+  })
+
+  it('forgives a whole realised turn down to the one scored strike', () => {
+    const turn = { pitches: [69], optionalPitches: [67, 69, 69, 71] }
+    expect(withoutForgivenOrnaments([67, 69, 69, 71], turn)).toEqual([69])
+    expect(withoutForgivenOrnaments([69], turn)).toEqual([69])
+  })
+
+  it('leaves an unforgivable surplus in place', () => {
+    expect(withoutForgivenOrnaments([60, 64, 66, 67], chordWithGraceE)).toEqual([60, 64, 66, 67])
+  })
+
+  it('agrees with the plain subtraction wherever optional and scored are disjoint', () => {
+    const group = { pitches: [72], optionalPitches: [71] }
+    for (const struck of [[72], [71, 72], [71, 71, 72], [70, 72], []]) {
+      expect(withoutForgivenOrnaments(struck, group)).toEqual(
+        withoutOrnaments(struck, group.optionalPitches)
+      )
+    }
   })
 })
 

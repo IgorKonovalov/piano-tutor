@@ -16,7 +16,7 @@ import {
   barTableProblems,
   canonicalTimeline,
   compareNotes,
-  graceNotes,
+  optionalNotes,
   noteBarProblems,
   notesInBar,
   scoredNotes,
@@ -254,7 +254,7 @@ describe('grace-note', () => {
   const timeline = FIXTURES['grace-note'] as ExpectedTimeline
 
   it('carries the ornament as a note, marked, rather than dropping it', () => {
-    const ornaments = graceNotes(timeline)
+    const ornaments = optionalNotes(timeline)
     expect(ornaments).toHaveLength(1)
     // B4 before the written C5: the acciaccatura in bar 2 (index 1).
     expect(ornaments[0]?.midi).toBe(71)
@@ -262,7 +262,7 @@ describe('grace-note', () => {
   })
 
   it('puts the ornament at the onset of the note it decorates', () => {
-    const ornament = graceNotes(timeline)[0] as ExpectedNote
+    const ornament = optionalNotes(timeline)[0] as ExpectedNote
     const principal = scoredNotes(timeline).find((note) => note.midi === 72)
     expect(principal).toBeDefined()
     expect(ornament.onset).toBe(principal?.onset)
@@ -270,7 +270,7 @@ describe('grace-note', () => {
 
   it('leaves the ornament out of what is scored, and only the ornament', () => {
     expect(scoredNotes(timeline)).toHaveLength(timeline.notes.length - 1)
-    expect(scoredNotes(timeline).some((note) => note.grace)).toBe(false)
+    expect(scoredNotes(timeline).some((note) => note.optional)).toBe(false)
     expect(scoredNotes(timeline).map((note) => note.midi)).toEqual([
       60, 62, 64, 65, 67, 69, 72, 74, 76, 77, 79,
     ])
@@ -283,10 +283,10 @@ describe('the helpers alignment will use', () => {
   it('excludes grace notes from what is scored', () => {
     const withGrace: ExpectedTimeline = {
       ...timeline,
-      notes: timeline.notes.map((note, index) => ({ ...note, grace: index === 0 })),
+      notes: timeline.notes.map((note, index) => ({ ...note, optional: index === 0 })),
     }
     expect(scoredNotes(withGrace)).toHaveLength(timeline.notes.length - 1)
-    expect(scoredNotes(withGrace).some((note) => note.grace)).toBe(false)
+    expect(scoredNotes(withGrace).some((note) => note.optional)).toBe(false)
   })
 
   it('reports a gap in the bar table rather than hiding it', () => {

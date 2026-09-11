@@ -91,7 +91,7 @@ describe('the committed .mid against the committed .musicxml', () => {
   it('claims nothing it cannot know: one staff, no ties, no grace notes', () => {
     expect(new Set(fromMidi.notes.map((note) => note.staff))).toEqual(new Set([0]))
     expect(fromMidi.notes.some((note) => note.tied)).toBe(false)
-    expect(fromMidi.notes.some((note) => note.grace)).toBe(false)
+    expect(fromMidi.notes.some((note) => note.optional)).toBe(false)
   })
 })
 
