@@ -3,7 +3,9 @@
 > **Status:** in-progress 2026-09-11
 > **Created:** 2026-09-11
 > **Amended:** 2026-09-11, after Phase 3 stopped: the old Phase 3 is now Phases 3 and 4, and the
-> later phases renumber by one. See the amendment at the end of `## Decision`.
+> later phases renumber by one. Amended again the same day after Phase 7 stopped on OSMD's tempo
+> reading: a ramp is a word, a direction and a span, and `core/` sizes it. Phase 7 is rewritten.
+> Both amendments are at the end of `## Decision`.
 > **Owner skill(s):** dev, human
 > **Related ADRs:** [0018](../adrs/0018-the-timeline-carries-the-marks-on-the-page.md) (proposed)
 > decides what the timeline extracts and in what shape;
@@ -85,13 +87,14 @@ and ADR-0018 turns on it:
 | Pedal | `MultiExpression.PedalStart` / `.PedalEnd` | start and end at an `AbsoluteTimestamp` |
 | Dynamics | `MultiExpression.InstantaneousDynamic` | `MidiVolume` — the pp-to-ff mapping already exists |
 | Hairpins | `.StartingContinuousDynamic` / `.EndingContinuousDynamic` | the span and its end dynamic |
-| Tempo words | `MultiTempoExpression.InstantaneousTempo` | Larghissimo to Prestissimo, and metronome marks |
-| rit. / accel. | `MultiTempoExpression.ContinuousTempo` | 15 types, and `getInterpolatedTempo` — the curve |
+| Tempo words | `MultiTempoExpression.InstantaneousTempo` | a default bpm for each word, Larghissimo to Prestissimo, and metronome marks |
+| rit. / accel. | either tempo class, depending on the spelling | that the word is a tempo change, and which way. **Not its size**: in 2.1.2 `rit.` reads as an instantaneous tempo of 0 bpm (amended after Phase 7) |
 | Articulation, fermata | `voiceEntry.Articulations` | a 28-value enum including `staccato`, `tenuto`, `accent`, `fermata` |
 
 Pedal, dynamics and hairpins hang off the **same** `MultiExpression` objects, so they are one
 traversal rather than three. **We write no interpreter** — no turn-realiser, no pp-to-velocity
-table, no rit. curve.
+table, no value for a tempo word. The one number this plan owns is the size of a ramp, which the
+page never gives (amended after Phase 7).
 
 **The danger is entirely on the scoring side**, and it is not hypothetical. The aligner is
 tempo-free by construction and four ADRs protect that: ADR-0005 makes onsets quarter notes, ADR-0009
@@ -169,6 +172,38 @@ last:
 5. **The old Phase 3 is split in two.** Phase 3 is the rename and the two scoring rules, proven on
    hand-built timelines. Phase 4 is the extraction, the playback and the fixture-level
    behavioural claim.
+
+**Amended 2026-09-11, after Phase 7 stopped.** `dev` found that OSMD 2.1.2 resolves only one of
+the fixture's four tempo marks to a usable number, the metronome mark. The architect read the
+bundled source. The reader tests a word against the *instantaneous* list first, and that list's
+"tempo changes general" entry holds `rit.`, `a tempo`, `tempo primo` and `accel` without its full
+stop. Such a word takes its bpm from `<sound tempo>`, which is 0 when absent. OSMD's own playback
+cursor skips a 0, but `TemposCalculator` carries it forward as the running tempo, so every ramp
+after it starts and ends at 0. `accel.` with its full stop does become a ramp, but its type stays
+unset because `setTempoType` compares the label without stripping the stop. And a ramp's size is a
+fixed fraction of its start tempo, scaled by its span, through a `getTempoFactor()` that always
+returns 1. A word such as `Allegro` does get a usable default (130). The user took the ruling:
+
+6. **OSMD decides what is a tempo mark. Where the page gives a number, OSMD's number is the
+   number.** That covers a metronome mark and a word OSMD gives a positive bpm, whether from
+   `<sound tempo>` or from its defaults.
+7. **A ramp is a word, a direction and a span, and `core/` sizes it.** The page never says how
+   much a *rit.* slows, just as it never says how long a fermata holds. The plan already accepts a
+   named taste constant for the fermata, and a ramp gets the same treatment: `RAMP_CHANGE`, in
+   `core/`, which Phase 10 tunes. The extractor considers only marks OSMD itself placed in
+   `TempoExpressions`, whichever class it put them in. It reads direction from a small table of
+   unambiguous ramp words, and a test holds that table to OSMD's own slower and faster lists. A
+   ramp runs to the next mark read, or to the end of the piece.
+8. **`a tempo` and `tempo primo` are read, as returns.** Reading a *rit.* without the return that
+   ends it would leave the rest of the piece slow.
+9. **The earlier ruling on `getTempoFactor()` is superseded.** It kept OSMD's size and span and
+   took only the direction from the type. OSMD's size is no longer read at all, nor its span.
+
+Rejected: **recomputing OSMD's ramp with the running tempo repaired.** For `rit.`, which OSMD never
+made a ramp, that means transcribing its span rule (`TempoChangeMeasureValidity`, and the breaks at
+a final barline or a repeat). That is ADR-0018's Alternative D in another place: OSMD's internals,
+copied, drifting silently on an upgrade. Also rejected: **reading no ramps**, which leaves a
+demonstration that steps between tempos and never phrases, and that is the phase's reason to exist.
 
 ## Architecture diagram
 
@@ -423,37 +458,114 @@ flowchart TB
 
 ### Phase 7 — The music breathes
 - **Owner skill:** dev
-- **What:** Tempo marks, rit. and accel., and the fermata — the phase that makes a demonstration
-  phrase rather than march.
+- **What:** Tempo marks, rit. and accel. and the return from them, and the fermata. This is the
+  phase that makes a demonstration phrase rather than march. Rewritten after the phase stopped on
+  OSMD's tempo reading; see amendment items 6 to 9 at the end of `## Decision`.
 - **Files touched:** `shared/score.ts`, `shared/player.ts`, `renderer/score/timelineFromOsmd.ts`,
-  `renderer/score/timelineFromOsmd.test.ts`, `core/src/player/schedule.ts`,
-  `core/src/player/schedule.test.ts`, `renderer/components/Transport.tsx`,
+  `renderer/score/timelineFromOsmd.test.ts`, `core/src/player/tempoMap.ts`,
+  `core/src/player/tempoMap.test.ts`, `core/src/player/schedule.ts`,
+  `core/src/player/schedule.test.ts`, `core/src/score/timeline.ts`,
+  `core/src/score/timelineFromMidi.ts`, `renderer/components/Transport.tsx`,
   `renderer/views/Score.tsx`, `core/fixtures/scores/tempo-changes.musicxml`,
-  `core/fixtures/scores/tempo-changes.timeline.json`, `e2e/player.spec.ts`
-- **Notes for the implementer:** `tempo: TempoMark[]` read from `SourceMeasure.TempoExpressions`:
-  `InstantaneousTempo` for a word or a metronome mark, `ContinuousTempo` for a ramp, each at its
-  `AbsoluteTimestamp`. **Use `getInterpolatedTempo(timestamp)` for a ramp** rather than
-  interpolating yourself. `ContinuousTempoType` has fifteen values and not all are a speed ramp —
-  **`rubato` is a direction to a human, not a curve**. Read the subset that is unambiguously a ramp,
-  ignore the rest, and record in the log which you read; a mark this plan ignores is better than one
-  it guesses at.
-  **The override is the delicate part and the done-when is written around it.** The written tempo is
-  the default; when the player sets a bpm, theirs wins and **the relative shape is preserved**, so a
-  rit. at the player's tempo is still a rit. Scale the whole written tempo curve by
-  `chosen / writtenAtStart`; do not flatten it, and do not let the box mean "ignore the page". The
-  transport shows the written tempo as the starting value so the player sees what the piece asks
-  for. A **fermata** is `fermata: boolean` on `ExpectedNote`, read from `voiceEntry.Articulations`;
-  `scheduleFromTimeline` lengthens that note and delays everything after it. Pick a hold factor,
-  put it in a named constant with a comment, and expect Phase 10 to change it — it is a taste
-  number and no test should pin it to a musical claim.
-- **Done when:** For `tempo-changes.musicxml`, a marked tempo sets the default and the transport
-  shows it; a written *ritardando* makes the gaps between consecutive note-ons **grow monotonically
-  across its span** in the schedule, and an *accelerando* shrink them. Setting the bpm box to half
-  the written tempo doubles every gap **and leaves the ritardando still reading as a ritardando** —
-  the ratio between the span's first and last gap is preserved, which is the assertion that catches
-  a flattened curve. A note under a fermata is held longer than the same note without one and
-  everything after it shifts by the same amount. A score with no tempo marks behaves exactly as
-  today. NFR 13's property is unchanged. `npm run gate` is green.
+  `core/fixtures/scores/tempo-changes.timeline.json`, every other committed
+  `core/fixtures/scores/*.timeline.json` and `core/fixtures/playback/sampler.timeline.json`,
+  `e2e/score.spec.ts`, `e2e/player.spec.ts`. The hand-built timelines in
+  `core/src/align/onsetGroups.test.ts`, `core/src/align/report.test.ts`,
+  `core/src/align/restarts.test.ts` and `renderer/hooks/usePracticeReport.test.ts` may gain
+  `tempo: []` and `fermata: false`, and nothing else.
+- **Notes for the implementer:** The working tree already holds most of the schema and fixture
+  work from before the stop. Keep what the ruling leaves standing, and reshape `TempoMark` and
+  `readTempo` to it.
+  **The extraction.** Walk `SourceMeasure.TempoExpressions` once. Read each
+  `MultiTempoExpression`'s `InstantaneousTempo` and `ContinuousTempo`, whichever is present, and
+  classify each mark by what it is, not by the class OSMD put it in:
+  - **metronome**: `isMetronomeMark`, `TempoInBpm > 0`, beat unit `quarter`. OSMD holds no label
+    for it, so write the mark as the page shows it, as `quarter = 120`. That fixes the schema
+    failure the stop recorded. A metronome mark in any other beat unit, dotted ones included, is
+    not read. Log it as a followup.
+  - **word**: any other instantaneous mark with `TempoInBpm > 0`, except OSMD's `*generated`. The
+    bpm is OSMD's: the `<sound tempo>` when the page writes one, and OSMD's default for the word
+    otherwise.
+  - **ramp**: the label, trimmed and lower-cased with one trailing full stop removed, is one of
+    `rit`, `ritard`, `ritardando`, `rallentando` (slower) or `accel`, `accelerando` (faster). Read
+    no number from OSMD for a ramp: not `TempoInBpm`, `StartTempo`, `EndTempo`, `TempoType` or
+    `AbsoluteEndTimestamp`. `until` is the `at` of the next mark read, or the end of the last bar.
+  - **return**: the normalised label is `a tempo` (`to: 'previous'`), or `tempo primo` or
+    `tempo i` (`to: 'first'`).
+  - **Anything else is not read.** That includes `rubato`, `doppio movimento`, `ritenuto`,
+    `meno mosso`, `piu mosso`, `calando`, `allargando` and `stretto`. List what was ignored in the
+    log.
+
+  Marks at one instant are ordered return, then metronome or word, then ramp, and the scheduler
+  applies them in that order. So a metronome mark beside an `a tempo` wins, and a ramp that starts
+  there starts from it. A test in `timelineFromOsmd.test.ts` takes the fixture's parsed
+  `ContinuousTempo`, reads `listContinuousTempoSlower` and `listContinuousTempoFaster` through its
+  constructor, and asserts every ramp word sits in the list of its own direction. That keeps the
+  table a filter over OSMD's classification rather than a classifier of ours. **Fermata** is
+  unchanged from before the stop: upright and inverted both count.
+  **The tempo map** is a pure module, `core/src/player/tempoMap.ts`. It takes the tempo track, the
+  range start, the fallback bpm (today's transport value) and the override, and returns a function
+  from quarters to milliseconds:
+  - Before the first metronome mark or word, the fallback holds. A metronome mark or a word sets
+    the tempo.
+  - A ramp runs from the tempo in force at `at` to that tempo times `1 - RAMP_CHANGE` (slower) or
+    `1 + RAMP_CHANGE` (faster). The tempo moves linearly in score time, and holds at the end
+    until the next mark.
+  - **Integrate a ramp's milliseconds exactly**, never once per note. Over a linear segment the
+    time is `60000 * dq * ln(T1 / T0) / (T1 - T0)`, with `dq` in quarters and `T` in quarters
+    per minute.
+  - A return to `previous` restores the tempo in force when the most recent ramp began. With no
+    ramp before it, it changes nothing. A return to `first` restores the first metronome mark or
+    word.
+  - Marks before the range start are applied to establish the tempo at the range start, the way
+    Phase 5 settles the pedal.
+  - **The override** replaces the written tempo in force at the range start, and every tempo in
+    the map is multiplied by `chosen / writtenAtRangeStart`. Ramps and returns are relative, so
+    the shape survives by construction. Do not flatten it, and do not let the box mean "ignore
+    the page".
+  - **A fermata** inserts `(FERMATA_HOLD - 1)` times its note's written length, in milliseconds
+    at the tempo there, at that note's written end. Where several fermata notes end at one
+    instant, insert once, from the longest. Every event at or after that instant moves later, so
+    a note held across it is held longer, CC 64 included.
+
+  `RAMP_CHANGE` and `FERMATA_HOLD` are named constants with comments that say they are taste.
+  Record the starting values in the log. Phase 10 item 7 tunes them, so tests read the constants
+  and never pin them to a musical claim. Every time `scheduleFromTimeline` produces goes through
+  the map: note-ons, note-offs and pedal alike.
+  **The transport** shows the written tempo in force at the start of what will play, which is the
+  value the override scales from. With no marks it shows today's default. A value the player sets
+  overrides it.
+  **Scoring reads none of it.** Nothing in `core/src/align/` imports `tempoMap` or reads `tempo`.
+  Phase 9 adds the only read, a label.
+- **Done when:**
+  1. **The track is what the page says.** `tempo-changes.timeline.json`'s `tempo` is exactly, in
+     order: a metronome mark of 120 at 0, labelled `quarter = 120`; a slower ramp `rit.` from 4
+     until 8; a return to `previous`, `a tempo`, at 8; a faster ramp `accel.` from 12 until 16;
+     and a return to `previous`, `a tempo`, at 16. Only D5 at 16 has `fermata: true`. The
+     committed file parses against its schema, and the ramp-word test holds.
+  2. **A rit. slows and the return restores.** In the schedule at the written tempo, the gaps
+     between consecutive note-ons from G4 at 4 through D5 at 8 **grow strictly**. From A5 at 12
+     through D5 at 16 they **shrink strictly**. Every gap in bar 3, and bar 5's gaps from C5 at 17
+     on, equal bar 1's, 500 ms each, to floating-point tolerance.
+  3. **The override keeps the shape.** At a bpm of 60, every gap in the schedule is twice its value
+     at the written 120, to floating-point tolerance, fermata included. So the ratio of the rit.'s
+     first gap to its last is unchanged. A flattened curve fails this.
+  4. **A fermata holds and everything after it waits.** Compared with the same timeline with D5's
+     `fermata` false: D5 sounds longer by some amount X. Every event from 17 on is later by exactly
+     X. Nothing before 16 moves.
+  5. **A range starts at the tempo in force there.** A range from bar 3 plays its first gap at
+     500 ms, not at the rit.'s end tempo.
+  6. **No marks, no change.** A timeline with `tempo: []` schedules every note-on at
+     `onset * 60000 / bpm`, today's rule, and every existing test in `schedule.test.ts` passes
+     without edit.
+  7. **End to end:** opening `tempo-changes` shows 120 in the transport, and opening a score with
+     no marks shows today's default.
+  8. NFR 13's property is unchanged: every schedule the suite builds is still ordered and balanced,
+     the fermata case included. `core/src/align/` gains no import of `tempoMap` and no read of
+     `tempo`.
+  9. The fast gate is green: `npm run typecheck`, `npm run lint`, `npm test`,
+     `node scripts/check-pins.mjs` and `node scripts/check-doc-links.mjs` (ADR-0022; `gate:fast`
+     does not exist yet). So is `npm run test:e2e -- e2e/player.spec.ts e2e/score.spec.ts`.
 
 ### Phase 8 — Short notes are short
 - **Owner skill:** dev
@@ -534,8 +646,8 @@ flowchart TB
   6. **The tempo, judged — the most likely to be wrong.** Does a written rit. sound like a
      rit. or like a stumble? Does the override still feel like the same piece slower? Play a
      passage at half the written tempo and say whether the shape survived.
-  7. **The fermata and the staccato constants.** Both are taste numbers chosen blind in Phases 7
-     and 8. Say whether they are close, and in which direction if not.
+  7. **The fermata, ramp and staccato constants.** All three are taste numbers chosen blind in
+     Phases 7 and 8. Say whether each is close, and in which direction if not.
   8. **The whole point, in one judgement.** Put a piece with real expression on the stand, press
      Play, and say whether it sounds like music being played or like a file being read aloud. That
      is the sentence this plan exists to earn, and a "not yet" with a reason is worth more than
@@ -599,16 +711,15 @@ type DynamicMark = {
   endVelocity: number | null
 }
 
-/** A word, a metronome mark, or a ramp. `until`/`endBpm` are set for a ramp.
+/** What the page says about speed (amended after Phase 7). A metronome mark or a
+ *  word carries OSMD's bpm, in quarter notes per minute. A ramp and a return
+ *  carry no number, because the page gives none: scheduleFromTimeline sizes a
+ *  ramp with RAMP_CHANGE and resolves a return against the marks before it.
  *  `label` is what the page printed, which is what Phase 9 quotes. */
-type TempoMark = {
-  at: number
-  bpm: number
-  kind: 'word' | 'metronome' | 'ramp'
-  label: string          // 'Allegro', 'rit.'
-  until: number | null
-  endBpm: number | null
-}
+type TempoMark =
+  | { at: number; kind: 'metronome' | 'word'; bpm: number; label: string }
+  | { at: number; kind: 'ramp'; direction: 'slower' | 'faster'; until: number; label: string }
+  | { at: number; kind: 'return'; to: 'previous' | 'first'; label: string }
 
 type ExpectedTimeline = {
   scoreId: string
@@ -639,7 +750,7 @@ type ExpectedTimeline = {
   passes a naive test. Phase 7's done-when asserts the **ratio** between the span's first and last
   gap is preserved, which is what catches it.
 - **OSMD's interpretation may be musically wrong**, for an ornament's realisation, for
-  `MidiVolume`'s range, or for `getInterpolatedTempo`'s curve. Inherited by decision (ADR-0018).
+  `MidiVolume`'s range, or for the default bpm it gives a tempo word. Inherited by decision (ADR-0018).
   Phase 10 items 3, 5 and 6 are the checks, and the response is to stop reading that mark rather
   than to start second-guessing the library.
 - **`createVoiceEntriesForOrnament` did behave differently than its signature suggests**, and the
@@ -667,8 +778,17 @@ type ExpectedTimeline = {
   item 4 measures how often that happens. Raising the bound is an aligner change with its own cost
   under NFR 12, and it is not this plan's.
 - **`ContinuousTempoType` has fifteen values and not all are ramps.** `rubato` in particular is a
-  direction to a human. Phase 7 reads a subset and records which; a mark ignored is better than one
-  guessed at.
+  direction to a human. Phase 7 reads six spellings of two ramps and two returns, and ignores the
+  rest; a mark ignored is better than one guessed at.
+- **The size of a ramp is ours, and it is a guess.** `RAMP_CHANGE` is the one number this plan
+  owns that the page does not give, and OSMD's figure was no better grounded than ours. Phase 10
+  item 7 tunes it. The span rule is ours as well: to the next mark read, or to the end of the
+  piece. A *rit.* with no mark after it for forty bars is then a very gentle one, which is wrong
+  in a different way from OSMD's cap on how many measures a change lasts, and is not obviously
+  worse.
+- **A ramp's milliseconds are integrated exactly**, over a tempo that changes linearly in score
+  time. Sampling the tempo once per note would make a note's time depend on how many notes fall
+  before it, and a chord and a run would slow by different amounts under the same *rit.*
 - **Phase 3 collides with Plan 0009 if both are in flight.** That plan is parked and works in
   `core/src/align/`. Since the amendment, the collision is the rename plus the forgiveness rule in
   `align.ts` and `report.ts`. That is still not a design conflict, but it is more than one

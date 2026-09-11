@@ -2,7 +2,8 @@
 
 > **Status:** proposed
 > **Date:** 2026-09-11; revised the same day, while still proposed, after Plan 0010's Phase 3
-> stopped on OSMD's ornament realiser (route 1 and two alternatives)
+> stopped on OSMD's ornament realiser (route 1 and two alternatives), and again after its Phase 7
+> stopped on OSMD's tempo reading (route 3's tempo track and two more alternatives)
 > **Related plan(s):** Plan [0010](../plans/0010-the-timeline-tells-the-truth-about-the-page.md)
 > **See also:** [ADR-0021](0021-expression-belongs-to-playback-scoring-only-describes-it.md), which
 > decides *who may act* on what this ADR extracts. The two were written together and neither is
@@ -53,8 +54,8 @@ easy to get wrong:
 | Pedal | `MultiExpression.PedalStart` / `.PedalEnd` | start and end, at an `AbsoluteTimestamp` |
 | Dynamics | `MultiExpression.InstantaneousDynamic` | `MidiVolume` and `Volume` — **the pp-to-ff mapping already exists** (`dynamicToRelativeVolumeDict`) |
 | Hairpins | `MultiExpression.StartingContinuousDynamic` / `.EndingContinuousDynamic` | the span, and its end dynamic |
-| Tempo words | `MultiTempoExpression.InstantaneousTempo` | the whole Italian vocabulary, Larghissimo to Prestissimo, plus metronome marks |
-| rit. / accel. | `MultiTempoExpression.ContinuousTempo` | 15 types, and **`getInterpolatedTempo(timestamp)`** — the curve itself |
+| Tempo words | `MultiTempoExpression.InstantaneousTempo` | the whole Italian vocabulary, Larghissimo to Prestissimo, **each with a default bpm**, plus metronome marks |
+| rit. / accel. | either tempo class, depending on spelling | that the word is a tempo change, and which way. **Not how much**: see the tempo refinement under route 3 |
 | Articulation, fermata | `voiceEntry.Articulations` | a 28-value `ArticulationEnum` including `staccato`, `tenuto`, `accent` and `fermata` |
 
 Pedal, dynamics and hairpins come off **the same walk** — they are all properties of the
@@ -115,6 +116,26 @@ music. None of them is a property of any single note, and the pedal-**up** — t
 whether a chord blurs into the next — belongs to no note at all. These tracks are a faithful record
 of the page: a `DynamicMark` says "forte here", not "velocity 88 on these nineteen notes".
 
+**Tempo is where OSMD's reading gives out, and the track records less because of it** (Plan 0010,
+Phase 7). In 2.1.2 the reader tests a word against the instantaneous list first. That list's
+general entry holds `rit.`, `a tempo`, `tempo primo` and `accel` without its full stop, so each
+becomes an instantaneous tempo whose bpm is `<sound tempo>`, or 0 when there is none.
+`TemposCalculator` carries that 0 forward, and every ramp after it starts and ends at 0. A ramp's
+size is a fixed fraction of its start, scaled by span, through a `getTempoFactor()` that always
+returns 1. So:
+
+- **Where the page gives a number, OSMD's number is the number.** A metronome mark, and a word OSMD
+  gives a positive bpm, from `<sound tempo>` or from its defaults.
+- **A ramp is a word, a direction and a span, and `core/` sizes it.** The page never says how
+  much a *rit.* slows, any more than it says how long a fermata holds, and OSMD's own figure is a
+  heuristic applied to a broken running tempo. The schedule builder sizes a ramp with one named
+  taste constant, as it holds a fermata with another. OSMD still decides *whether* a word is a tempo
+  change: only marks it placed in `TempoExpressions` are read. A test holds our short list of
+  ramp words to its slower and faster lists. A ramp runs to the next mark read, or to the end of
+  the piece.
+- **`a tempo` and `tempo primo` are read as returns**, because a ramp without its return leaves the
+  rest of the piece at the ramp's end tempo.
+
 **The arithmetic on those tracks happens once, in `core/`, at schedule time.**
 `scheduleFromTimeline` resolves a dynamic to a velocity per note, interpolates a hairpin across its
 span, converts a tempo mark and a rit. curve into milliseconds, lengthens a fermata, and shortens a
@@ -141,8 +162,9 @@ into per-note numbers at extraction.
 - **The demonstration becomes music.** A piece plays with its dynamics, its pedal, its ornaments
   and its changes of tempo, which is the difference between a reference recording and a MIDI file
   read aloud.
-- **We never own an interpreter.** No turn-realiser, no pp-to-velocity table, no rit. curve. Each of
-  those is a place to be subtly wrong, and each stays inside the library that owns the parse.
+- **We never own an interpreter.** No turn-realiser, no pp-to-velocity table, no value for a tempo
+  word. Each of those is a place to be subtly wrong, and each stays inside the library that owns the
+  parse. The one number we own is a ramp's size, which the page does not give either.
 - **One home for the next sign**, and a rule for which home: note-generating and ambiguous expands,
   note-owned rides the note, spanning gets a track.
 - **The tracks stay faithful to the page**, so anything later that wants to *say* something about a
@@ -164,7 +186,7 @@ into per-note numbers at extraction.
   flag with. Recorded here rather than discovered there.
 - **We inherit OSMD's interpretive choices, and some are genuinely arguable.** How many notes a
   trill gets, whether a turn starts on the note or above, what `dynamicToRelativeVolumeDict` thinks
-  *mezzo-forte* is worth, how steep `getInterpolatedTempo` makes a rallentando. Where the choice is
+  *mezzo-forte* is worth, what *Allegro* is worth when no metronome mark says. Where the choice is
   note-generating the `optional` flag makes it free — a mismatch costs nothing in scoring and only
   the demonstration sounds one particular reading. Where it is a velocity or a tempo it is simply
   audible, and the remedy is to stop reading that mark rather than to start second-guessing the
@@ -187,6 +209,10 @@ into per-note numbers at extraction.
   maps MusicXML's `<mordent>` (the sign with the vertical line, conventionally the lower mordent)
   to a realisation that goes up. Inheriting that costs the scorer as well as the demonstration: a
   player who follows the page strikes a lower auxiliary that is not optional.
+- **A ramp's size and span are ours.** One taste constant decides how much every *rit.* and
+  *accel.* changes the tempo, and a ramp with no mark after it runs to the end of the piece. Both
+  are guesses. OSMD's guesses were no better grounded, and in 2.1.2 they do not survive its own
+  reader.
 
 ### Neutral
 
@@ -249,7 +275,32 @@ twice, and with no optional copy to absorb the second strike it is charged `extr
 performances ADR-0009 protects, the ornament taken and the ornament left out, can only both come
 out clean if forgiveness is limited to the surplus.
 
+### Alternative F — recompute OSMD's ramp with the running tempo repaired
+
+Treat a 0 bpm as "no value" the way OSMD's playback cursor does, and recompute each ramp from
+OSMD's own size formula and `EngravingRules`. It keeps OSMD's size, and needs no constant of ours.
+
+Rejected because it does not reach the common case without copying. `rit.` never becomes a ramp in
+OSMD, so it has no span to repair, and giving it one means transcribing OSMD's span rule
+(`TempoChangeMeasureValidity`, the breaks at a final barline and a repeat) into ours. That is
+Alternative D again: the library's internals copied, drifting silently on an upgrade.
+
+### Alternative G — read no ramps
+
+Read metronome marks and the words OSMD gives a positive bpm, and leave *rit.*, *accel.* and
+*a tempo* unread until a later OSMD reads them.
+
+Rejected because the demonstration would step between tempos and never phrase, and a phrase is the
+reason the tempo track exists.
+
 ## Notes
+
+OSMD 2.1.2's reader tries `InstantaneousTempoExpression.isInputStringInstantaneousTempo` before
+`ContinuousTempoExpression.isInputStringContinuousTempo`. `rit.`, `rall...`, `a tempo`,
+`tempo primo`, `tempo i`, `rubato` and `accel` (no full stop) are in the former's general list and
+never become a `ContinuousTempo`. `accel.` with its full stop does, with an unset `TempoType`.
+**Check this first when upgrading OSMD.** If a later version reads ramps with a size, this ADR's
+tempo refinement is what to revisit.
 
 `OrnamentEnum`, and therefore the vocabulary of `OrnamentKind`: `Trill`, `Turn`, `InvertedTurn`,
 `DelayedTurn`, `DelayedInvertedTurn`, `Mordent`, `InvertedMordent`.

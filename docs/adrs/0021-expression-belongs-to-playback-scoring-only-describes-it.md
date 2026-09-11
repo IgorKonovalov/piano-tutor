@@ -82,7 +82,7 @@ corresponding existing observation, and inventing one would be judging velocity 
 door.
 
 **The written tempo becomes playback's default and the transport's box becomes an override.** A
-piece marked ♩=60 demonstrates at 60; a rit. actually slows, on OSMD's own interpolated curve. When
+piece marked ♩=60 demonstrates at 60; a rit. actually slows, by the amount ADR-0018 names. When
 the player sets a tempo, theirs wins and the *relative* shape of the written tempo is preserved
 underneath it, because "demonstrate this passage slowly" is the most useful thing a demonstration
 does and Plan 0005's practice loop depends on it.
