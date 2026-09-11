@@ -3,8 +3,10 @@
 A Windows desktop piano tutor for one player and one instrument, a Yamaha CK88 over USB MIDI.
 It shows what is being played as it is played (an 88-key keyboard, a grand staff, chord and key
 labels), lets the player practise a MusicXML or MIDI piece with per-bar feedback, generates
-exercises, and on request hands a compressed summary of a take to an LLM coach. Everything but
-the coach's reply works offline. The piano makes the sound; the app never does.
+exercises, plays a piece back through the instrument, and on request hands a compressed summary of
+a take to an LLM coach. Everything but the coach's reply works offline. **The piano makes the
+sound.** Nothing the player presses is ever sounded by the app; what the app is itself playing may
+be synthesised, and only when no instrument is listening (ADR-0008).
 
 This file is the orientation map: **which part owns what and how they hand off**, not how the
 code works. Decisions live in `docs/adrs/`; work in flight in `docs/plans/`; the numbers behind
@@ -26,6 +28,18 @@ code works. Decisions live in `docs/adrs/`; work in flight in `docs/plans/`; the
                     claude-cli | anthropic-api | none
 ```
 
+And the way out, added by Plan 0004 (ADR-0007, ADR-0008):
+
+```
+  ExpectedTimeline | take | generator --> core/ PlaybackSchedule --player:play--> [ main: Player ]
+                                           (pure: what sounds when)                lookahead clock
+                                                                                       |
+      CK88 <--USB MIDI-- [ MidiSink: RtMidi | Null ] <--------------------------------- +
+                                                                                       |
+      [ renderer: keyboard / staff, in the app's colour ] <--player:event / player:state+
+      [ renderer: Web Audio voice ] only when no output port is open
+```
+
 Three Electron processes and one process-free package. The founding decisions:
 [ADR-0001](docs/adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (the
 shell, and MIDI owned by main),
@@ -37,19 +51,28 @@ Two more shape how the work is verified and how a score becomes data:
 [ADR-0004](docs/adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (the app
 plays itself through virtual ports, so every `dev` done-when is checkable with nothing plugged in)
 and [ADR-0005](docs/adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (one
-parse of a MusicXML file, by the library that draws it).
+parse of a MusicXML file, by the library that draws it). Two more govern the way out:
+[ADR-0007](docs/adrs/0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md)
+(a schedule built in `core/`, clocked by main behind a `MidiSink`, with stopping as the property
+that matters) and
+[ADR-0008](docs/adrs/0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md)
+(the app may sound what *it* plays, through a synthesised voice with no samples).
 
 ## Where things live
 
 ```
 core/            # Pure TypeScript. Theory (tonal), MidiEvent model, chord + key detection, the
                  #   expected-note timeline from a score, alignment, exercise generator,
-                 #   TakeSummary. NO Electron, NO DOM, NO Node. Vitest + fixtures in core/fixtures/.
+                 #   the PlaybackSchedule and its builders (player/), TakeSummary. NO Electron,
+                 #   NO DOM, NO Node. Vitest + fixtures in core/fixtures/.
 electron/        # Main process (esbuild -> dist/main/index.cjs).
   main.ts        #   Lifecycle, CSP, window, IPC registration.
   midi/          #   MidiSource interface + RtMidi, Replay and Synthetic implementations;
-                 #   byte -> MidiEvent parser; virtualPorts.ts (ADR-0004; unpackaged builds, and
-                 #   PT_HARNESS overrides that either way whenever it is set).
+                 #   MidiSink interface + RtMidi and Null implementations; the MidiEvent -> byte
+                 #   serialiser beside the byte -> MidiEvent parser; virtualPorts.ts (ADR-0004;
+                 #   unpackaged builds, and PT_HARNESS overrides that either way whenever it is set).
+  player/        #   The lookahead clock that turns a PlaybackSchedule into timed sends, and the
+                 #   panic path that leaves nothing sounding however playback ends (ADR-0007).
   take/          #   The recorder: appends events to takes under userData; lists and loads takes.
   score/         #   The score library under userData: import, list, read; the MIDI-file adapter.
   coach/         #   CoachProvider interface; claude-cli, anthropic-api and none providers; prompt.ts.
@@ -59,6 +82,8 @@ electron/        # Main process (esbuild -> dist/main/index.cjs).
   preload/       #   window.api assembled from preload/api/<domain>.ts (esbuild -> dist/preload/).
 renderer/        # React + Vite SPA (-> dist/renderer/). Never imports Node. views/, components/,
                  #   hooks/; one .module.css per component; styles.css holds the tokens.
+  audio/         #   The synthesised fallback voice, Web Audio, no samples and no files
+                 #   (ADR-0008). Sounds only what the app is playing, never the player.
 shared/          # ipc-channels.ts (constants), Zod schemas for every IPC payload, coach.ts shapes.
 scripts/         # Node gates, no dependencies: check-doc-links.mjs (every relative markdown link
                  #   resolves; covers docs/, README, CLAUDE.md and .claude/skills/) and
@@ -153,6 +178,11 @@ share the Vite dev port, and the stash stack is shared across worktrees, so pref
   testable without a piano. A function that needs a device or a window is in the wrong package.
 - **MIDI is owned by main and stamped at arrival** (`performance.now()` in main). The renderer
   receives typed `MidiEvent`s, never bytes. Latency is measured against NFR 1, not assumed.
+- **Playback stops, however it ends.** Stop, an output change, a second play, the window closing,
+  the app quitting and a throw inside the tick each release every note the app has sounded, then
+  All Notes Off and sustain-up on every channel touched (ADR-0007, NFR 13). Nothing on that path
+  may throw: a `MidiSink.send` cannot, and the push to the renderer is wrapped. A stuck note rings
+  on somebody else's instrument until they find the switch.
 - **Validate at the boundary, trust inside.** Every IPC payload, every file read from disk
   (takes, scores, settings), every coach reply is parsed with its Zod schema once, on receive.
 - **The coach sees a `TakeSummary`, never raw MIDI**, and never sees anything the user did not
@@ -212,6 +242,11 @@ share the Vite dev port, and the stash stack is shared across worktrees, so pref
 - **Don't drive the live staff through OSMD.** ADR-0003: VexFlow repaints on every event; OSMD
   lays out a document.
 - **Don't send raw MIDI to the coach.** ADR-0002 and NFR 7.
+- **Don't sound a note the player pressed.** ADR-0008 reversed the "no audio ever" premise only
+  for what the app is itself playing, and only when no output port is open. The instrument is
+  still the player's voice.
+- **Don't build a schedule in main or clock one in `core/`.** ADR-0007 splits them on purpose:
+  what sounds when is a pure function, and when it actually sounds needs a process with a clock.
 - **Don't retry the `claude-cli` provider in a loop.** A failure is a one-line message pointing
   at settings.
 - **Trust `git` and the filesystem over a stale doc.** If a plan names a module that is not

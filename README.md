@@ -1,15 +1,19 @@
 # piano-tutor
 
 A Windows desktop piano tutor for a Yamaha CK88 over USB MIDI. It shows what you play as you
-play it, lets you practise a piece with per-bar feedback, generates exercises, and on request
-asks an LLM coach what to work on. Everything but the coach works offline. The piano makes the
-sound; the app never does.
+play it, lets you practise a piece with per-bar feedback, plays a piece back to you through the
+instrument, generates exercises, and on request asks an LLM coach what to work on. Everything but
+the coach works offline. **The piano makes the sound.** The app sounds nothing the player presses;
+it synthesises only what it is itself playing, and only when no instrument is listening
+([ADR-0008](docs/adrs/0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md)).
 
-**Status:** in build. The walking skeleton is in —
-[Plan 0001](docs/plans/done/0001-the-keyboard-shows-on-screen.md) closed on 2026-09-10 with the
-Electron shell, the MIDI pipeline, the live keyboard, staff and labels, and take recording and
-replay, all measured at the CK88. Next is
-[Plan 0002](docs/plans/0002-a-piece-is-practised.md): a piece is practised.
+**Status:** in build. The walking skeleton, the practice path and playback are in —
+[Plan 0001](docs/plans/done/0001-the-keyboard-shows-on-screen.md) (the Electron shell, the MIDI
+pipeline, the live keyboard, staff and labels, take recording and replay),
+[Plan 0008](docs/plans/done/0008-the-timing-model.md) (how a bar's timing is judged) and
+[Plan 0004](docs/plans/done/0004-the-app-plays-the-piece.md) (the app plays the piece), each
+measured at the CK88. What is in flight and what comes next is in
+[docs/plans/README.md](docs/plans/README.md).
 
 ## Where to start reading
 
@@ -20,6 +24,8 @@ replay, all measured at the CK88. Next is
 | How the LLM coach reaches a model, and the terms-of-service caveat | [ADR-0002](docs/adrs/0002-the-coach-is-a-provider-behind-one-interface-and-the-first-provider-is-the-claude-cli.md) |
 | Why two notation engines | [ADR-0003](docs/adrs/0003-two-notation-engines-vexflow-for-the-live-staff-and-osmd-for-the-score.md) |
 | Why a score is parsed once, by the library that draws it | [ADR-0005](docs/adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) |
+| How the app plays a piece, and why the clock lives in main | [ADR-0007](docs/adrs/0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md) |
+| Why the app may now make a sound, and how little of one | [ADR-0008](docs/adrs/0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md) |
 | The numbers behind "real-time" and "offline" | [docs/nfr.md](docs/nfr.md) |
 | How the live pipeline was built, phase by phase | [Plan 0001](docs/plans/done/0001-the-keyboard-shows-on-screen.md) |
 | What comes after | [docs/plans/README.md](docs/plans/README.md) |
@@ -150,6 +156,38 @@ With nothing plugged in, the *Play from* list includes generated performances of
 pieces -- one with a deliberate wrong note in bar 3, one that goes back over bar 2, one that
 slows to the end and one with a single hurried bar -- so the whole path can be watched end to end
 without an instrument.
+
+## Playing a piece back
+
+The app can play a piece to you rather than only listen to you. Choose the CK88's **output** port
+in the **Ports** view — its input and output halves open together, so it can listen and play at
+the same time — and the Score view's transport gains a *Play*. It plays the bars you ask for
+(*Whole piece* resets the range), at the tempo you set, at one velocity throughout: a score carries
+no dynamics and the app invents none
+([ADR-0005](docs/adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md)). While it
+plays, the keyboard and the staff light in a colour that is not yours, and the bar being sounded is
+marked on the score.
+
+A take plays back too, out of the **Takes** view, so a recorded performance can be heard on the
+instrument that recorded it.
+
+*Heard through* chooses where the sound comes from: **The instrument**, **This computer** or
+**Nothing**. It defaults to the instrument whenever an output port is open and to the computer
+when none is, so nothing is ever sounded twice a few milliseconds apart. The computer's voice is a
+plain synthesised tone with no samples behind it and it does not pretend to be a piano; it exists
+so the feature works on a machine with no piano attached
+([ADR-0008](docs/adrs/0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md)).
+Nothing the *player* presses is ever sounded by the app.
+
+**Stop always stops.** Pressing stop, changing the output, starting a second run, closing the
+window, quitting and an error inside the scheduler all send a note-off for everything sounding,
+then All Notes Off and sustain-up on every channel touched. Measured at the CK88 on 2026-09-11,
+including pulling the USB cable mid-chord: no stuck note in any of them. What is *not* recovered is
+the replug — playback does not resume and the old port handle is dead; unplugging mid-piece means
+choosing the output again.
+
+With nothing plugged in, the generated passages in the **Harness** group play through the computer
+as readily as a score does, which is how the whole path stays checkable without an instrument.
 
 ## Working in this repository
 

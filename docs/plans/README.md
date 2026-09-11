@@ -14,13 +14,26 @@ to pick the plan up. The plan file carries everything else.
 |------|-------|--------|-------|-----------------|
 | [0002](0002-a-piece-is-practised.md) | A piece is practised | in-progress | human | All six `dev` phases landed and the close review ran on 2026-09-10; both defects it asked to be fixed before Phase 7 are fixed. **The only thing left is Phase 7 at the CK88** — items 2, 3 and 6 unanswered, item 4 observed and not judged — and the plan cannot close until those answers are in its log. **Item 6 is no longer blocked**: Plan 0008 closed 2026-09-10 and a good take and a bad one no longer both read out of time. It was attempted that evening and did not land — two performances ran into one take — so it wants one clean take each, nothing more. Nothing else in the roster is blocked by it. |
 | [0009](0009-a-bar-is-judged-note-by-note.md) | A bar is judged note by note | draft | dev, human | ADRs 0015, 0016 and 0017 are its design. **Plan 0008's eight followups, taken as one piece of work**, because four of them are the same bug: every reference in the model still draws through the disturbance it is judging around. A bar gains a second number - the shape of its arrivals inside it, read against a quadratic null so a ritardando reads zero - because a hand that hurries three notes and gives them back leaves the bar's duration unchanged to the millisecond. **Its Phase 2 is a `human` phase in the middle of the run** and Plan 0002's last open item rides on it. **Parked 2026-09-10 until the player can sit at the CK88** — it blocks nothing and nothing blocks it. Its Phase 1 is `dev`-only, self-contained and makes no threshold decisions, so it can be picked up alone to have the fixture waiting. |
-| [0004](0004-the-app-plays-the-piece.md) | The app plays the piece | in-progress | dev, human | All six `dev` phases landed and the close review ran on 2026-09-11: **no blockers in the code**, the full gate green end to end on the finished tree. **Three defects are fixed before Phase 7** — the sound target inferred from a display string, an unguarded renderer callback on the panic path, and an empty schedule that plays in silence and says nothing; all three are written up in the plan's `### Raised by the close review`. **Then Phase 7 at the CK88**, all six items, and the plan cannot close until they are in its log — NFR 13's milliseconds can come from nowhere else. ADRs 0007 and 0008 stay `proposed` until it does. Its `MidiSink`, clock and Web Audio voice are shipped and are what Plans 0005 and 0006 build on. |
 | [0003](0003-the-coach-speaks.md) | The coach speaks | approved | dev, human | ADR-0002 is its whole design. One-shot Analyse, replies saved beside the take, free-play and practised takes both summarised. Every `dev` phase runs on a recorded fixture reply and a stub binary, so it queues with no subscription; **Phase 2 is a spike against the real `claude` CLI** and Phase 6 is the only phase where a model actually answers. It also owns the carried Plan 0002 finding that an `extra` verdict per unmatched pitch is unbounded, because its token budget is what depends on it. |
-| [0005](0005-the-practice-loop.md) | The practice loop | draft | dev, human | ADR-0011 is its whole design: each drill attempt is its own take, and a drill is a bar-range slice of the score's own timeline, so the aligner is untouched. Roadmap item 4, and the highest teaching value the existing seams already reach. Tempo-free by decision — "slower" is the demonstration's speed, never a threshold. **It also owns the coach's session grain** (added 2026-09-10): the coach is asked once per session, never once per attempt, because forty presses cost roughly ten times one roll-up and a trajectory is better advice than forty isolated verdicts. Only its Phase 5 needs Plan 0004 and only its Phase 6 needs Plan 0003, each degrading rather than blocking. |
+| [0005](0005-the-practice-loop.md) | The practice loop | draft | dev, human | ADR-0011 is its whole design: each drill attempt is its own take, and a drill is a bar-range slice of the score's own timeline, so the aligner is untouched. Roadmap item 4, and the highest teaching value the existing seams already reach. Tempo-free by decision — "slower" is the demonstration's speed, never a threshold. **It also owns the coach's session grain** (added 2026-09-10): the coach is asked once per session, never once per attempt, because forty presses cost roughly ten times one roll-up and a trajectory is better advice than forty isolated verdicts. Its Phase 5 needed Plan 0004, which **closed 2026-09-11**, so the demonstration it plays is real rather than degraded; only its Phase 6 still waits on Plan 0003, and that degrades rather than blocks. |
 | [0007](0007-what-you-played-drawn-on-the-score.md) | What you played, drawn on the score | draft | dev, human | ADR-0013 is its whole design: the played pitch is drawn as our own SVG ghost notehead over OSMD's engraving, never merged into it. Raised by the user at the piano on 2026-09-10 — a red bar and a letter name make the player do the join. Depends on nothing but Plan 0002, so it can be picked up at any time; its riskiest fact (`sourceNote` identity) is resolved in its first phase. |
-| [0006](0006-the-metronome-and-the-score-follows.md) | The metronome, and the score follows | draft | dev, human | ADR-0012 is its whole design: the click is a grid both processes schedule from, not a tick per beat, and it becomes the timing reference whenever it runs. Widens ADR-0008's bound to let the app open an audio device while it is only listening. Needs Plan 0004's sink, clock, voice and stop path; builds the follow cursor Plan 0002's prose promised and never shipped. |
+| [0006](0006-the-metronome-and-the-score-follows.md) | The metronome, and the score follows | draft | dev, human | ADR-0012 is its whole design: the click is a grid both processes schedule from, not a tick per beat, and it becomes the timing reference whenever it runs. Widens ADR-0008's bound to let the app open an audio device while it is only listening. **Unblocked 2026-09-11:** Plan 0004 closed and its sink, lookahead clock, synthesised voice and stop path are shipped and measured. Builds the follow cursor Plan 0002's prose promised and never shipped. |
 
 ## Recently closed
+
+- [0004 — The app plays the piece](done/0004-the-app-plays-the-piece.md) — closed 2026-09-11,
+  v0.4.0. Six `dev` phases, three pre-Phase-7 fixes and a `human` phase at the CK88; **no
+  blockers**, the full gate green end to end on the finished tree (717 unit tests, 33 end-to-end).
+  ADRs 0007 and 0008 accepted on it, **each with a dated `Outcome`**. NFR 13 measured at the
+  instrument over 1286 note-ons — p95 0.6 ms against a 10 ms target, and Windows' 15.6 ms timer
+  granularity never appeared. No stuck note on any of the four interruptions, the USB cable pulled
+  mid-chord included. **What the instrument taught, and the code did not:** a `MidiSink.send` into
+  a dead port cannot tell that it failed, so an unplug is survived and a replug is not recovered
+  from; and **a real score with an attributes-only carrier measure refuses to play at all**,
+  because `beats` of 0 fails `ExpectedTimelineSchema` — both in
+  [`../backlog.md`](../backlog.md), the second wanting an amendment to ADR-0005. Five followups
+  survive in that plan's `## Followups`, and NFR 13's *magnitude* is still asserted by nothing
+  larger than 29 note-ons.
 
 - [0008 — The timing model](done/0008-the-timing-model.md) — closed 2026-09-10, v0.3.0. Five
   `dev` phases and a `human` phase at the CK88; **no blockers**, two `major` and four `minor`, the
@@ -75,12 +88,16 @@ click, click-relative scoring and — once there is a store — the ladder.
    answered in its Phase 2. It is also where the test suite stops being made only of things we
    imagined (ADR-0017).
 
-3. **The app plays the piece** — Plan [0004](0004-the-app-plays-the-piece.md), all six `dev`
-   phases landed and reviewed on 2026-09-11, open on three pre-Phase-7 fixes and then Phase 7 at
-   the instrument. The roadmap's "MIDI out to demonstrate a passage" grown into a plan after the
-   2026-09-10 interview. **The seams the two plans below were drafted against are now real rather
-   than planned:** `MidiSink`, the lookahead clock in main, `PlaybackSchedule` in `core/` and the
-   synthesised voice.
+3. **The app plays the piece** — **closed** as Plan
+   [0004](done/0004-the-app-plays-the-piece.md) on 2026-09-11. The roadmap's "MIDI out to
+   demonstrate a passage" grown into a plan after the 2026-09-10 interview. **The seams the two
+   plans below were drafted against are now real rather than planned:** `MidiSink`, the lookahead
+   clock in main, `PlaybackSchedule` in `core/` and the synthesised voice. Two things it leaves
+   behind, both in [`../backlog.md`](../backlog.md) and neither blocking anything on this list: a
+   dead output port is invisible to the sink, so a replug is not recovered from; and a score whose
+   bars include an attributes-only measure cannot be played at all, which is the one that wants an
+   amendment to ADR-0005 and will be cheapest to take alongside item 2b, the other plan reading
+   that seam.
 4. **The coach speaks** — drafted as Plan [0003](0003-the-coach-speaks.md), approved and pickable
    now. Independent of Plan 0004, which no longer has to land first.
 5. **The practice loop** — drafted as Plan [0005](0005-the-practice-loop.md). The

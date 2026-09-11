@@ -20,8 +20,8 @@ the status.
 | [0004](0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) | The app plays itself: a synthetic MidiSource behind virtual ports, not an injection channel | accepted 2026-09-10 |
 | [0005](0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) | The expected-note timeline is extracted from OSMD's model, never parsed a second time | accepted 2026-09-10 |
 | [0006](0006-listing-ports-does-not-touch-the-device.md) | Listing ports does not touch the device; `busy` is earned by a failed open | accepted 2026-09-10 |
-| [0007](0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md) | Playback is a schedule built in `core/` and clocked by main behind a `MidiSink` | proposed |
-| [0008](0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md) | The app may sound what it plays: a synthesised fallback voice, and no samples | proposed |
+| [0007](0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md) | Playback is a schedule built in `core/` and clocked by main behind a `MidiSink` | accepted 2026-09-11 |
+| [0008](0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md) | The app may sound what it plays: a synthesised fallback voice, and no samples | accepted 2026-09-11 |
 | [0009](0009-an-ornament-is-optional-a-grace-note-is-scored-neither-way.md) | An ornament is optional: a grace note is scored neither way | accepted 2026-09-10 |
 | [0010](0010-alignment-ends-where-the-player-stopped-an-unplayed-tail-is-free.md) | Alignment ends where the player stopped: an unplayed tail is free | proposed |
 | [0011](0011-an-attempt-is-a-take-the-loop-repeats-through-the-recorder.md) | An attempt is a take: the practice loop repeats through the recorder, not through the aligner | proposed |

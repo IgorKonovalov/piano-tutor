@@ -1,8 +1,8 @@
 # ADR-0008 — The app may sound what it plays: a synthesised fallback voice, and no samples
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-11, on the close of Plan 0004
 > **Date:** 2026-09-10
-> **Related plan(s):** Plan [0004](../plans/0004-the-app-plays-the-piece.md)
+> **Related plan(s):** Plan [0004](../plans/done/0004-the-app-plays-the-piece.md)
 
 ## Context
 
@@ -146,3 +146,25 @@ new record rather than a superseding one.
 
 `docs/nfr.md`'s "What is deliberately not a requirement" section is revised by this ADR, as that
 file requires ("Revised by ADR, not in passing").
+
+## Outcome, 2026-09-11
+
+Accepted on the close of Plan [0004](../plans/done/0004-the-app-plays-the-piece.md).
+
+**The product call went the way the reversal needed it to.** Judged at the instrument with the
+CK88 unplugged, the voice is tolerable as a reference tone — the user's words, and the only thing
+that decides whether the price of reversing a project-wide premise was paid well. No superseding
+ADR is owed. The bounds held as written: no samples shipped, no audio device opened while the app
+is only listening, and nothing the player pressed was ever sounded by the app.
+
+**One limit the body implies but does not state: the fallback cannot rescue a playback in
+progress.** `Synth` is constructed inside `play()`, so if the output port dies mid-schedule there
+is no voice to switch to, and an explicit choice in the transport pins the target so the default
+never moves either. Constructing an `AudioContext` mid-schedule would also be outside the gesture
+this ADR relies on — likely permitted in Electron after an earlier gesture, not verified. The
+practical consequence is in [`../backlog.md`](../backlog.md) under the unplug and replug item.
+
+**A coupling this ADR's anti-doubling rule rested on was found and fixed before the instrument
+ever ran.** The default "instrument when an output is open" read openness out of a human-readable
+display string, so rewording a label would have silently defaulted to the computer while the
+instrument was open and sounded every note twice. `MidiPort` carries a structural `open` field now.

@@ -1,18 +1,21 @@
 # 0004 — The app plays the piece
 
-> **Status:** in-progress
+> **Status:** done — closed 2026-09-11, v0.4.0. Six `dev` phases (`88e9b59`, `0fb0d66`,
+> `47c69ed`, `cd71382`, `94cde15`, `f227397`), three pre-Phase-7 fixes (`a93c9e4`, `b30bbb7`,
+> `ae87379`) and Phase 7 at the CK88. **No blockers**, one `major` and three `minor` at the close;
+> the full gate green end to end on the finished tree. NFR 13 measured at the instrument.
 > **Created:** 2026-09-10
 > **Owner skill(s):** dev, human
-> **Related ADRs:** [0007](../adrs/0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md) (proposed)
-> and [0008](../adrs/0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md) (proposed),
-> which are this plan's whole design;
-> [0005](../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (accepted) supplies the
-> notes; [0004](../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (accepted)
-> supplies the scenarios and the headless rule; [0006](../adrs/0006-listing-ports-does-not-touch-the-device.md)
-> (accepted) governs the new output port list; [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md)
+> **Related ADRs:** [0007](../../adrs/0007-playback-is-a-schedule-built-in-core-and-clocked-by-main-behind-a-midisink.md)
+> and [0008](../../adrs/0008-the-app-may-sound-what-it-plays-a-synthesised-fallback-voice-no-samples.md),
+> both **accepted on this plan's close**, which are its whole design;
+> [0005](../../adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md) (accepted) supplies the
+> notes; [0004](../../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (accepted)
+> supplies the scenarios and the headless rule; [0006](../../adrs/0006-listing-ports-does-not-touch-the-device.md)
+> (accepted) governs the new output port list; [0001](../../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md)
 > (accepted) governs the processes and the new `player:*` domain
-> **NFRs claimed:** 3, 9, 11, 13 in [nfr.md](../nfr.md)
-> **Depends on:** Plan [0002](0002-a-piece-is-practised.md) Phases 1 and 2 — the score library and the
+> **NFRs claimed:** 3, 9, 11, 13 in [nfr.md](../../nfr.md)
+> **Depends on:** Plan [0002](../0002-a-piece-is-practised.md) Phases 1 and 2 — the score library and the
 > `ExpectedTimeline`. Phases 1 and 2 of this plan depend on neither and can run before it lands.
 
 ## TL;DR
@@ -739,7 +742,7 @@ JavaScript exception and is indistinguishable inside the process from a successf
 therefore believes it is open when it is not — `this.output` stays non-null, `openPortIndex` stays
 set — and on replug Windows may hand out a different index, leaving the old handle dead.
 
-Carried to [`../backlog.md`](../backlog.md) rather than fixed here: it wants a way to notice the
+Carried to [`../../backlog.md`](../../backlog.md) rather than fixed here: it wants a way to notice the
 port died (the two-second enumeration poll already running is the cheap signal, ADR-0006 making it
 free to ask), a name-matched reopen — already this plan's own followup, and its Risks section
 already named a stale `out:<index>` as the hazard — and a fallback that can actually sound, which
@@ -852,7 +855,7 @@ Carried, none of them blocking:
   major scale scenario at 29 note-ons, and the end-to-end run counts an eight-note bar range. The
   property itself is genuinely asserted — nothing dropped, nothing reordered, nothing left
   sounding — and only the size is unearned. Either run one of the three over `dense-2000`, which
-  already exists, or revise the figure in [nfr.md](../nfr.md), which is the response that row
+  already exists, or revise the figure in [nfr.md](../../nfr.md), which is the response that row
   invites for its milliseconds and should invite for its magnitude too.
 - **The `README.md` and `CLAUDE.md` sweep this plan's close trigger says is not owed.**
   "User-visible docs touched: none" is wrong: the plan shipped a transport, an output port list, a
@@ -875,3 +878,40 @@ callbacks; Phase 2's two wrong done-when figures were corrected in the log inste
 around; the take row gained `data-note-count` rather than a regex over a rendered layout; the
 end-to-end helper waits for `playing` before `idle`, which caught a green-when-it-should-have-been-
 red; and the keyboard never carries playback state by colour alone.
+
+### The close, 2026-09-11
+
+A second fresh session, after Phase 7 landed. It re-ran the whole gate on the finished tree rather
+than reading the log's claim: `npm run gate` exit 0 end to end — typecheck, lint, **717 unit tests
+in 31 files**, both Node gates, **33 end-to-end tests in 3.0 minutes**. **No blocker.** The three
+pre-Phase-7 fixes were read in the shipped code and are real: `MidiPort.open` is a structural field
+read by `usePlayer` with the comment saying why, `Player.emit` wraps `deps.onEvent` and warns once,
+and `playerHandlers` refuses an empty schedule in the player's own words.
+
+The three things Phase 7 left for the architect are placed as follows.
+
+- **The pedal half of item 3 is mis-specified and stays that way.** A score carries no pedal at
+  all: `ExpectedNote` has no such field and `scheduleFromTimeline` has nothing to emit, so the item
+  asked for something the design of ADR-0005 cannot supply. The half that is answerable — a piece
+  plays through and sounds musically right — is answered yes. The user's contrary observation is
+  **still unexplained**, and the discriminating run is a minute's work: play a score with the foot
+  off the pedal. Reading OSMD's pedal expressions is carried in
+  [`../../backlog.md`](../../backlog.md) under the marks on the page, where it is the one item with
+  a done-when already waiting for it.
+- **A bar of zero beats is a live defect and is this plan's worst surviving finding.** Confirmed
+  independently at the close: `beats: z.number().positive()` in `shared/score.ts`, fed straight from
+  OSMD's `Duration.RealValue` by `renderer/score/timelineFromOsmd.ts:45`, and `barTableProblems`
+  cannot see it because a zero-length bar is perfectly contiguous. A real score with an
+  attributes-only carrier measure therefore practises fine and **refuses to play**, with a raw Zod
+  message. It is carried to the backlog and wants an amendment to ADR-0005 rather than a patch,
+  because `ExpectedTimelineSchema` is that ADR's seam and alignment, the practice report and
+  playback all share it.
+- **The replug is carried** to [`../../backlog.md`](../../backlog.md), with the cause that defeats
+  the guard recorded: RtMidi's C++ layer prints to stderr and returns, so a failed send never
+  becomes a JavaScript exception.
+
+Also carried, from the first review and unchanged: **NFR 13's stated magnitude is exercised by
+nothing** — the property is asserted in the three places the row names, but the largest schedule
+any of them builds is 29 note-ons against a row that says 500. The measurement half is now
+comfortably earned (1286 note-ons at the instrument); the property half is not. Running one of the
+three over `dense-2000`, which already exists, is the cheap answer.

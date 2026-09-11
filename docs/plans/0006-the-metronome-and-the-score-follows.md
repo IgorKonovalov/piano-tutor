@@ -16,7 +16,7 @@
 > [0001](../adrs/0001-an-electron-shell-in-typescript-around-a-pure-music-core.md) (accepted)
 > governs the processes and the new `metronome:*` domain
 > **NFRs claimed:** 3, 9, 11, 13 in [nfr.md](../nfr.md)
-> **Depends on:** Plan [0004](0004-the-app-plays-the-piece.md) Phases 1, 5 and 6 — the `MidiSink`
+> **Depends on:** Plan [0004](done/0004-the-app-plays-the-piece.md) Phases 1, 5 and 6 — the `MidiSink`
 > and its clock, the Web Audio voice, and the stop path. Plan
 > [0002](0002-a-piece-is-practised.md) Phases 4 and 5 supply the aligner and the bar marking the
 > cursor reuses.
@@ -279,7 +279,7 @@ type TakeHeaderAddition = { grid: BeatGrid | null }
 - **No tempo ladder.** Raising the target after a clean pass is a rule over sessions, and a rule
   over sessions needs somewhere to remember them. Roadmap item 5.
 - **No score following.** The cursor follows the *click*, not the player. Following the player is
-  the backlog item cut from Plan [0004](0004-the-app-plays-the-piece.md) and it is a different
+  the backlog item cut from Plan [0004](done/0004-the-app-plays-the-piece.md) and it is a different
   problem.
 - **No look-ahead curtain and no no-look mode.** Both want this wall-clock cursor and neither is
   drafted; they stay in the backlog under sight reading.

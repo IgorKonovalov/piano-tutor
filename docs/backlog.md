@@ -142,7 +142,7 @@ Longer-standing ideas carried over from the roadmap's tail, and later additions.
 own interview:
 
 - **Score following**, so the app can accompany the player rather than only demonstrate to them.
-  Cut from [Plan 0004](plans/0004-the-app-plays-the-piece.md) deliberately.
+  Cut from [Plan 0004](plans/done/0004-the-app-plays-the-piece.md) deliberately.
 - **A Bluetooth or DIN adapter as a second `MidiSource`.** The CK88's own Bluetooth is audio only;
   this needs external hardware on the DIN ports.
 - **MIDI-to-notation transcription** —
@@ -150,7 +150,7 @@ own interview:
   Alternative C.
 - **A tablet port of the renderer.**
 - **A travelling line on the score, at note resolution.** Raised by the user on 2026-09-11, on
-  seeing playback work. [Plan 0004](plans/0004-the-app-plays-the-piece.md) highlights the **bar**
+  seeing playback work. [Plan 0004](plans/done/0004-the-app-plays-the-piece.md) highlights the **bar**
   the app is sounding; this is the finer thing — a line that moves through the bar and says
   exactly which notes are sounding at this instant. Three observations from the shipped code,
   because they decide how big it is:
@@ -234,8 +234,31 @@ own interview:
   parallel structure of marks beside the notes, or an expansion performed at extraction so the
   rest of the app keeps seeing plain notes. That decision is ADR-0005's to amend and should be
   taken once for the whole list rather than per sign.
+- **A bar of zero beats refuses to play a real score.** Found at the CK88 on 2026-09-11
+  (Plan [0004](plans/done/0004-the-app-plays-the-piece.md) Phase 7) and confirmed at its close.
+  `player:play` was refused by Zod for BWV 555: `ExpectedBarSchema` demands
+  `beats: z.number().positive()`, and `renderer/score/timelineFromOsmd.ts` maps OSMD's
+  `Duration.RealValue` straight through — which is **0** for an attributes-only measure, the
+  carrier bar where a piece changes metre. The score practises fine and cannot be played, and what
+  the player sees is a raw schema message.
+  - **Two things make it worth more than one file.** `barTableProblems` cannot catch it: it checks
+    only that `onset + beats` reaches the next bar's `onset`, and a zero-length bar is perfectly
+    contiguous. And the timeline is schema-checked **only when it crosses IPC for playback** — the
+    practice path builds it in the renderer and validates nothing — so a defect in the extractor
+    surfaces on one path out of two, which is why this survived until a real piece was played.
+  - **Both obvious fixes touch something load-bearing**, which is why it is here rather than in a
+    followup. Relaxing `beats` to non-negative changes `ExpectedTimelineSchema`, which is
+    [ADR-0005](adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md)'s seam and is
+    shared by alignment, the practice report and playback — every consumer that divides by a bar's
+    length would need to be read. Dropping or merging the empty bar instead breaks the "indexed as
+    the score was parsed, with no index skipped" contract that bar-clicking and every take's bar
+    numbers depend on. **An amendment to ADR-0005, taken once**, not a patch at the extractor.
+  - **Also seen once and never explained**, in the same session: `Could not parse MusicXML, no
+    valid partwise element found`, twice in one second, while all four of the user's BWV files are
+    valid `score-partwise`. What was handed to OSMD at that moment is not known.
+
 - **The instrument can be unplugged and plugged back in.** Measured at the CK88 on 2026-09-11
-  (Plan [0004](plans/0004-the-app-plays-the-piece.md) Phase 7 item 5d). Pulling the USB cable
+  (Plan [0004](plans/done/0004-the-app-plays-the-piece.md) Phase 7 item 5d). Pulling the USB cable
   mid-chord leaves **no stuck note**, which is the property that phase existed to check. What
   fails is everything after: playback does not resume on replug, and the console floods with
   `MidiOutWinMM::sendMessage: error sending MIDI message.`, one line per event.

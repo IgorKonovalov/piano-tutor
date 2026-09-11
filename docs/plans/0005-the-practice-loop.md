@@ -19,7 +19,7 @@
 > **NFRs claimed:** 3, 7b, 9, 11 in [nfr.md](../nfr.md)
 > **Depends on:** Plan [0002](0002-a-piece-is-practised.md) Phases 4 and 5 — the aligner, the
 > `PracticeReport` and the bar-marked Score view. Phase 5 of this plan additionally needs Plan
-> [0004](0004-the-app-plays-the-piece.md) Phase 3; Phase 6 additionally needs Plan
+> [0004](done/0004-the-app-plays-the-piece.md) Phase 3; Phase 6 additionally needs Plan
 > [0003](0003-the-coach-speaks.md) Phases 1 and 3 for the coach panel and the reply store, and
 > **degrades to showing the summary without an Analyse button if that plan has not landed** —
 > every other phase needs nothing from either.

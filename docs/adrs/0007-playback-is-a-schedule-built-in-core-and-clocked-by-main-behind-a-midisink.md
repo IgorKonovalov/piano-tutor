@@ -1,8 +1,8 @@
 # ADR-0007 — Playback is a schedule built in `core/` and clocked by main behind a `MidiSink`
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-11, on the close of Plan 0004
 > **Date:** 2026-09-10
-> **Related plan(s):** Plan [0004](../plans/0004-the-app-plays-the-piece.md)
+> **Related plan(s):** Plan [0004](../plans/done/0004-the-app-plays-the-piece.md)
 
 ## Context
 
@@ -176,3 +176,30 @@ Whether the CK88 sounds notes received on MIDI channel 1 specifically, or on any
 known and is not knowable from the documentation this project has. Plan 0004's `human` phase
 measures it; if the instrument is selective, the transport gains a channel selector and this ADR
 is unaffected.
+
+## Outcome, 2026-09-11
+
+Accepted on the close of Plan [0004](../plans/done/0004-the-app-plays-the-piece.md), measured at
+the CK88 rather than argued.
+
+**The split held and the numbers were not close.** NFR 13's onset error over 1286 note-ons at the
+instrument came out p50 -0.3 ms, p95 0.6 ms, max 1.4 ms against a target of 10 ms at p95 and 25 ms
+at max. Windows' 15.6 ms timer granularity — the hazard this ADR named as the reason a coarse tick
+would not do — never appeared. One run in the session did produce a 1.4 to 80.7 ms outlier once,
+unexplained; it is in the plan's `### Measurements`.
+
+**The panic held on all four interruptions**, including the one no software can fix: the USB cable
+pulled mid-chord left the instrument silent. That is the property this ADR exists for.
+
+**Two things the body does not say, learned by building it.**
+
+- **`MidiSink.send` returns nothing, and on Windows it cannot tell that it failed.** RtMidi's C++
+  layer prints `MidiOutWinMM::sendMessage: error sending MIDI message.` to stderr and **returns**,
+  so a send into a dead port never becomes a JavaScript exception. `RtMidiSink.write` has a
+  `try`/`catch` with a one-shot warning that therefore never fires, and the sink goes on believing
+  it is open after the device has gone. This is not a bug in the split; it is a gap in the seam's
+  shape, and **whether `send` should be able to report failure at all is a question for a
+  successor to this ADR.** The observed consequence — an unplug is survived, a replug is not
+  recovered from — is in [`../backlog.md`](../backlog.md).
+- **The CK88 sounds notes on channel 1.** The open question in `## Notes` is closed: the
+  instrument is not selective, and no channel selector is owed.
