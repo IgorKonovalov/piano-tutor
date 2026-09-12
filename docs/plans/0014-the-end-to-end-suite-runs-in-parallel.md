@@ -214,7 +214,7 @@ No new types cross a boundary. The one new configuration value, if Phase 1 needs
 |---|---|---|---|
 | 1 — Every launch has its own state, and the fast gate has a name | dev | done | 9f734e3 |
 | 2 — No window depends on being seen | dev | done | 0ceb7bf |
-| 3 — Several apps at once | dev | done | committed with this row |
+| 3 — Several apps at once | dev | done | e8e2930 |
 
 ### Measurements
 
