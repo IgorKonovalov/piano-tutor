@@ -145,8 +145,16 @@ around it** were keeping, so timing here is about evenness rather than about spe
 whole piece evenly at half speed is playing it correctly, and the app says so. Going back over a
 bar is said in words -- "you went back over bar 4" -- and the notes you played twice are not
 counted as mistakes. Slowing into a cadence is described the same way, "you slowed 29% over bars
-1 to 3", and never marked as an error. The tempo figure is the one you actually held, taken from
-the stretches where you were steady, so a false start does not drag it.
+1 to 3", and never marked as an error; where the page prints a *rit.* over those bars the sentence
+says so, and that is the only thing the page's expression is ever allowed to do to a verdict
+([ADR-0021](docs/adrs/0021-expression-belongs-to-playback-scoring-only-describes-it.md)). The tempo
+figure is the one you actually held, taken from the stretches where you were steady, so a false
+start does not drag it.
+
+An ornament costs nothing either way. A grace note, and a trill, turn or mordent sign, may be
+played or left out and the bar reads the same, so learning the notes of a piece is not a run of red
+bars for the decorations you have not got to yet
+([ADR-0009](docs/adrs/0009-an-ornament-is-optional-a-grace-note-is-scored-neither-way.md)).
 
 The *Timing* control says how fussy to be about it: *Let it breathe*, *Normal* or *Keep it
 tight*. It changes only how many bars are called out -- the notes, the counts and the numbers
@@ -163,9 +171,14 @@ without an instrument.
 The app can play a piece to you rather than only listen to you. Choose the CK88's **output** port
 in the **Ports** view — its input and output halves open together, so it can listen and play at
 the same time — and the Score view's transport gains a *Play*. It plays the bars you ask for
-(*Whole piece* resets the range), at the tempo you set, at one velocity throughout: a score carries
-no dynamics and the app invents none
-([ADR-0005](docs/adrs/0005-the-expected-note-timeline-is-extracted-from-osmds-model.md)). While it
+(*Whole piece* resets the range) **as the page is written**: its dynamics and hairpins, its
+pedalling, its tempo marks and the *rit.* and *accel.* between them, its fermatas, its staccatos
+and accents, and its ornament signs realised into the notes they stand for. Every one of those is
+read from the engraver's own reading of the file rather than invented here
+([ADR-0018](docs/adrs/0018-the-timeline-carries-the-marks-on-the-page.md)); where the page says
+nothing, the app falls back to one velocity and a default tempo and still invents nothing. The
+tempo box shows what the page asks for, and a tempo you set scales the whole piece against it
+rather than flattening it, so a passage demonstrated slowly is still the same music. While it
 plays, the keyboard and the staff light in a colour that is not yours, and the bar being sounded is
 marked on the score.
 

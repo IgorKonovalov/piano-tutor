@@ -1183,3 +1183,31 @@ only one OSMD resolves correctly here is the metronome mark.** Whether a plain I
 - **Slurs and phrasing**, which this plan cut and which is the largest remaining expressive gap.
 - **Over-pedalling as an observation.** The timeline now knows where the pedal should lift; a take
   knows where it did. Nothing compares them, and the coach would have something to say if it could.
+
+**Carried out of the implementation log by the close review**, because a followup left only in a
+log goes to `done/` with it. The first two are code defects found while reading rather than while
+testing, and neither is this plan's to fix.
+
+- **Two events at one millisecond can leave the player in either order.**
+  `electron/player/Player.ts`'s `arm` gives each event its own `setTimeout`, with a delay computed
+  from `clock.now()` at the moment that event is armed, so two events sharing an `at` can round to
+  different whole milliseconds. The schedule `core/` builds is ordered and balanced; this is where
+  that ordering can be lost, which makes it an NFR 13 question ("0 events dropped or reordered")
+  rather than a cosmetic one. It fits the Phase 8 red at `e2e/player.spec.ts:256`, where a strike
+  arrived before a pedal lift written at the same quarter. Read in the code, not established by a
+  test. **Plan [0011](0011-the-instrument-can-leave.md) is the plan already in that file.**
+- **`data-sounding` can lag `data-state` by a frame, and the e2e suite reads it without waiting.**
+  Three occurrences now: `e2e/player.spec.ts:150` at Phase 5, the same shape at Phase 8, and
+  `e2e/player.spec.ts:406` in the close review's own gate run (expected 0, received 1; a second
+  full gate run was green). Each passed when rerun alone. Whether the renderer's sounding count
+  really can trail the state, or the assertion is simply missing an `expect.poll`, is not
+  established — and that is the finding. Under ADR-0022 the full suite runs once per plan, so a
+  case that fails one run in two is the one thing that run cannot absorb. **Plan
+  [0014](0014-the-end-to-end-suite-runs-in-parallel.md) is where the suite is being worked on.**
+- **A metronome mark in any beat unit but an undotted quarter is not read** (Phase 7). A piece in
+  6/8 marked `dotted quarter = 60` plays at the fallback tempo and the transport says nothing about
+  it. No fixture holds one.
+- **The Score view can write a title to the wrong score.** `renderer/views/Score.tsx:204-209` looks
+  up `selectedId` when OSMD reports a load, so a load landing after the selection has moved writes
+  its title to the new score's row. The next render of that score corrects it. The race predates
+  this plan and surfaced as an `e2e/score.spec.ts:71` red at Phase 3.
