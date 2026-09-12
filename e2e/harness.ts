@@ -1,6 +1,8 @@
 import { type ElectronApplication, type Page, _electron as electron, expect } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
 
 /**
  * Launching the app for the end-to-end run.
@@ -32,6 +34,8 @@ export interface LaunchedApp {
   networkRequests: string[]
   /** Epoch milliseconds at which the main process was created. */
   processCreatedAt: number
+  /** The state directory this launch owns, made for it and removed with it. */
+  userDataDir: string
   close(): Promise<void>
 }
 
@@ -42,7 +46,34 @@ export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedAp
   }
   env.PT_HARNESS = options.harness === false ? '0' : '1'
 
-  const app = await electron.launch({ args: [repoRoot], cwd: repoRoot, env })
+  /**
+   * Every launch reads and writes its own scores, takes and settings, so one
+   * case cannot see another's -- and the developer's own `npm run dev` state is
+   * never touched by a test run either.
+   *
+   * Electron honours Chromium's `--user-data-dir` for `app.getPath('userData')`
+   * (measured on Electron 44), so this needs nothing in main: there is no
+   * harness-only path into the state directory to keep shut in a packaged build.
+   */
+  const userDataDir = mkdtempSync(join(tmpdir(), 'pt-e2e-'))
+  const removeUserDataDir = () => {
+    // A just-closed Electron can still hold a file open on Windows, hence the
+    // retries. A directory left behind under the OS temp dir is harmless.
+    try {
+      rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+    } catch {
+      // Nothing to do about it, and nothing about the case it says.
+    }
+  }
+
+  const app = await electron.launch({
+    args: [repoRoot, `--user-data-dir=${userDataDir}`],
+    cwd: repoRoot,
+    env,
+  })
+  // A case that ends by closing the window never calls `close()`; the directory
+  // still goes when the process it belonged to does.
+  app.process().once('exit', removeUserDataDir)
   const page = await app.firstWindow()
 
   // NFR 3: nothing in the renderer reaches the network. Recorded from the
@@ -61,7 +92,11 @@ export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedAp
     page,
     networkRequests,
     processCreatedAt,
-    close: () => app.close(),
+    userDataDir,
+    close: async () => {
+      await app.close()
+      removeUserDataDir()
+    },
   }
 }
 

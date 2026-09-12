@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { existsSync, statSync } from 'node:fs'
 import {
   type LaunchedApp,
   bringToFront,
@@ -62,6 +63,32 @@ test('the ports view lists the harness with nothing attached', async () => {
   }
 
   expect(launched.networkRequests).toEqual([])
+})
+
+test('each launch reads and writes a state directory of its own', async () => {
+  // What lets several apps run at once: no launch can see the scores, takes or
+  // settings of another, or of the developer's own `npm run dev`.
+  const beforeLaunch = Date.now()
+  launched = await launchApp()
+  const first = launched.userDataDir
+
+  // Read from inside the app, because what matters is the directory main
+  // actually resolves `userData` to, not the one the switch asked for.
+  const reported = await launched.app.evaluate(({ app }) => app.getPath('userData'))
+  expect(reported).toBe(first)
+
+  // It did not exist before this launch: it was created after the case started.
+  // `mkdtemp` picks a fresh random name every time, so NTFS cannot hand back an
+  // older creation stamp for a name it saw before.
+  expect(statSync(first).birthtimeMs).toBeGreaterThanOrEqual(beforeLaunch)
+
+  await launched.close()
+  expect(existsSync(first)).toBe(false)
+
+  launched = await launchApp()
+  const second = await launched.app.evaluate(({ app }) => app.getPath('userData'))
+  expect(second).toBe(launched.userDataDir)
+  expect(second).not.toBe(first)
 })
 
 test('every view is reachable', async () => {

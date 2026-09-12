@@ -1,6 +1,6 @@
 # 0014 — The end-to-end suite runs in parallel
 
-> **Status:** approved
+> **Status:** in-progress
 > **Created:** 2026-09-11
 > **Owner skill(s):** dev
 > **Related ADRs:** [0022](../adrs/0022-the-per-phase-gate-is-the-fast-gate-and-the-end-to-end-suite-is-owed-once-per-plan.md)
@@ -208,24 +208,52 @@ No new types cross a boundary. The one new configuration value, if Phase 1 needs
 > Observations, never conclusions. A deviation from the plan or an unmet done-when is always
 > disclosed. Stays shorter than `## Implementation phases`.
 
-**Lane:** _(`main` directly, or the worktree path plus its branch)_
+**Lane:** `main` directly. Plan 0010 closed before this started; nothing else is in flight.
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — Every launch has its own state, and the fast gate has a name | dev | not started | |
+| 1 — Every launch has its own state, and the fast gate has a name | dev | done | committed with this row |
 | 2 — No window depends on being seen | dev | not started | |
 | 3 — Several apps at once | dev | not started | |
 
 ### Measurements
 
-_(the full suite's wall time: three one-worker runs from Phase 1; one run per worker count tried
-in Phase 3, and the count chosen. NFR 4, 11 and 12 from the `measure` project, beside the
-one-worker figures)_
+**The one-worker baseline, Phase 1**, on the development machine, 2026-09-12, 39 cases, each run
+`npm run test:e2e` (the `npm run build` in front of it included in the wall time):
+
+| run | wall | result |
+|---|---|---|
+| 1 | 208 s | 39 passed |
+| 2 | 241 s | 39 passed |
+| 3 | 234 s | 39 passed |
+
+Three consecutive green, no red in any of them. The suite is 39 cases here, not the 34 ADR-0022
+measured at 277 s on 2026-09-11: Plans 0010 to 0013 added cases, and Phase 1 adds one.
+
+**NFR 4, 11 and 12 at one worker**, reported by the cases that will move to `measure` in Phase 3:
+
+| run | NFR 11 frames (p50/p95/max) | NFR 11 ms (p50/p95/max) | NFR 4 | NFR 12 |
+|---|---|---|---|---|
+| 1 | 1 / 1 / 1 | 7.9 / 9.8 / 10.1 | 640 ms | 4 ms |
+| 2 | 1 / 1 / 1 | 4.8 / 7.4 / 13.2 | 1164 ms | 9 ms |
+| 3 | 1 / 1 / 1 | 5.3 / 7.3 / 8.0 | 670 ms | 12 ms |
 
 ### Notes
 
-_(deviations, unmet done-whens, followups noticed and not acted on; one line each. Phase 2's spike
-outcome and whether Phase 1 needed a main-process change are recorded here.)_
+- **Phase 1 needed no main-process change.** Spiked first, as the phase asks: Electron 44 honours
+  Chromium's `--user-data-dir` for `app.getPath('userData')`, which reported the passed directory
+  exactly (`sessionData` too; `appData` unchanged). So `PT_USER_DATA`, `electron/harness.ts` and
+  `electron/harness.test.ts` were not written, `electron/main.ts` was not touched, and there is no
+  new harness-gated path into the state directory to keep shut in a packaged build.
+- **The two flakes the plan names did not appear** in the three one-worker runs:
+  `e2e/score.spec.ts` drew the right id each time and no take row carried another take's title.
+  At one worker that is not yet evidence either way for the shared-state hypothesis — the runs
+  before this change were also usually green.
+- **One case leaks its state directory by construction.** `e2e/player.spec.ts:496` ("closing the
+  window mid-playback exits without an error") ends by closing the window and sets `launched =
+  null`, so the harness's `close()` never runs. The launch registers removal on the Electron
+  process's own `exit` as well, which covers it; that file is outside Phase 1's list and was not
+  touched.
 
 ### Close triggers
 
