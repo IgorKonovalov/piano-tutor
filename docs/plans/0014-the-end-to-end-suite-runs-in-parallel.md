@@ -213,8 +213,8 @@ No new types cross a boundary. The one new configuration value, if Phase 1 needs
 | phase | owner | state | commit |
 |---|---|---|---|
 | 1 — Every launch has its own state, and the fast gate has a name | dev | done | 9f734e3 |
-| 2 — No window depends on being seen | dev | done | committed with this row |
-| 3 — Several apps at once | dev | not started | |
+| 2 — No window depends on being seen | dev | done | 0ceb7bf |
+| 3 — Several apps at once | dev | done | committed with this row |
 
 ### Measurements
 
@@ -237,6 +237,38 @@ measured at 277 s on 2026-09-11: Plans 0010 to 0013 added cases, and Phase 1 add
 | 1 | 1 / 1 / 1 | 7.9 / 9.8 / 10.1 | 640 ms | 4 ms |
 | 2 | 1 / 1 / 1 | 4.8 / 7.4 / 13.2 | 1164 ms | 9 ms |
 | 3 | 1 / 1 / 1 | 5.3 / 7.3 / 8.0 | 670 ms | 12 ms |
+
+**The worker count, Phase 3**, same machine and day, `npm run test:e2e -- --workers=N`, 40 cases,
+the `npm run build` in front of it included:
+
+| workers | wall | result |
+|---|---|---|
+| 1 | 173 s | 1 red, see below |
+| 2 | 124 s | 40 passed |
+| 3 | 99 s | 40 passed |
+| 4 | 84 s | 40 passed |
+
+**Four is the count in `playwright.config.ts`.** At four, `npm run gate` came back green three
+consecutive times: 146 s, 148 s, 159 s, 822 unit tests and 40 cases each. Against the Phase 1
+baseline of 208 / 241 / 234 s that is the suite at about 40% of its wall time, and the whole gate
+now costs less than the suite alone did.
+
+The curve was still falling at four, and this machine has sixteen logical cores, so the plan's
+range did not reach the floor. Four is the fastest of the counts the plan named and it is what
+the config takes.
+
+**NFR 4, 11 and 12 from the `measure` project**, beside the Phase 1 one-worker figures. All three
+cases moved: NFR 11 and NFR 4 out of `app.spec.ts`, NFR 12 out of `practice.spec.ts`, bodies
+unchanged.
+
+| | NFR 11 frames (p50/p95/max) | NFR 11 ms (p50/p95/max) | NFR 4 | NFR 12 |
+|---|---|---|---|---|
+| Phase 1, one worker, in `app.spec.ts` | 1 / 1 / 1 | 4.8–7.9 / 7.3–9.8 / 8.0–13.2 | 640–1164 ms | 4–12 ms |
+| Phase 3, `measure`, after the suite | 1 / 1 / 1 | 3.7–9.1 / 6.3–13.6 / 48.7–68 | 1070–1196 ms | 8–10 ms |
+
+NFR 11's frame bound, which is the part the case asserts, is 1 / 1 / 1 in every run of both. NFR
+12 is unchanged. The two figures that did move are reports, not assertions, and both are
+explained in the notes.
 
 ### Notes
 
@@ -268,12 +300,53 @@ measured at 277 s on 2026-09-11: Plans 0010 to 0013 added cases, and Phase 1 add
   null`, so the harness's `close()` never runs. The launch registers removal on the Electron
   process's own `exit` as well, which covers it; that file is outside Phase 1's list and was not
   touched.
+- **One red in the worker sweep, at one worker, and it is not about parallelism.**
+  `e2e/player.spec.ts:256` "the page's pedal marks reach the player:event stream as CC 64" expected
+  sustain values `[127, 0, 127, 0]` and got `[127, 127, 0, 0]` (`player.spec.ts:271`). It is red in
+  the *least* contended configuration of the four and green at two, three and four workers and in
+  all three `npm run gate` runs after them, so it is logged as a flake rather than counted as a
+  pass (ADR-0022). Two CC 64 events arriving out of order in the `player:event` stream is what the
+  values say; nothing in this plan touches that path.
+- **No case had to be moved to `measure` to survive parallelism, and no timeout was raised.**
+  The only cases in `measure` are the three the plan named.
+- **The `measure` project's NFR 11 millisecond figure gained an intermittent 1 Hz outlier.** Two
+  of nine runs with the harness's `backgroundThrottling: false` reported a frame interval of about
+  1000 ms (`ms p50 521.3 p95 969.8 max 1004.6`, and again `496.3 / 949.4 / 1003.5`); the other
+  seven were 3.7 to 9.5 ms. Three runs with throttling forced back on were 4.9, 6.1 and 5.3 ms.
+  Nine against three is too small to attribute, and the suspicion is only that turning the throttle
+  off changes which frame source the window gets. What it does **not** touch: the frame bound the
+  case asserts was 1 / 1 / 1 in all twelve runs, so the app still paints on the very next frame
+  whatever that frame costs. The steady `max` of 48 to 68 ms in the gate runs, against 6 to 13 ms
+  at one worker, is the other half of the same thing.
+- **Followup noticed, not acted on: let a launch ask for the throttle back.** The three `measure`
+  cases run alone and call `bringToFront`, so they never needed an unthrottled window; only the
+  parallel ones do. A `launchApp({ throttling: true })` would take the outlier above out of the
+  one place a millisecond figure is read. It needs `e2e/harness.ts` and a main-side option, both
+  outside Phase 3's file list.
+- **Followup noticed, not acted on: the practice helpers are duplicated.** `heard`,
+  `waitForPassage` and `practise` are copied from `practice.spec.ts` into `measure.spec.ts`.
+  Importing them from a spec file would register that file's whole set of tests in the new one,
+  and `e2e/harness.ts`, where they belong, is outside Phase 3's list.
+- **Followup noticed, not acted on: measure past four workers.** The wall time was still falling
+  at the top of the range the plan named.
+- **Followup noticed, not acted on: `README.md` still documents `npm run gate` only.** The
+  `gate:fast` script this plan adds is cited by both skills and by `CLAUDE.md`, but the README's
+  gate paragraph does not mention it. `README.md` is outside every phase's file list.
 
 ### Close triggers
 
-- **What shipped:** _(feature / fix-only / docs-chore-only)_
-- **User-visible docs touched:** _
-- **Full gate at the last phase:** _
+- **What shipped:** test infrastructure. No player-visible behaviour, and no new dependency
+  (NFR 9). The only production code touched is `electron/window.ts` and the one line in
+  `electron/main.ts` that calls it: `webPreferences.backgroundThrottling` now follows ADR-0004's
+  gate, so a packaged build with `PT_HARNESS` unset is throttled exactly as before. The suite went
+  from about 3.5 minutes to about 1.4, and the whole gate to about 2.5.
+- **User-visible docs touched:** none. `README.md`'s gate paragraph does not yet mention
+  `gate:fast`; it is outside every phase's file list and is noted above as a followup.
+- **Full gate at the last phase:** `npm run gate` at four workers, exit 0 three consecutive
+  times — 822 unit tests and 40 e2e cases each, 146 s, 148 s, 159 s. `npm run gate:fast` exit 0.
+  `npm run test:e2e -- e2e/player.spec.ts` lists and runs 15 tests in 1 file, `[suite]` only, so a
+  file filter still runs that file alone. A red in `suite` skips `measure` and fails the run, seen
+  at the one-worker sweep: exit 1, 36 passed, 1 failed, 3 did not run.
 - **Outstanding `human` phases:** none by construction
 
 ## Followups (after this lands)

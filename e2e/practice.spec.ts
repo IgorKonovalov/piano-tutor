@@ -113,36 +113,6 @@ test('one wrong note colours one bar, and the detail says which note', async () 
   expect(launched.networkRequests).toEqual([])
 })
 
-test('the statistics show the counts the report carries', async () => {
-  test.setTimeout(180_000)
-  launched = await launchApp()
-  const { page } = launched
-  await openScoreView(launched)
-  await importScore(launched, 'pickup-two-hands.musicxml')
-
-  await practise('virtual:score:pickup-two-hands-wrong-note')
-
-  const stats = page.getByTestId('practice-stats')
-  // Nineteen written notes, one of them struck a semitone out: eighteen as
-  // written, one wrong, nothing missing and nothing extra.
-  await expect(stats).toHaveAttribute('data-correct', String(PIECE_NOTES - 1))
-  await expect(stats).toHaveAttribute('data-wrong', '1')
-  await expect(stats).toHaveAttribute('data-missing', '0')
-  await expect(stats).toHaveAttribute('data-extra', '0')
-
-  await expect(page.getByTestId('stat-correct')).toHaveText(String(PIECE_NOTES - 1))
-  await expect(page.getByTestId('stat-wrong')).toHaveText('1')
-  await expect(page.getByTestId('stat-bars')).toHaveText('3/4')
-  await expect(page.getByTestId('stat-tempo')).toContainText('bpm')
-
-  // NFR 12 is reported, never asserted: it is a figure about one machine.
-  const elapsed = Number(await stats.getAttribute('data-align-ms'))
-  console.log(`[nfr 12] stop to a coloured score, in the app: ${elapsed} ms`)
-  expect(Number.isFinite(elapsed)).toBe(true)
-
-  expect(launched.networkRequests).toEqual([])
-})
-
 test('a piece played correctly is clean, bar for bar', async () => {
   test.setTimeout(180_000)
   launched = await launchApp()

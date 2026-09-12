@@ -2,11 +2,8 @@ import { expect, test } from '@playwright/test'
 import { existsSync, statSync } from 'node:fs'
 import {
   type LaunchedApp,
-  bringToFront,
-  eventsReceived,
   launchApp,
   openScenario,
-  readLatency,
   readWindowFlags,
   waitForEvents,
   waitForPortsView,
@@ -15,20 +12,13 @@ import {
 /**
  * The whole skeleton, driven with nothing plugged in.
  *
- * What is asserted here is properties, not milliseconds: every view reachable,
- * every generated event delivered (NFR 2), no network request (NFR 3), and the
- * frame bound of NFR 11. The millisecond figures and the startup figure are
- * *reported* into the plan's implementation log instead -- they are
- * measurements of one machine, and a threshold here would fail on a slower one
- * for the wrong reason.
+ * What is asserted here is properties, never milliseconds: every view
+ * reachable, every generated event delivered, no network request (NFR 3), and
+ * the two things that let these cases run four at a time -- a state directory
+ * per launch and a window that paints while covered. Anything that reads a
+ * clock lives in `measure.spec.ts`, which runs afterwards with the machine to
+ * itself.
  */
-
-/** `virtual:dense-2000` generates this many events over about eighteen seconds. */
-const DENSE_EVENT_COUNT = 2200
-
-/** NFR 11: the frame first showing a key is within this many frames of arrival. */
-const FRAME_P95_BUDGET = 2
-const FRAME_MAX_BUDGET = 4
 
 let launched: LaunchedApp
 
@@ -160,36 +150,6 @@ test('a session is recorded, listed and replayed through the same pipeline', asy
   expect(launched.networkRequests).toEqual([])
 })
 
-test('the dense passage arrives complete and inside the frame budget', async () => {
-  test.setTimeout(120_000)
-  launched = await launchApp()
-  const { page } = launched
-  await waitForPortsView(page)
-  await bringToFront(launched)
-
-  await openScenario(page, 'virtual:dense-2000')
-  const received = await waitForEvents(page, DENSE_EVENT_COUNT, 90_000)
-
-  // NFR 2: every generated event reached the renderer.
-  expect(received).toBe(DENSE_EVENT_COUNT)
-  expect(await eventsReceived(page)).toBe(DENSE_EVENT_COUNT)
-
-  // NFR 11: a property, and the one an unattended run can hold to.
-  const latency = await readLatency(page)
-  expect(latency.samples).toBeGreaterThan(0)
-  expect(latency.frameP95).toBeLessThanOrEqual(FRAME_P95_BUDGET)
-  expect(latency.frameMax).toBeLessThanOrEqual(FRAME_MAX_BUDGET)
-
-  // Reported, never asserted: these belong in the implementation log.
-  console.log(
-    `[nfr 11] frames p50 ${latency.frameP50} p95 ${latency.frameP95} max ${latency.frameMax} ` +
-      `| ms p50 ${latency.msP50} p95 ${latency.msP95} max ${latency.msMax} ` +
-      `over ${latency.samples} note-ons`
-  )
-
-  expect(launched.networkRequests).toEqual([])
-})
-
 test('shutting the harness gate leaves the suite with no port to open', async () => {
   // The test that the gate of ADR-0004 is real rather than assumed: with
   // PT_HARNESS=0 the app enumerates no generated port, so the harness has
@@ -215,23 +175,4 @@ test('shutting the harness gate leaves the suite with no port to open', async ()
   ]) {
     await expect(page.locator(`[data-port-id="${id}"]`)).toHaveCount(0)
   }
-})
-
-test('reports the startup figure for NFR 4', async () => {
-  launched = await launchApp()
-  const { page } = launched
-  await waitForPortsView(page)
-  await bringToFront(launched)
-
-  const { firstKeyPaintedAt } = await openScenario(page, 'virtual:c-major-scale')
-  const ms = Math.round(firstKeyPaintedAt - launched.processCreatedAt)
-
-  // Reported, not asserted (NFR 4): the machine running this is not
-  // necessarily the development machine. The figure spans a little more than
-  // `app.whenReady` -- it starts at process creation, which is the earliest
-  // instant available without a hook in main.
-  console.log(`[nfr 4] process creation to first painted key: ${ms} ms`)
-  expect(ms).toBeGreaterThan(0)
-
-  expect(launched.networkRequests).toEqual([])
 })
