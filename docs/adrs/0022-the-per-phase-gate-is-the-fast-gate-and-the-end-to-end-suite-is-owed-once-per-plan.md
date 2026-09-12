@@ -1,8 +1,8 @@
 # ADR-0022 — The per-phase gate is the fast gate, and the end-to-end suite is owed once per plan
 
-> **Status:** proposed
+> **Status:** accepted 2026-09-12, on the close of Plan 0014
 > **Date:** 2026-09-11
-> **Related plan(s):** [0014](../plans/0014-the-end-to-end-suite-runs-in-parallel.md), which adds
+> **Related plan(s):** [0014](../plans/done/0014-the-end-to-end-suite-runs-in-parallel.md), which adds
 > the `gate:fast` script and makes the once-per-plan run cheaper
 
 ## Context
@@ -105,3 +105,25 @@ parallel, the suite stays well above the fast gate, and it grows with every plan
 - Modelled on Ritmolux's ADR-0156 ("the per-phase gate is scoped, and the suite is owed once per
   plan"). The difference is the grain: there the fast set is a test-runner filter, here it is a
   spec file named by the plan, because this suite is small enough to name.
+
+## Outcome, 2026-09-12
+
+Accepted on the close of Plan [0014](../plans/done/0014-the-end-to-end-suite-runs-in-parallel.md),
+which built the `gate:fast` script the decision names and made the once-per-plan run cheaper: the
+suite fell from about 3.5 minutes to about 1.4, and the whole gate now costs less than the suite
+alone did.
+
+**The decision holds as written, with one limit the body does not state.** `npm run test:e2e --
+e2e/<name>.spec.ts` runs that file and only that file for four of the five spec files. It does not
+for `e2e/measure.spec.ts`: Plan 0014 gave the measuring cases their own Playwright project ordered
+behind the parallel one with `dependencies: ['suite']`, and Playwright runs a dependency project's
+whole set even when a file filter is given — 40 tests in 5 files, measured at the close. Plan 0014
+checked the property for `e2e/player.spec.ts`, where it holds. The cost is time, never a false
+green, since the run is always a superset. **A phase whose done-when names `e2e/measure.spec.ts`
+pays the full suite**, and no plan names it today. Removing the limit means ordering the two
+projects without a `dependencies` edge, and that is a followup in Plan 0014, not a change here.
+
+**The negative the ADR predicted did not fire in its first plan.** Plan 0014's own phases each
+changed the launch path, so each ran the whole suite by the rule's own exception, and nothing
+reached the last phase unseen. The other negative — a plan author naming no spec where one was
+needed — is still untested: every phase here named the full suite.

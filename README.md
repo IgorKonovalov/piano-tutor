@@ -59,26 +59,35 @@ npm run build     # the three bundles into dist/
 npm run package   # a portable zip through electron-builder
 ```
 
-One command runs everything:
+Two gate commands, and the difference is the end-to-end suite:
 
 ```
-npm run gate
+npm run gate:fast # typecheck, lint, unit tests, the two Node gates -- about 25 s
+npm run gate      # all of that, then the end-to-end suite -- about 2.5 minutes
 ```
 
-That is typecheck, lint, unit tests, the two Node gates and the end-to-end run,
-in that order, stopping at the first failure. The pieces individually:
+Both stop at the first failure. `gate:fast` is what runs after a change; the
+full `npm run gate` is owed once per plan, at its last implementation phase and
+again at the close
+([ADR-0022](docs/adrs/0022-the-per-phase-gate-is-the-fast-gate-and-the-end-to-end-suite-is-owed-once-per-plan.md)).
+The pieces individually:
 
 ```
 npm run typecheck # tsc over all four tsconfigs
 npm run lint      # eslint, including the process-boundary rules
 npm test          # vitest
-npm run test:e2e  # builds, then Playwright drives the app (opens a window)
+npm run test:e2e  # builds, then Playwright drives the app (opens windows)
 node scripts/check-pins.mjs      # every dependency pinned exact (NFR 9)
 node scripts/check-doc-links.mjs # every relative markdown link resolves
 ```
 
-The pre-push hook runs everything except the end-to-end step, which is slow and
-opens a window. Run `npm run gate` before closing a plan.
+The end-to-end suite launches **four apps at once**, each with its own state
+directory under the OS temp dir, so it touches neither your score library nor
+your takes. The three cases that read a clock run alone afterwards. A single
+spec file runs on its own with `npm run test:e2e -- e2e/player.spec.ts`.
+
+The pre-push hook runs `gate:fast` only; the end-to-end step is slow and opens
+windows. Run the full `npm run gate` before closing a plan.
 
 Hot reload covers the renderer only. After a change under `electron/`, restart Electron; the
 esbuild watchers rebuild the bundle but Electron does not reload it.

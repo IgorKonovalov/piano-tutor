@@ -35,7 +35,7 @@ the status.
 | [0019](0019-a-device-departure-is-noticed-by-enumeration-not-by-a-failed-send.md) | A device departure is noticed by enumeration, not by a failed send | proposed |
 | [0020](0020-one-cursor-on-the-score-with-two-position-sources.md) | One cursor on the score, with two position sources | proposed |
 | [0021](0021-expression-belongs-to-playback-scoring-only-describes-it.md) | Expression belongs to playback; scoring only describes it | proposed |
-| [0022](0022-the-per-phase-gate-is-the-fast-gate-and-the-end-to-end-suite-is-owed-once-per-plan.md) | The per-phase gate is the fast gate, and the end-to-end suite is owed once per plan | proposed |
+| [0022](0022-the-per-phase-gate-is-the-fast-gate-and-the-end-to-end-suite-is-owed-once-per-plan.md) | The per-phase gate is the fast gate, and the end-to-end suite is owed once per plan | accepted 2026-09-12 |
 
 ## Conventions
 

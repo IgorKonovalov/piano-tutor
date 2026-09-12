@@ -1,13 +1,16 @@
 # 0014 — The end-to-end suite runs in parallel
 
-> **Status:** in-progress
+> **Status:** done 2026-09-12 — three `dev` phases (9f734e3, 0ceb7bf, e8e2930), closed with
+> **no blockers and no majors**, six `minor` and three `nit`. The full gate green on the finished
+> tree: 822 unit tests, 40 end-to-end cases, 1.6 min. The suite went from about 3.5 minutes to
+> about 1.4 and the whole gate to about 2.5.
 > **Created:** 2026-09-11
 > **Owner skill(s):** dev
-> **Related ADRs:** [0022](../adrs/0022-the-per-phase-gate-is-the-fast-gate-and-the-end-to-end-suite-is-owed-once-per-plan.md)
-> (proposed) decides when the suite runs, and this plan makes the run cheaper;
-> [0004](../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (accepted)
+> **Related ADRs:** [0022](../../adrs/0022-the-per-phase-gate-is-the-fast-gate-and-the-end-to-end-suite-is-owed-once-per-plan.md)
+> (accepted 2026-09-12) decides when the suite runs, and this plan makes the run cheaper;
+> [0004](../../adrs/0004-the-app-plays-itself-virtual-ports-not-an-injection-channel.md) (accepted)
 > provides the harness gate every change here sits behind
-> **NFRs claimed:** 4 and 11 in [nfr.md](../nfr.md), re-reported unchanged from cases that now run
+> **NFRs claimed:** 4 and 11 in [nfr.md](../../nfr.md), re-reported unchanged from cases that now run
 > alone; 12 likewise, where its report moves
 > **Depends on:** nothing. It is best landed before the next feature plan, so that plan's close
 > pays the cheaper suite.
@@ -351,8 +354,29 @@ explained in the notes.
 
 ## Followups (after this lands)
 
+Consolidated at the close, 2026-09-12: the four the implementation log noticed and did not act on
+are folded in here, worst first, so they survive the move to `done/`.
+
+- **Let a launch ask for the throttle back.** The `measure` project's NFR 11 millisecond figure is
+  now read through an unthrottled window, and it gained an intermittent ~1 Hz outlier (2 runs of 9)
+  and a steady `max` of 48 to 68 ms against 6 to 13 ms at one worker. The three `measure` cases run
+  alone and call `bringToFront`, so they never needed the unthrottled window at all — only the
+  parallel ones do. A `launchApp({ throttling: true })` takes the outlier out of the one place a
+  millisecond figure is read. Needs `e2e/harness.ts` and a main-side option. **The asserted frame
+  bound is unaffected**: 1 / 1 / 1 in all twelve of the plan's runs and again at the close.
+- **A file-filtered run of `e2e/measure.spec.ts` runs the whole suite**, because Playwright's
+  project `dependencies` ignores the filter: 40 tests in 5 files, verified at the close. The plan
+  checked the property for `e2e/player.spec.ts`, where it holds. It costs time, never a false
+  green, and no plan names `measure.spec.ts` today. ADR-0022's `Outcome` records the limit; the
+  fix, if one is wanted, is ordering the two projects without a `dependencies` edge.
 - **Playback at a multiple of written tempo under the harness**, for the cases whose claim does not
   depend on the tempo. It would cut the largest remaining cost, and it needs a decision about which
   claims survive a faster clock.
+- **Measure past four workers.** The wall time was still falling at the top of the range the plan
+  named — 173, 124, 99, 84 s at one to four — and the machine has sixteen logical cores. Against a
+  suite that mostly waits on real time, and four fallback voices already sounding at the desk.
+- **Move the practice helpers into `e2e/harness.ts`.** `heard`, `waitForPassage` and `practise` are
+  copied from `practice.spec.ts` into `measure.spec.ts`, because importing them from a spec file
+  would register that file's whole set of tests in the new one.
 - **Mute the fallback voice under the harness**, if parallel cases at the desk turn out to be a
   nuisance.

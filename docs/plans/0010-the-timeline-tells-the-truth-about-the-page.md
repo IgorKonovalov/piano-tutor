@@ -1203,11 +1203,17 @@ testing, and neither is this plan's to fix.
   really can trail the state, or the assertion is simply missing an `expect.poll`, is not
   established — and that is the finding. Under ADR-0022 the full suite runs once per plan, so a
   case that fails one run in two is the one thing that run cannot absorb. **Plan
-  [0014](0014-the-end-to-end-suite-runs-in-parallel.md) is where the suite is being worked on.**
+  [0014](done/0014-the-end-to-end-suite-runs-in-parallel.md) is where the suite is being worked on.**
 - **A metronome mark in any beat unit but an undotted quarter is not read** (Phase 7). A piece in
   6/8 marked `dotted quarter = 60` plays at the fallback tempo and the transport says nothing about
   it. No fixture holds one.
 - **The Score view can write a title to the wrong score.** `renderer/views/Score.tsx:204-209` looks
   up `selectedId` when OSMD reports a load, so a load landing after the selection has moved writes
   its title to the new score's row. The next render of that score corrects it. The race predates
-  this plan and surfaced as an `e2e/score.spec.ts:71` red at Phase 3.
+  this plan and surfaced as an `e2e/score.spec.ts:71` red at Phase 3. **Plan
+  [0014](done/0014-the-end-to-end-suite-runs-in-parallel.md) found a free reproducer for it**: with
+  the window never shown, the race loses every time rather than usually winning, and three cases go
+  red deterministically — `score.spec.ts:75` carrying the new score's `data-score-id` while still
+  showing the previous score's title, and `score.spec.ts:214` drawing a different score's id on the
+  paper. Plan 0014 also ruled out the other candidate cause: every launch now has its own
+  `userData` and the flakes were unchanged by it, so this is not shared state.

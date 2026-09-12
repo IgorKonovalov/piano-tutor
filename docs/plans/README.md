@@ -17,13 +17,30 @@ to pick the plan up. The plan file carries everything else.
 | [0011](0011-the-instrument-can-leave.md) | The instrument can leave | approved | dev, human | ADR-0019 is its whole design and it closes the open question ADR-0007 left: `MidiSink.send` stays fire-and-forget, because RtMidi on Windows prints to stderr and returns, so any status it gave back would be a lie. Main notices a departure by enumeration — free to ask, ADR-0006 — runs the panic path it already has, and tells the renderer. **Notice and say so, not reopen and resume**, by decision; name-matched reopen stays a followup. Depends on nothing in flight; Plan 0004 is closed and shipped everything it needs. It also pays Plan 0004's carried debt that **NFR 13's magnitude is asserted by nothing** larger than 29 note-ons against a row that says 500. |
 | [0012](0012-the-score-view-on-a-real-piece.md) | The Score view on a real piece | approved | dev | The three things the user asked for at the piano on 2026-09-11 after using the view on a four-page score: it scrolls to keep up with playback, a small keyboard sits in a corner, and the library list folds away. **No new ADR and no new seam** — both halves of the scroll already exist, `player:state` carries the bar and Plan 0002 maps a bar to the box OSMD drew. Depends on nothing and blocks nothing, so it can be picked up at any time. **It must not grow a moving cursor**: that is ADR-0020 and Plan 0013, and the plan says so explicitly. |
 | [0013](0013-the-travelling-line.md) | The travelling line | approved | dev, human | ADR-0020 is its whole design: one cursor on the score that takes a position rather than a source, so Plan 0006's metronome follow drives the same component instead of growing a second marker that can disagree about where bar 30 is. **Its Phase 3 edits Plan 0006 Phase 3** to consume it. The hard part is the page, not the time — during playback the position is already exact, and what is missing is a coordinate. **Needs Plan 0007 Phase 1 only** (the `sourceNote`-to-SVG index), not that whole plan, and it is last in the order for that reason. |
-| [0014](0014-the-end-to-end-suite-runs-in-parallel.md) | The end-to-end suite runs in parallel | approved | dev | ADR-0022 moves the whole e2e suite (277 s on one worker, 2026-09-11) to once per plan; this plan makes that run cheaper with a separate `userData` per launch, windows that do not depend on being seen, and several workers, with the timing cases run alone afterwards. **Its Phase 1 adds `npm run gate:fast`**, which the skills and Plans 0011 to 0013 already cite, so it is best picked up before the next feature plan. |
 | [0003](0003-the-coach-speaks.md) | The coach speaks | approved | dev, human | ADR-0002 is its whole design. One-shot Analyse, replies saved beside the take, free-play and practised takes both summarised. Every `dev` phase runs on a recorded fixture reply and a stub binary, so it queues with no subscription; **Phase 2 is a spike against the real `claude` CLI** and Phase 6 is the only phase where a model actually answers. It also owns the carried Plan 0002 finding that an `extra` verdict per unmatched pitch is unbounded, because its token budget is what depends on it. |
 | [0005](0005-the-practice-loop.md) | The practice loop | approved | dev, human | ADR-0011 is its whole design: each drill attempt is its own take, and a drill is a bar-range slice of the score's own timeline, so the aligner is untouched. Roadmap item 4, and the highest teaching value the existing seams already reach. Tempo-free by decision — "slower" is the demonstration's speed, never a threshold. **It also owns the coach's session grain** (added 2026-09-10): the coach is asked once per session, never once per attempt, because forty presses cost roughly ten times one roll-up and a trajectory is better advice than forty isolated verdicts. Its Phase 5 needed Plan 0004, which **closed 2026-09-11**, so the demonstration it plays is real rather than degraded; only its Phase 6 still waits on Plan 0003, and that degrades rather than blocks. |
 | [0007](0007-what-you-played-drawn-on-the-score.md) | What you played, drawn on the score | approved | dev, human | ADR-0013 is its whole design: the played pitch is drawn as our own SVG ghost notehead over OSMD's engraving, never merged into it. Raised by the user at the piano on 2026-09-10 — a red bar and a letter name make the player do the join. Depends on nothing but Plan 0002, so it can be picked up at any time; its riskiest fact (`sourceNote` identity) is resolved in its first phase. |
 | [0006](0006-the-metronome-and-the-score-follows.md) | The metronome, and the score follows | approved | dev, human | ADR-0012 is its whole design: the click is a grid both processes schedule from, not a tick per beat, and it becomes the timing reference whenever it runs. Widens ADR-0008's bound to let the app open an audio device while it is only listening. **Unblocked 2026-09-11:** Plan 0004 closed and its sink, lookahead clock, synthesised voice and stop path are shipped and measured. Builds the follow cursor Plan 0002's prose promised and never shipped. |
 
 ## Recently closed
+
+- [0014 — The end-to-end suite runs in parallel](done/0014-the-end-to-end-suite-runs-in-parallel.md)
+  — closed 2026-09-12, v0.4.1. Three `dev` phases, **no blockers and no majors**, six `minor` and
+  three `nit`; the full gate green on the finished tree (822 unit tests, 40 end-to-end cases,
+  1.6 min). ADR-0022 accepted on it **with a dated `Outcome`**. The suite runs four apps at once —
+  173 / 124 / 99 / 84 s at one to four workers — so it fell from about 3.5 minutes to about 1.4 and
+  the whole gate to about 2.5, less than the suite alone used to cost. **Phase 1 needed no
+  main-process change**: Electron 44 honours Chromium's own `--user-data-dir`, so there is no new
+  harness affordance to keep shut in a packaged build, and the only production line that moved is
+  `webPreferences.backgroundThrottling`, which evaluates to Electron's default there. **Phase 2's
+  spike came out the other way** — a window that is never shown does not lay out — so windows are
+  shown and unthrottled instead of hidden. Two things it taught that outlive it: the two
+  long-standing score flakes are **not** shared state, and hiding the window makes them
+  deterministic, which hands Plan [0010](0010-the-timeline-tells-the-truth-about-the-page.md) a free
+  reproducer for the `Score.tsx` race it carries. Six followups survive in that plan's
+  `## Followups`, worst first; the first of them takes an intermittent ~1 Hz outlier out of NFR 11's
+  reported millisecond figure, which the unthrottled window introduced and which the asserted frame
+  bound is unaffected by.
 
 - [0002 — A piece is practised](done/0002-a-piece-is-practised.md) — closed 2026-09-11, **no
   version bump** (its code shipped under v0.2.1 and has been in every release since; the close is
@@ -185,8 +202,10 @@ click, click-relative scoring and — once there is a store — the ladder.
 10. **The first release** — electron-builder zip, the native binary included, install size
    recorded (NFR 10), a READ-ME-FIRST for a second machine. **Verify every harness affordance is
    absent from the packaged build** — ADR-0004's virtual ports, Plan 0003's fixture coach
-   provider, Plan 0005's `virtual:drill:*` ports, and Plan 0014's per-launch `userData` override
-   and unthrottled window; that check belongs in this plan's done-when,
+   provider, Plan 0005's `virtual:drill:*` ports, and Plan 0014's unthrottled window (its
+   per-launch state directory is **not** on that list: it is Chromium's own `--user-data-dir`
+   switch, present in every Electron build and gated by nothing, so there is nothing to verify
+   absent); that check belongs in this plan's done-when,
    and Plan 0002's close review already found one leak to fix there (`SyntheticSource.open` does
    not consult the harness gate).
 
