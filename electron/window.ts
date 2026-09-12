@@ -1,5 +1,6 @@
 import { BrowserWindow, app, session, shell } from 'electron'
 import { join } from 'node:path'
+import { type HarnessGate, virtualPortsEnabled } from './midi/virtualPorts'
 
 /**
  * The policy has **no `connect-src`** (ADR-0001): the renderer makes no network
@@ -81,9 +82,41 @@ export function getRendererPaths(viteServing: boolean): RendererPaths {
   }
 }
 
+export interface HarnessWindowOptions {
+  /**
+   * Chromium throttles `requestAnimationFrame` to about 1 Hz in a window it
+   * cannot see. Several harness windows at once means all but one is covered,
+   * so the suite would be timing a throttle rather than the app.
+   *
+   * This is **not** one of the security defaults (ADR-0001 names four:
+   * `contextIsolation`, `sandbox`, `nodeIntegration`, `webSecurity`, and every
+   * one of them is unchanged here). It decides how often a window paints, and
+   * nothing about what it may reach.
+   */
+  backgroundThrottling: boolean
+}
+
+/**
+ * ADR-0004's gate, and no second one: the same expression that decides whether
+ * generated ports are enumerated decides this. A packaged build with
+ * `PT_HARNESS` unset is throttled like any other application.
+ *
+ * The gate does **not** decide whether the window shows itself, though the
+ * suite would rather it did not. Measured on Electron 44, 2026-09-12: a window
+ * that is never shown does not lay out, whatever its throttling says. Eleven
+ * cases went red that way, among them `score.spec.ts` "each fixture score
+ * imports and draws", where a row carried the previous score's title while
+ * already carrying the new score's id. So every window is shown, and it is
+ * throttling alone that stops a covered one from mattering.
+ */
+export function harnessWindowOptions(gate: HarnessGate): HarnessWindowOptions {
+  return { backgroundThrottling: !virtualPortsEnabled(gate) }
+}
+
 export interface CreateWindowOptions extends RendererPaths {
   /** Set when Vite is serving; unset means load the built file. */
   rendererUrl?: string | undefined
+  harness: HarnessWindowOptions
 }
 
 export function createWindow(opts: CreateWindowOptions): BrowserWindow {
@@ -100,6 +133,7 @@ export function createWindow(opts: CreateWindowOptions): BrowserWindow {
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,
+      backgroundThrottling: opts.harness.backgroundThrottling,
     },
   })
 

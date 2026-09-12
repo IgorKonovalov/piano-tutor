@@ -10,7 +10,7 @@ vi.mock('electron', () => ({
   shell: {},
 }))
 
-import { csp } from './window'
+import { csp, harnessWindowOptions } from './window'
 
 const served = csp(true)
 const built = csp(false)
@@ -60,6 +60,36 @@ describe('the policy while Vite is serving', () => {
 
   it('allows inline script only here, for the HMR client', () => {
     expect(directive(served, 'script-src')).toContain("'unsafe-inline'")
+  })
+})
+
+/**
+ * The window options are the second thing the harness gate decides, and they go
+ * through the same expression the generated ports do (ADR-0004). What is worth
+ * asserting is that a shipped build never gets them: a window that is never
+ * throttled is a laptop battery, and the suite's reason for wanting it -- four
+ * windows at once, three of them covered -- does not exist there.
+ */
+describe('the window options the harness gate decides', () => {
+  it('throttles a covered window in a packaged build', () => {
+    expect(harnessWindowOptions({ isPackaged: true, env: {} })).toEqual({
+      backgroundThrottling: true,
+    })
+  })
+
+  it('leaves it unthrottled when the gate is open', () => {
+    expect(harnessWindowOptions({ isPackaged: false, env: {} })).toEqual({
+      backgroundThrottling: false,
+    })
+  })
+
+  it('follows PT_HARNESS in both directions, as the ports do', () => {
+    expect(harnessWindowOptions({ isPackaged: false, env: { PT_HARNESS: '0' } })).toEqual({
+      backgroundThrottling: true,
+    })
+    expect(harnessWindowOptions({ isPackaged: true, env: { PT_HARNESS: '1' } })).toEqual({
+      backgroundThrottling: false,
+    })
   })
 })
 

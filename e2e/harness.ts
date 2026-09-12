@@ -105,10 +105,27 @@ export async function waitForPortsView(page: Page): Promise<void> {
   await expect(page.getByTestId('ports-view')).toBeVisible()
 }
 
+export interface WindowFlags {
+  visible: boolean
+  backgroundThrottling: boolean
+}
+
+/** Read from main, which is where the window and its flags actually live. */
+export async function readWindowFlags(launched: LaunchedApp): Promise<WindowFlags> {
+  return launched.app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0]
+    return {
+      visible: window.isVisible(),
+      backgroundThrottling: window.webContents.getBackgroundThrottling(),
+    }
+  })
+}
+
 /**
- * Chromium throttles requestAnimationFrame to about 1 Hz for an occluded
- * window, which would show up as second-long outliers that say nothing about
- * the app. The measurements are only meaningful with the window in front.
+ * Only the measuring cases need this. Every other case runs against whatever
+ * window happens to be covered, which is what lets several run at once: under
+ * the harness gate a window is not throttled when it cannot be seen, so
+ * `requestAnimationFrame` keeps its rate whoever is in front.
  */
 export async function bringToFront(launched: LaunchedApp): Promise<void> {
   const window = await launched.app.browserWindow(launched.page)

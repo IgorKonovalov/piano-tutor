@@ -212,8 +212,8 @@ No new types cross a boundary. The one new configuration value, if Phase 1 needs
 
 | phase | owner | state | commit |
 |---|---|---|---|
-| 1 — Every launch has its own state, and the fast gate has a name | dev | done | committed with this row |
-| 2 — No window depends on being seen | dev | not started | |
+| 1 — Every launch has its own state, and the fast gate has a name | dev | done | 9f734e3 |
+| 2 — No window depends on being seen | dev | done | committed with this row |
 | 3 — Several apps at once | dev | not started | |
 
 ### Measurements
@@ -249,6 +249,20 @@ measured at 277 s on 2026-09-11: Plans 0010 to 0013 added cases, and Phase 1 add
   `e2e/score.spec.ts` drew the right id each time and no take row carried another take's title.
   At one worker that is not yet evidence either way for the shared-state hypothesis — the runs
   before this change were also usually green.
+- **Phase 2's spike came out the other way: a window that is never shown does not lay out.**
+  Electron 44, 2026-09-12, `backgroundThrottling: false` and no `ready-to-show` `show()` under the
+  gate: 11 of 40 cases red, 491 s. Eight in `player.spec.ts` sample the keyboard across animation
+  frames and saw a partial passage (`player.spec.ts:72` expected the lowest lit key 60 and got
+  65). Three in `score.spec.ts` are **the two flakes this plan names, deterministic**:
+  `score.spec.ts:75` found a row already carrying the new score's `data-score-id` and still
+  showing the previous score's title, and `score.spec.ts:214` drew a different score's id on the
+  paper. So windows are shown and unthrottled, `harnessWindowOptions` decides throttling alone,
+  and `show()` on `ready-to-show` stays unconditional. Green again at 40 of 40, 202 s.
+- **The id and title flakes are not shared state.** Phase 1 gave every launch its own `userData`
+  and they still appeared, which is the branch the plan's risk section names: the cause is the
+  race Plan 0010's log names in `renderer/views/Score.tsx`, and the fix belongs to whichever plan
+  owns that file. Hiding the window did not introduce them — it made a race that is usually won
+  lose every time, which is a cheap way to reproduce it if that plan wants one.
 - **One case leaks its state directory by construction.** `e2e/player.spec.ts:496` ("closing the
   window mid-playback exits without an error") ends by closing the window and sets `launched =
   null`, so the harness's `close()` never runs. The launch registers removal on the Electron

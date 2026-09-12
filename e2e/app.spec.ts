@@ -7,6 +7,7 @@ import {
   launchApp,
   openScenario,
   readLatency,
+  readWindowFlags,
   waitForEvents,
   waitForPortsView,
 } from './harness'
@@ -89,6 +90,18 @@ test('each launch reads and writes a state directory of its own', async () => {
   const second = await launched.app.evaluate(({ app }) => app.getPath('userData'))
   expect(second).toBe(launched.userDataDir)
   expect(second).not.toBe(first)
+})
+
+test('a harness window paints whether or not it is the one in front', async () => {
+  launched = await launchApp()
+  await waitForPortsView(launched.page)
+
+  // The other half of running several at once: with four windows open only one
+  // can be in front, and a covered window's requestAnimationFrame drops to
+  // about 1 Hz. Under the gate the throttle is off, so being covered costs a
+  // case nothing. The window is still shown -- one that is never shown does not
+  // lay out at all, measured on Electron 44 and recorded in plan 0014.
+  expect(await readWindowFlags(launched)).toEqual({ visible: true, backgroundThrottling: false })
 })
 
 test('every view is reachable', async () => {
@@ -184,6 +197,11 @@ test('shutting the harness gate leaves the suite with no port to open', async ()
   launched = await launchApp({ harness: false })
   const { page } = launched
   await waitForPortsView(page)
+
+  // The gate shut is also what a player gets: the window puts itself on screen
+  // at `ready-to-show` and is throttled when it is not in front, exactly as
+  // before the suite ever needed otherwise.
+  expect(await readWindowFlags(launched)).toEqual({ visible: true, backgroundThrottling: true })
 
   await expect(page.getByTestId('port-group-virtual').getByTestId('port-row')).toHaveCount(0)
   await expect(page.getByTestId('port-group-virtual')).toContainText('Disabled in this build')

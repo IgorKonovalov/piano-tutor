@@ -1,5 +1,5 @@
 import { type BrowserWindow, app } from 'electron'
-import { createWindow, getRendererPaths, installCsp } from './window'
+import { createWindow, getRendererPaths, harnessWindowOptions, installCsp } from './window'
 import { cleanupMidiHandlers, registerMidiHandlers } from './ipc/midiHandlers'
 import { cleanupPlayerHandlers, registerPlayerHandlers } from './ipc/playerHandlers'
 import { cleanupScoreHandlers, registerScoreHandlers } from './ipc/scoreHandlers'
@@ -89,7 +89,7 @@ void app.whenReady().then(() => {
   registerPlayerHandlers({ player, output, silence: noOutput, gate, takesDirectory: takesDir })
 
   const paths = getRendererPaths(rendererUrl !== undefined)
-  mainWindow = createWindow({ ...paths, rendererUrl })
+  mainWindow = createWindow({ ...paths, rendererUrl, harness: harnessWindowOptions(gate) })
   // Before the window goes, not after: `closed` fires once there is nothing
   // left to stop, and a schedule mid-chord would already have outlived it.
   mainWindow.on('close', () => {
